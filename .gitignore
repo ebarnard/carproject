@@ -1,3 +1,7 @@
+#
+# GitHub Python .gitignore
+#
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -99,3 +103,13 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+#
+# Visual Studio Code
+#
+
+# User and workspace settings
+**/.vscode/**/*
+
+# Don't ignore debugger launch profiles by default
+!**/.vscode/launch.json
