@@ -1,0 +1,5 @@
+numpy==1.13.3
+scipy==1.0.0
+quadprog==0.1.6
+matplotlib==2.1.0
+typing==3.6.2
