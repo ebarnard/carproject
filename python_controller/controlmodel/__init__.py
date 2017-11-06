@@ -30,6 +30,9 @@ class ControlModel(object):
     def control_to_controller_output(self, control):
         return ControllerOutput(throttle_position=control[0], steering_angle=control[1])
 
+    def controller_output_to_control(self, control):
+        return [control.throttle_position, control.steering_angle]
+
     @abstractmethod
     def linearise(self, x_0, u_0):
         raise "Must be implemented"
@@ -37,16 +40,12 @@ class ControlModel(object):
     def discretise(self, dt, x_0, u_0):
         A, B = self.linearise(x_0, u_0)
 
-        A_range = (slice(0, A.shape[0]), slice(0, A.shape[1]))
-        B_range = (slice(0, B.shape[0]), slice(A.shape[0], A.shape[0] + B.shape[0]))
+        # Second order taylor expansion for exp(x)
+        I = np.identity(A.shape[0])
+        A_d = I + A * dt + A * A * dt * dt / 2
+        B_d = np.dot(I * dt + A * dt * dt / 2, B)
 
-        n = A.shape[1] + B.shape[1]
-        C = np.zeros((n, n))
-        C[A_range] = A
-        C[B_range] = B
-    
-        D = sp.linalg.expm2(dt * C)
-
-        return D[A_range], D[B_range]
+        return A_d, B_d
 
 from .directvelocity import DirectVelocity
+from .spenglergammeterbicycle import SpenglerGammeterBicycle

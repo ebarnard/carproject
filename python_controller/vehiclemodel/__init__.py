@@ -47,5 +47,6 @@ class VehicleModel(object):
     def state_to_vehicle_state(self, state, control: ControllerOutput) -> VehicleState:
         raise "Must be implemented"
 
-from .directvelocity import DirectVelocityModel
-from .pacejkabicycle import PacejkaBicycleModel
+from .directvelocity import DirectVelocity
+from .pacejkabicycle import PacejkaBicycle
+from .spenglergammeterbycicle import SpenglerGammeterBicycle

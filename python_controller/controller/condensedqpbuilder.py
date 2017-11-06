@@ -1,4 +1,6 @@
 import numpy as np
+from quadprog import solve_qp
+
 from utils import stride
 
 class CondensedQPBuilder:
@@ -80,14 +82,9 @@ class CondensedQPBuilder:
 
         if horizon_idx == 0:
             self.R[stride(0, ni, 0, ni)] = R_grad
-            self.R[stride(0, ni, 1, ni)] = -R_grad
-        elif horizon_idx == horizon - 1:
-            self.R[stride(horizon_idx, ni, horizon_idx - 1, ni)] = -R_grad
-            self.R[stride(horizon_idx, ni, horizon_idx, ni)] = R_grad
         else:
             self.R[stride(horizon_idx, ni, horizon_idx - 1, ni)] = -R_grad
-            self.R[stride(horizon_idx, ni, horizon_idx, ni)] = 2 * R_grad
-            self.R[stride(horizon_idx, ni, horizon_idx + 1, ni)] = -R_grad
+            self.R[stride(horizon_idx, ni, horizon_idx, ni)] = R_grad
 
     def set_input_bound(self, horizon_idx, input_idx, minv, maxv):
         # Ax <= b
@@ -111,7 +108,7 @@ class CondensedQPBuilder:
 
         self.ineq_idx += 2
 
-    def build_qp(self, x_k):
+    def solve_qp(self):
         C = self.C
         Q = self.Q
         R = self.R
@@ -120,10 +117,17 @@ class CondensedQPBuilder:
         CTQ = C.T.dot(Q)
 
         H = CTQ.dot(C) + R
-        # Use delta states so no need to compute M
-        # M is determined more accurately from the linearisation set-points
-        f = CTQ.dot(self.x_0 + k) + R.dot(self.u_0)
-        #f = CTQ.dot(M.dot(x_k) + k) + R * u_0
+        
+        # Previous input is used to calculate the first input difference cost
+        previous_input = np.zeros(self.num_model_inputs * self.horizon_len)
+        previous_input[0:self.num_model_inputs] = self.u_0[0:self.num_model_inputs]
 
-        return H, f, self.A_ineq, self.B_ineq
+        f = CTQ.dot(self.x_0 + k) + R.dot(self.u_0) - previous_input
+
+        A_in = self.A_ineq
+        b_in = self.B_ineq
+
+        delta_u,_,_,_,_,_ = solve_qp(H, -f, -A_in.T, -b_in, 0, False)
+
+        return delta_u + self.u_0
 

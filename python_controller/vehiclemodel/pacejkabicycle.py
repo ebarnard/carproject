@@ -24,7 +24,7 @@ def default_params() -> Params:
 
     return Params(mass=mass, I_z=I_z, com_to_front=com_to_front, com_to_rear=com_to_rear, reduced_drag_coefficient=reduced_drag_coefficient)
 
-class PacejkaBicycleModel(VehicleModel):
+class PacejkaBicycle(VehicleModel):
     def __init__(self):
         self.params = default_params()
 

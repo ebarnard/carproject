@@ -7,7 +7,7 @@ from controller import ControllerOutput
 from utils import norm_angle
 from vehiclemodel import VehicleModel, VehicleState
 
-class DirectVelocityModel(VehicleModel):
+class DirectVelocity(VehicleModel):
     def state_from_vehicle_state(self, state: VehicleState):
         return [state.position[0], state.position[1], state.heading]
 

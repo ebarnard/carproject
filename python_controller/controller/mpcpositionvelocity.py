@@ -1,6 +1,5 @@
 from math import atan2
 import numpy as np
-from quadprog import solve_qp
 from timeit import default_timer as timer
 
 from . import Controller, ControllerInput, ControllerOutput, CondensedQPBuilder
@@ -12,23 +11,24 @@ class MPCPositionVelocityController(Controller):
     def __init__(self, horizon: int, model: ControlModel, trk: Track):
         self.bootstrap = True
         self.horizon = horizon
-        self.num_inputs = 2
+        self.num_inputs = model.num_inputs()
         self.input_history = np.zeros(self.num_inputs * self.horizon)
         self.model = model
         self.trk = trk
         self.trk_mapping = parameterise(trk)
 
     def step(self, dt: float, state: ControllerInput) -> ControllerOutput:
-        v_max = 2
+        v_max = 1
         
         model = self.model
         x_k = model.state_from_controller_input(state)
 
         num_inputs = self.num_inputs
+        num_states = model.num_states()
 
         num_inequality_constraints = self.horizon * 6
 
-        builder = CondensedQPBuilder(self.horizon, len(state), num_inputs, num_inequality_constraints)
+        builder = CondensedQPBuilder(self.horizon, num_states, num_inputs, num_inequality_constraints)
  
         u_0 = self.input_history[:]
 
@@ -72,20 +72,20 @@ class MPCPositionVelocityController(Controller):
             #print("x", [x_i[0], x_i[1]], "x_target", x_target, "phi", x_i[2], "target", phi_target)
 
             # Penalise x and y deviations only
-            Q = np.zeros((3, 3))
-            Q[0,0] = 10
-            Q[1,1] = 10
+            Q = np.eye(num_states) * 0
+            Q[0,0] = 20
+            Q[1,1] = 20
             Q[2,2] = 10
-            k = np.zeros(3)
+            k = np.zeros(num_states)
             k[0] -= x_target[0]
             k[1] -= x_target[1]
             k[2] -= phi_target
             builder.set_offset_state_cost(i, Q, k)
 
             # Penalise changes in throttle position and steering angle
-            R = np.eye(2)
-            R[0,0] = 0
-            R[1,1] = 5
+            R = np.eye(num_inputs) * 0
+            R[0,0] = 0.5
+            R[1,1] = 1
             builder.set_input_gradient_cost(i, R)
 
             # Input limits
@@ -95,18 +95,12 @@ class MPCPositionVelocityController(Controller):
         #print("Simulation", sim_time, "Discretisation", disc_time, "Model Add", model_add_time, "Target", target_time)
 
         start = timer()
-        H,f,A_in,b_in = builder.build_qp(x_k)
-        #print("QP build took", timer() - start)
-
-        start = timer()
-        delta_u,_,_,_,_,_ = solve_qp(H, -f, -A_in.T, -b_in, 0, False)
+        u = builder.solve_qp()
         #print("Sovler took", timer() - start)
 
-        u = u_0 + delta_u
+        self.input_history[0:(self.horizon - 1) * num_inputs] = u[num_inputs:len(u)]
+        self.input_history[stride(self.horizon - 1, num_inputs)] = u[stride(self.horizon - 2, num_inputs)]
 
-        self.input_history[0:(self.horizon - 1) * self.num_inputs] = u[self.num_inputs:len(u)]
-        self.input_history[stride(self.horizon - 1, self.num_inputs)] = u[stride(self.horizon - 2, self.num_inputs)]
-
-        return model.control_to_controller_output(u[0:self.num_inputs])
+        return model.control_to_controller_output(u[0:num_inputs])
 
 

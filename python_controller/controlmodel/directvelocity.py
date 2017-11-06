@@ -5,6 +5,12 @@ from controller import ControllerInput, ControllerOutput
 from controlmodel import ControlModel
 
 class DirectVelocity(ControlModel):
+    def num_states(self):
+        return 3
+
+    def num_inputs(self):
+        return 2
+
     def state_equation(self, t: float, y, control):
         # From ETH 2011 MPCC eqn 2.1
 

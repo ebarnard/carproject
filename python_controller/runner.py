@@ -5,8 +5,9 @@ from timeit import default_timer as timer
 import typing
 
 from controller import ControllerInput, ControllerOutput, MPCPositionVelocityController
-from controlmodel import DirectVelocity
-from vehiclemodel import VehicleState, DirectVelocityModel
+import controlmodel
+import vehiclemodel
+from vehiclemodel import VehicleState
 import visualisation
 
 class SimHistory(typing.NamedTuple):
@@ -57,12 +58,12 @@ def world():
 
     state = VehicleState(position=(trk.x()[0], trk.y()[0]))
 
-    control_model = DirectVelocity()
+    control_model = controlmodel.SpenglerGammeterBicycle()
     controller = MPCPositionVelocityController(20, control_model, trk)
 
     control = ControllerOutput(throttle_position=0, steering_angle=0)
 
-    dvm = DirectVelocityModel()
+    vehicle_model = vehiclemodel.SpenglerGammeterBicycle()
 
     print("Starting simulation")
 
@@ -72,15 +73,18 @@ def world():
     for i in range(0, n):
         t = float(i) * dt
 
-        print("Position", state.position, "Heading", state.heading)
+        if i % 100 == 0:
+            print("Position", state.position, "Heading", state.heading)
 
         ctrl_start = timer()
         control = controller.step(dt, state.controller_input())
         ctrl_elapsed = timer() - ctrl_start
-        print("Controller time", ctrl_elapsed)
-        print("Control", control)
 
-        state = dvm.step(dt, state, control)
+        if i % 100 == 0:
+            print("Controller time", ctrl_elapsed)
+            print("Control", control)
+
+        state = vehicle_model.step(dt, state, control)
         
         # Record vehicle state and control inputs
         history.record(i, state, control)
