@@ -1,23 +1,16 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
-from scipy.integrate import solve_ivp
 import scipy as sp
 import typing
 
 from controller import ControllerInput, ControllerOutput
-from utils import norm_angle
 
 class ControlModel(object):
     __metaclass__ = ABCMeta
 
     def step(self, dt: float, state, control):
-        fun = lambda t, state: self.state_equation(t, state, control)
-        ret = solve_ivp(fun, (0, dt), state, method='RK23', t_eval=[dt])
-
-        if not ret.success:
-            raise "unable to integrate (for some reason)"
-
-        return ret.y.ravel()
+        fun = lambda state: self.state_equation(dt, state, control)
+        return rk4(state, fun, dt)
         
     @abstractmethod
     def state_equation(self, t: float, state, control):
@@ -46,6 +39,19 @@ class ControlModel(object):
         B_d = np.dot(I * dt + A * dt * dt / 2, B)
 
         return A_d, B_d
+
+def rk4(x, fx, hs):
+    x = np.array(x)
+    k1 = np.array(fx(x)) * hs
+    xk = x + k1 * 0.5
+    k2 = np.array(fx(xk)) * hs
+    xk = x + k2 * 0.5
+    k3 = np.array(fx(xk)) * hs
+    xk = x + k3
+    k4 = np.array(fx(x)) * hs
+    x = x + (k1 + 2 * (k2 + k3) + k4) / 6
+
+    return x
 
 from .directvelocity import DirectVelocity
 from .spenglergammeterbicycle import SpenglerGammeterBicycle
