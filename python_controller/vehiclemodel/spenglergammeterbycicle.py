@@ -22,7 +22,7 @@ class SpenglerGammeterBicycle(VehicleModel):
         heading = state[2]
         v = state[3]
 
-        adj_heading = heading + self.model.params.C2 * control.steering_angle
+        adj_heading = heading + self.model.params.C1 * control.steering_angle
         v_x = v * cos(adj_heading)
         v_y = v * sin(adj_heading)
 
