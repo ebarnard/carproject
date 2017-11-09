@@ -7,9 +7,9 @@ from controlmodel import ControlModel
 
 class Params(typing.NamedTuple):
     # Steering slip - negative for oversteer, positive for understeer
-    C1: float = -0.2
+    C1: float = 0.1
     # Steering angle coupling - radians turned / meter travelled
-    C2: float = 10
+    C2: float = 5
     # Duty cycle to acceleration a = Cm1 * throttle
     Cm1: float = 1
     # Cm2 = Cm1 / v_motor_max (i.e. max speed with no air resistance)

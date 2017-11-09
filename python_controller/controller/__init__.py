@@ -20,6 +20,7 @@ class Controller(object):
 
 # Local reexports
 from .condensedqpbuilder import CondensedQPBuilder
+from .osqpbuilder import OSQPBuilder
 from .lookaheadproportional import LookaheadProportionalController
 from .mpcpositionvelocity import MPCPositionVelocityController
 
