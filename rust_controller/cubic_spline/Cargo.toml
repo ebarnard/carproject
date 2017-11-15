@@ -1,0 +1,12 @@
+[package]
+name = "cubic_spline"
+version = "0.1.0"
+authors = ["Edward Barnard <eabarnard@gmail.com>"]
+
+[dependencies]
+nalgebra = "0.13.1"
+
+[dependencies.nalgebra-lapack]
+version = "0.5"
+default-features = false
+features = [ "accelerate" ]
