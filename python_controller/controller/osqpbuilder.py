@@ -42,9 +42,9 @@ class OSQPBuilder:
         # u'D'RDu + 2uD'R(Du0 + k)
         D = sparse.kron(sparse.diags([1, -1], [0, -1], shape=(N, N)), sparse.eye(ni))
         R_grad = sparse.diags(np.tile(R_stage_grad, N))
-        R = D.transpose() * R_grad * D
+        self.R = D.transpose() * R_grad * D
 
-        self.P = sparse.block_diag((Q, R)).tocsc()
+        self.P = sparse.block_diag((Q, self.R)).tocsc()
 
         self.l = np.zeros((ns + ni) * N)
         self.u = np.zeros((ns + ni) * N)
@@ -64,7 +64,7 @@ class OSQPBuilder:
         B_stage = np.ones((ns, ni))
 
         # State evolution
-        Ax = -sparse.eye(ns * N) + sparse.kron(sparse.diags(-np.ones(N - 1), -1), A_stage)
+        Ax = -sparse.eye(ns * N) + sparse.kron(sparse.diags(np.ones(N - 1), -1), A_stage)
         Au = sparse.kron(sparse.eye(N), B_stage)
         A = sparse.hstack([Ax, Au])
 
@@ -123,21 +123,33 @@ class OSQPBuilder:
         self.l[N * ns:] = -self.u_0 + np.tile(self.input_lb, N)
         self.u[N * ns:] = -self.u_0 + np.tile(self.input_ub, N)
 
-        # Linear part of input and state penalties
-        self.k[:N * ns] = self.x_0 - self.x_target
-        self.k[N * ns:] = self.u_0
-        q = self.P.dot(self.k)
+        # State penalties
+        delta_x_target = self.x_0 - self.x_target
+        qx = np.zeros(N * ns)
+        for i in range(0, N):
+            qx[i * ns:(i + 1) * ns] = self.Q_stage * delta_x_target[i * ns:(i + 1) * ns]
+
+        # Input penalties
+        qu = self.R.dot(self.u_0)
         # The previous value of u is not a variable but is needed to calculate the u difference 
         # penalty.
-        q[N * ns:N * ns + ni] -= self.R_stage_grad * self.previous_input
+        qu[0:ni] -= self.R_stage_grad * self.previous_input
         
+        q = np.concatenate((qx, qu))
+        #print(self.A.toarray())
+        #print(self.P.toarray())
+        #print(q)
+        #print(self.u_0)
+        #print(self.l)
+        #print(self.u)
+
         # Ensure that the sparsity structure of has (probably) not changed. This is an easy way to
         # accidentally break the solver.
         assert self.A.nnz == self.A_nnz
         
         if self.osqp is None:
             self.osqp = osqp.OSQP()
-            self.osqp.setup(P=self.P, q=q, A=self.A, l=self.l, u=self.u, polish=False, verbose=False, eps_abs=1e-2)
+            self.osqp.setup(P=self.P, q=q, A=self.A, l=self.l, u=self.u, polish=False, verbose=True, eps_abs=1e-2)
         else:
             self.osqp.update(q=q, Ax=self.A.data, l=self.l, u=self.u)
             #TODO: Figure out why this makes the solver slower

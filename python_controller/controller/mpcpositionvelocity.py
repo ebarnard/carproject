@@ -84,7 +84,7 @@ class MPCPositionVelocityController(Controller):
         #print("Simulation", sim_time, "Discretisation", disc_time, "Model Add", model_add_time, "Target", target_time, "Solve", timer() - start)
 
         self.input_history[0:(self.horizon - 1) * num_inputs] = u[num_inputs:len(u)]
-        self.input_history[stride(self.horizon - 1, num_inputs)] = u[stride(self.horizon - 2, num_inputs)]
+        self.input_history[stride(self.horizon - 1, num_inputs)] = u[stride(self.horizon - 1, num_inputs)]
 
         return model.control_to_controller_output(u[0:num_inputs])
 

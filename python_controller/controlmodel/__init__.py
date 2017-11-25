@@ -35,7 +35,7 @@ class ControlModel(object):
 
         # Second order taylor expansion for exp(x)
         I = np.identity(A.shape[0])
-        A_d = I + A * dt + A * A * dt * dt / 2
+        A_d = I + (A * dt) + (A.dot(A) * dt * dt / 2)
         B_d = np.dot(I * dt + A * dt * dt / 2, B)
 
         return A_d, B_d
