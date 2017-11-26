@@ -2,32 +2,36 @@
 #![allow(non_snake_case)]
 
 extern crate csv;
-extern crate flame;
-extern crate nalgebra;
 extern crate cubic_spline;
 extern crate env_logger;
+extern crate flame;
 extern crate gnuplot;
 extern crate itertools;
 extern crate kdtree;
 #[macro_use]
 extern crate log;
+extern crate nalgebra;
 extern crate sparse;
 extern crate stats;
 
 mod prelude;
 mod control_model;
 mod controller;
+mod param_estimator;
 mod odeint;
 mod simulation_model;
 mod track;
 mod visualisation;
 mod osqp;
 
+use nalgebra::Vector6;
 use std::time::Instant;
 use std::panic::{self, AssertUnwindSafe};
 
 use prelude::*;
 use controller::Controller;
+use control_model::SpenglerGammeterBicycle;
+use param_estimator::ParamEstimator;
 use simulation_model::{SimulationModel, State};
 use visualisation::History;
 
@@ -42,20 +46,31 @@ fn main() {
     }
 
     visualisation::plot(&track, &history);
-    
+
     write_flame();
 }
 
 fn run(track: &track::Track, history: &mut History) {
-    let model = control_model::SpenglerGammeterBicycle;
-    let mut controller = controller::MpcPosition::new(50, model, &track);
+    let mut controller = controller::MpcPosition::new(50, SpenglerGammeterBicycle, &track);
 
-    let mut sim_model = control_model::SpenglerGammeterBicycle;
+    let delta_max = Vector6::new(1.0, 1.0, 1.0, 1.0, 0.0, 0.0) * 0.01;
+    let initial_params =
+        Vector6::from_column_slice(SpenglerGammeterBicycle.params()) + &delta_max * 50.0;
+    let mut param_estimator =
+        param_estimator::FixedHorizon::new(SpenglerGammeterBicycle, delta_max, initial_params);
 
     let mut state = State::default();
     state.position = (track.x[0], track.y[0]);
 
-    run_simulation(20.0, 0.01, state, &mut sim_model, &mut controller, history);
+    run_simulation(
+        20.0,
+        0.01,
+        state,
+        &mut SpenglerGammeterBicycle,
+        &mut controller,
+        &mut param_estimator,
+        history,
+    );
 }
 
 fn run_simulation(
@@ -64,6 +79,7 @@ fn run_simulation(
     mut state: State,
     sim_model: &mut SimulationModel,
     controller: &mut Controller,
+    param_estimator: &mut ParamEstimator,
     history: &mut History,
 ) {
     let n_steps = (t / dt) as usize;
@@ -72,7 +88,7 @@ fn run_simulation(
     for i in 0..n_steps {
         let start = Instant::now();
         let (control, _) =
-            controller.step(dt, &state.to_controller_state(), sim_model.params());
+            controller.step(dt, &state.to_controller_state(), param_estimator.params());
         let dur = Instant::now().duration_since(start);
         let millis = (dur.as_secs() as f64) * 1000.0 + (dur.subsec_nanos() as f64) * 0.000_001;
         stats.add(millis);
@@ -83,6 +99,13 @@ fn run_simulation(
 
         history.record(i as float * dt, &state);
         let next_state = sim_model.step(dt, &state, &control);
+
+        param_estimator.update(
+            dt,
+            &state.to_controller_state(),
+            &control,
+            &next_state.to_controller_state(),
+        );
 
         state = next_state;
     }
