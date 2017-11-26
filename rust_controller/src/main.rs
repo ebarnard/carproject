@@ -20,19 +20,21 @@ mod controller;
 mod param_estimator;
 mod odeint;
 mod simulation_model;
+mod state_estimator;
 mod track;
 mod visualisation;
 mod osqp;
 
-use nalgebra::Vector6;
+use nalgebra::{Vector3, Vector4, Vector6};
 use std::time::Instant;
 use std::panic::{self, AssertUnwindSafe};
 
 use prelude::*;
-use controller::Controller;
+use controller::{Control, Controller, State as ControllerState};
 use control_model::SpenglerGammeterBicycle;
 use param_estimator::ParamEstimator;
 use simulation_model::{SimulationModel, State};
+use state_estimator::StateEstimator;
 use visualisation::History;
 
 fn main() {
@@ -59,6 +61,11 @@ fn run(track: &track::Track, history: &mut History) {
     let mut param_estimator =
         param_estimator::FixedHorizon::new(SpenglerGammeterBicycle, delta_max, initial_params);
 
+    let Q = Matrix::from_diagonal(&Vector4::new(0.005, 0.005, 0.005, 0.01));
+    let R = Matrix::from_diagonal(&Vector3::new(0.00001, 0.00001, 0.00001));
+
+    let mut state_estimator = state_estimator::EKF::new(SpenglerGammeterBicycle, Q, R);
+
     let mut state = State::default();
     state.position = (track.x[0], track.y[0]);
 
@@ -69,6 +76,7 @@ fn run(track: &track::Track, history: &mut History) {
         &mut SpenglerGammeterBicycle,
         &mut controller,
         &mut param_estimator,
+        &mut state_estimator,
         history,
     );
 }
@@ -76,19 +84,35 @@ fn run(track: &track::Track, history: &mut History) {
 fn run_simulation(
     t: float,
     dt: float,
-    mut state: State,
+    mut prev_state: State,
     sim_model: &mut SimulationModel,
     controller: &mut Controller,
     param_estimator: &mut ParamEstimator,
+    state_estimator: &mut StateEstimator,
     history: &mut History,
 ) {
     let n_steps = (t / dt) as usize;
     let mut stats = stats::OnlineStats::new();
 
+    let mut control = Control::default();
+    let mut prev_predicted_state = ControllerState::default();
+
     for i in 0..n_steps {
+        // Run simulation
+        let state = sim_model.step(dt, &prev_state, &control);
+        let measurement = state_estimator::Measurement::from_state(&state);
+
+        // Estimate state
+        let predicted_state =
+            state_estimator.step(dt, &control, Some(measurement), param_estimator.params());
+
+        // Estimate parameters
+        param_estimator.update(dt, &prev_predicted_state, &control, &predicted_state);
+
+        // Run controller
         let start = Instant::now();
-        let (control, _) =
-            controller.step(dt, &state.to_controller_state(), param_estimator.params());
+        let (ctrl, _) = controller.step(dt, &predicted_state, param_estimator.params());
+        control = ctrl;
         let dur = Instant::now().duration_since(start);
         let millis = (dur.as_secs() as f64) * 1000.0 + (dur.subsec_nanos() as f64) * 0.000_001;
         stats.add(millis);
@@ -98,16 +122,9 @@ fn run_simulation(
         info!("Control {:?}", control);
 
         history.record(i as float * dt, &state);
-        let next_state = sim_model.step(dt, &state, &control);
 
-        param_estimator.update(
-            dt,
-            &state.to_controller_state(),
-            &control,
-            &next_state.to_controller_state(),
-        );
-
-        state = next_state;
+        prev_state = state;
+        prev_predicted_state = predicted_state;
     }
 
     println!("Running stats (mean/ms, stdev/ms): {:?}", stats);

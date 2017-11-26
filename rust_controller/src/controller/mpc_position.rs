@@ -145,16 +145,3 @@ where
         )
     }
 }
-
-fn phase_unwrap(a: float, mut b: float) -> float {
-    if a.is_infinite() || b.is_infinite() {
-        return b;
-    }
-    while b > a + PI {
-        b -= 2.0 * PI;
-    }
-    while b < a - PI {
-        b += 2.0 * PI;
-    }
-    b
-}
