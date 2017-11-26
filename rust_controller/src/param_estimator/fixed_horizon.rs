@@ -32,8 +32,7 @@ where
 {
     pub fn new(model: M, delta_p_max: Vector<M::NP>, params: Vector<M::NP>) -> FixedHorizon<M> {
         // TODO: Choose this more carefully based on parameter scales.
-        let mut Q: Matrix<M::NS, M::NS> = nalgebra::zero();
-        Q.fill_diagonal(1.0);
+        let Q = Matrix::<M::NS, M::NS>::identity();
 
         let P_sparsity = MatrixMN::<bool, M::NP, M::NP>::from_element(true);
         let (mut P_sparse, P_block) = sparse::Builder::tracked_sparse_block(&P_sparsity);

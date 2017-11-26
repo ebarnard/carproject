@@ -102,8 +102,7 @@ where
     fn step(&mut self, dt: float, state: &SimState, control: &Control) -> SimState {
         let x = ControlModel::x_from_state(self, &state.to_controller_state());
         let u = ControlModel::u_from_control(self, control);
-        let mut p: Vector<T::NP> = nalgebra::zero();
-        p.as_mut_slice().copy_from_slice(SimulationControlModel::params(self));
+        let p = Vector::<T::NP>::from_column_slice(SimulationControlModel::params(self));
 
         let x_dt = ControlModel::step(self, dt, &x, &u, &p);
 

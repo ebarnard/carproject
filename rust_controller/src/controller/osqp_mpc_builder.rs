@@ -1,6 +1,6 @@
 use flame;
 use itertools::{repeat_n, Itertools};
-use nalgebra::{self, DefaultAllocator, DimName, Dynamic, MatrixMN, U1};
+use nalgebra::{self, DefaultAllocator, DimName, Dynamic as Dy, MatrixMN, U1};
 use osqp::{convert_sparse, Settings, Status, Workspace};
 
 use prelude::*;
@@ -13,17 +13,17 @@ where
     workspace: Workspace,
     N: usize,
     // Objective:
-    R: Matrix<Dynamic, Dynamic>,
+    R: Matrix<Dy, Dy>,
     P: sparse::CSCMatrix,
-    q: Vector<Dynamic>,
+    q: Vector<Dy>,
     Q_stage: Matrix<NS, NS>,
     R_stage_grad: Vector<NI>,
     // Inequalities:
     // N * ns state transition rows
     // N * ni input constraints
     A: sparse::CSCMatrix,
-    l: Vector<Dynamic>,
-    u: Vector<Dynamic>,
+    l: Vector<Dy>,
+    u: Vector<Dy>,
     A_blocks: Vec<sparse::TrackedBlock<NS, NS>>,
     B_blocks: Vec<sparse::TrackedBlock<NS, NI>>,
     u_min: Vector<NI>,
@@ -31,8 +31,8 @@ where
     u_delta_min: Vector<NI>,
     u_delta_max: Vector<NI>,
     // Optimisation results
-    x_mpc: Matrix<NS, Dynamic>,
-    u_mpc: Matrix<NI, Dynamic>,
+    x_mpc: Matrix<NS, Dy>,
+    u_mpc: Matrix<NI, Dy>,
     u_prev: Vector<NI>,
 }
 
@@ -93,9 +93,9 @@ where
             &[None, Some(sparse::Builder::eye(N * ni))],
         ]).build_csc();
 
-        let q = Vector::zeros_generic(Dynamic::new(N * (ns + ni)), U1);
-        let l = Vector::zeros_generic(Dynamic::new(N * (ns + ni)), U1);
-        let u = Vector::zeros_generic(Dynamic::new(N * (ns + ni)), U1);
+        let q = Vector::zeros_generic(Dy::new(N * (ns + ni)), U1);
+        let l = Vector::zeros_generic(Dy::new(N * (ns + ni)), U1);
+        let u = Vector::zeros_generic(Dy::new(N * (ns + ni)), U1);
 
         let settings = Settings {
             verbose: 0,
@@ -131,8 +131,8 @@ where
             u_max: Vector::from_element_generic(NI::name(), U1, INFINITY),
             u_delta_min: Vector::from_element_generic(NI::name(), U1, NEG_INFINITY),
             u_delta_max: Vector::from_element_generic(NI::name(), U1, INFINITY),
-            x_mpc: Matrix::zeros_generic(NS::name(), Dynamic::new(N)),
-            u_mpc: Matrix::zeros_generic(NI::name(), Dynamic::new(N)),
+            x_mpc: Matrix::zeros_generic(NS::name(), Dy::new(N)),
+            u_mpc: Matrix::zeros_generic(NI::name(), Dy::new(N)),
             u_prev: nalgebra::zero(),
         }
     }
@@ -195,8 +195,11 @@ where
         // Set the u_0 values for the input constraints
         let guard = flame::start_guard("calculate input gradient penalty");
         {
-            let mut u_0 = Matrix::zeros_generic(Dynamic::new(N * ni), U1);
-            u_0.as_mut_slice().copy_from_slice(self.u_mpc.as_slice());
+            let u_0 = Matrix::<Dy, U1>::from_column_slice_generic(
+                Dy::new(N * ni),
+                U1,
+                self.u_mpc.as_slice(),
+            );
             self.R.mul_to(&u_0, &mut self.q.rows_mut(N * ns, N * ni));
             let mut top_q = self.q.fixed_rows_mut::<NI>(N * ns);
             top_q -= Matrix::from_diagonal(&self.R_stage_grad) * &self.u_prev;
@@ -212,7 +215,7 @@ where
 
         match solution.status {
             Status::Solved => (),
-            _ => panic!("solver failed")
+            _ => panic!("solver failed"),
         }
 
         // Add the deltas to the solutions
@@ -247,6 +250,6 @@ where
 }
 
 pub struct Solution<'a, NS: DimName, NI: DimName> {
-    pub x: &'a Matrix<NS, Dynamic>,
-    pub u: &'a Matrix<NI, Dynamic>,
+    pub x: &'a Matrix<NS, Dy>,
+    pub u: &'a Matrix<NI, Dy>,
 }

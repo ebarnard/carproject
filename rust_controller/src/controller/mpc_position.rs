@@ -72,10 +72,9 @@ where
 
         let guard = flame::start_guard("mpc setup");
 
-        let mut p: Vector<M::NP> = ::nalgebra::zero();
-        p.as_mut_slice().copy_from_slice(params);
-
         let x_0 = self.model.x_from_state(state);
+        let p = Vector::<M::NP>::from_column_slice(params);
+
         let mut centreline_distance = flame::span_of(
             "centreline distance lookup",
             || self.lookup.centreline_distance(x_0[0], x_0[1]),
