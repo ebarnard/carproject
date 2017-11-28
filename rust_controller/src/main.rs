@@ -106,6 +106,9 @@ fn run_simulation<M: ControlModel>(
         let state = sim_model.step(dt, &prev_state, &M::u_to_control(&control));
         let measurement = state_estimator::Measurement::from_state(&state);
 
+        // Start timer
+        let start = Instant::now();
+
         // Estimate state
         let predicted_state = state_estimator.step(dt, &control, Some(measurement), &params);
 
@@ -113,9 +116,10 @@ fn run_simulation<M: ControlModel>(
         params = param_estimator.update(dt, &prev_predicted_state, &control, &predicted_state);
 
         // Run controller
-        let start = Instant::now();
         let (ctrl, _) = controller.step(dt, &predicted_state, &params);
         control = ctrl;
+
+        // Stop timer
         let dur = Instant::now().duration_since(start);
         let millis = (dur.as_secs() as f64) * 1000.0 + (dur.subsec_nanos() as f64) * 0.000_001;
         stats.add(millis);
