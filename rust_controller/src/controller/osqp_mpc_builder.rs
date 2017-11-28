@@ -1,5 +1,6 @@
 use flame;
 use itertools::{repeat_n, Itertools};
+use log::LogLevel::Debug;
 use nalgebra::{self, DefaultAllocator, DimName, Dynamic as Dy, MatrixMN, U1};
 use osqp::{convert_sparse, Settings, Status, Workspace};
 
@@ -98,7 +99,7 @@ where
         let u = Vector::zeros_generic(Dy::new(N * (ns + ni)), U1);
 
         let settings = Settings {
-            verbose: 0,
+            verbose: log_enabled!(Debug) as i64,
             polish: 0,
             eps_abs: 1e-2,
             ..Default::default()

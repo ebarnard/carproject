@@ -1,4 +1,5 @@
 use flame;
+use log::LogLevel::Debug;
 use nalgebra::{self, DefaultAllocator, DimName, MatrixMN};
 use osqp::{convert_sparse, Settings, Workspace};
 use sparse;
@@ -44,7 +45,7 @@ where
         let u = delta_p_max.as_slice();
 
         let settings = Settings {
-            verbose: 0,
+            verbose: log_enabled!(Debug) as i64,
             ..Default::default()
         };
 
