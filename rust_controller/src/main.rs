@@ -31,7 +31,7 @@ use std::panic::{self, AssertUnwindSafe};
 
 use prelude::*;
 use controller::{Control, Controller, State as ControllerState};
-use control_model::SpenglerGammeterBicycle;
+use control_model::{SimulationControlModel, SpenglerGammeterBicycle};
 use param_estimator::ParamEstimator;
 use simulation_model::{SimulationModel, State};
 use state_estimator::StateEstimator;
@@ -52,19 +52,21 @@ fn main() {
     write_flame();
 }
 
+type Model = SpenglerGammeterBicycle;
+
 fn run(track: &track::Track, history: &mut History) {
-    let mut controller = controller::MpcPosition::new(50, SpenglerGammeterBicycle, &track);
+    let mut controller = controller::MpcPosition::<Model>::new(50, &track);
 
     let delta_max = Vector6::new(1.0, 1.0, 1.0, 1.0, 0.0, 0.0) * 0.01;
     let initial_params =
-        Vector6::from_column_slice(SpenglerGammeterBicycle.params()) + &delta_max * 50.0;
+        Vector6::from_column_slice(Model::default_params()) + &delta_max * 50.0;
     let mut param_estimator =
-        param_estimator::FixedHorizon::new(SpenglerGammeterBicycle, delta_max, initial_params);
+        param_estimator::FixedHorizon::<Model>::new(delta_max, initial_params);
 
     let Q = Matrix::from_diagonal(&Vector4::new(0.005, 0.005, 0.005, 0.01));
     let R = Matrix::from_diagonal(&Vector3::new(0.00001, 0.00001, 0.00001));
 
-    let mut state_estimator = state_estimator::EKF::new(SpenglerGammeterBicycle, Q, R);
+    let mut state_estimator = state_estimator::EKF::<Model>::new(Q, R);
 
     let mut state = State::default();
     state.position = (track.x[0], track.y[0]);

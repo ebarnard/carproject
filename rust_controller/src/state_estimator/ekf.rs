@@ -13,7 +13,6 @@ pub struct EKF<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    model: M,
     // State transition covariance
     Q: Matrix<M::NS, M::NS>,
     // Measurement covariance
@@ -31,9 +30,8 @@ where
         + Dims2<NM, M::NS>
         + Reallocator<float, U3, U1, M::NS, U1>,
 {
-    pub fn new(model: M, Q: Matrix<M::NS, M::NS>, R: Matrix<NM, NM>) -> EKF<M> {
+    pub fn new(Q: Matrix<M::NS, M::NS>, R: Matrix<NM, NM>) -> EKF<M> {
         EKF {
-            model: model,
             Q,
             R,
             x_hat: nalgebra::zero(),
@@ -62,13 +60,13 @@ where
         }
 
         // Predict
-        let u = self.model.u_from_control(control);
+        let u = M::u_from_control(control);
         // TODO: Check length of params
         let p = Vector::<M::NP>::from_column_slice(params);
-        let (F_c, B_c) = self.model.linearise(&self.x_hat, &u, &p);
+        let (F_c, B_c) = M::linearise(&self.x_hat, &u, &p);
         let (F, _) = discretise(dt, &F_c, &B_c);
 
-        let x_predict = self.model.step(dt, &self.x_hat, &u, &p);
+        let x_predict = M::step(dt, &self.x_hat, &u, &p);
         let P_predict = &F * &self.P * F.transpose() + &self.Q;
 
         // Update

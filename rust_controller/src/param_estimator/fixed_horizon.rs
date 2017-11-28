@@ -13,7 +13,6 @@ where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
     workspace: Workspace,
-    model: M,
     params: Vector<M::NP>,
     // Cost matrix for the state prediction errors
     Q: Matrix<M::NS, M::NS>,
@@ -30,7 +29,7 @@ impl<M: ControlModel> FixedHorizon<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    pub fn new(model: M, delta_p_max: Vector<M::NP>, params: Vector<M::NP>) -> FixedHorizon<M> {
+    pub fn new(delta_p_max: Vector<M::NP>, params: Vector<M::NP>) -> FixedHorizon<M> {
         // TODO: Choose this more carefully based on parameter scales.
         let Q = Matrix::<M::NS, M::NS>::identity();
 
@@ -61,7 +60,6 @@ where
 
         FixedHorizon {
             workspace,
-            model,
             params,
             Q,
             P: nalgebra::zero(),
@@ -80,12 +78,12 @@ where
         x: &Vector<M::NS>,
     ) {
         // Linearise and discretise the vehicle model around its parameters
-        let (A_c, _) = self.model.linearise(x0, u0, &self.params);
-        let P_c = self.model.linearise_parameters(x0, u0, &self.params);
+        let (A_c, _) = M::linearise(x0, u0, &self.params);
+        let P_c = M::linearise_parameters(x0, u0, &self.params);
         let (_, P) = discretise(dt, &A_c, &P_c);
 
         // Predict the current state using x0 and the current model parameters
-        let x_hat = self.model.step(dt, x0, u0, &self.params);
+        let x_hat = M::step(dt, x0, u0, &self.params);
 
         // State prediction error
         let e = x - x_hat;
@@ -138,9 +136,9 @@ where
     fn update(&mut self, dt: float, x0: &State, u: &Control, x: &State) -> &[float] {
         let _guard = flame::start_guard("parameter estimation");
 
-        let x0 = self.model.x_from_state(x0);
-        let u = self.model.u_from_control(u);
-        let x = self.model.x_from_state(x);
+        let x0 = M::x_from_state(x0);
+        let u = M::u_from_control(u);
+        let x = M::x_from_state(x);
 
         self.record_observation(dt, &x0, &u, &x);
         self.optimise().as_slice()

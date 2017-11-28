@@ -9,7 +9,6 @@ pub struct SpenglerGammeterBicycle;
 
 impl SpenglerGammeterBicycle {
     fn vals(
-        &self,
         x: &Vector<U4>,
         u: &Vector<U2>,
         p: &Vector<U6>,
@@ -35,8 +34,9 @@ impl ControlModel for SpenglerGammeterBicycle {
     type NI = U2;
     type NP = U6;
 
-    fn state_equation(&self, x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U6>) -> Vector<U4> {
-        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr2) = self.vals(x, u, p);
+    fn state_equation(x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U6>) -> Vector<U4> {
+        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr2) =
+            SpenglerGammeterBicycle::vals(x, u, p);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -53,12 +53,12 @@ impl ControlModel for SpenglerGammeterBicycle {
     }
 
     fn linearise(
-        &self,
         x0: &Vector<U4>,
         u0: &Vector<U2>,
         p0: &Vector<U6>,
     ) -> (Matrix<U4, U4>, Matrix<U4, U2>) {
-        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr2) = self.vals(x0, u0, p0);
+        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr2) =
+            SpenglerGammeterBicycle::vals(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -79,7 +79,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         (A, B)
     }
 
-    fn linearise_nonzero_mask(&self) -> (Matrix4<bool>, Matrix4x2<bool>) {
+    fn linearise_nonzero_mask() -> (Matrix4<bool>, Matrix4x2<bool>) {
         let A_mask = Matrix4::new(
             false, false, true, true,
             false, false, true, true,
@@ -98,12 +98,12 @@ impl ControlModel for SpenglerGammeterBicycle {
     }
 
     fn linearise_parameters(
-        &self,
         x0: &Vector<U4>,
         u0: &Vector<U2>,
         p0: &Vector<U6>,
     ) -> Matrix<U4, U6> {
-        let (phi, v, throttle, delta, C1, C2, _Cm1, _Cm2, _Cr2) = self.vals(x0, u0, p0);
+        let (phi, v, throttle, delta, C1, C2, _Cm1, _Cm2, _Cr2) =
+            SpenglerGammeterBicycle::vals(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -118,7 +118,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         )
     }
 
-    fn linearise_parameters_sparsity(&self) -> Matrix4x6<bool> {
+    fn linearise_parameters_sparsity() -> Matrix4x6<bool> {
         Matrix4x6::new(
             true, false, false, false, false, false,
             true, false, false, true, false, false,
@@ -127,7 +127,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         )
     }
 
-    fn x_from_state(&self, state: &State) -> Vector<U4> {
+    fn x_from_state(state: &State) -> Vector<U4> {
         let (x, y) = state.position;
         let phi = state.heading;
         let v = float::hypot(state.velocity.0, state.velocity.1);
@@ -135,7 +135,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         Vector4::new(x, y, phi, v)
     }
 
-    fn x_to_state(&self, x: &Vector<U4>) -> State {
+    fn x_to_state(x: &Vector<U4>) -> State {
         let heading = x[2];
         let v = x[3];
 
@@ -154,7 +154,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         }
     }
 
-    fn input_bounds(&self) -> (Vector<U2>, Vector<U2>) {
+    fn input_bounds() -> (Vector<U2>, Vector<U2>) {
         let min = Vector2::new(0.0, -1.0);
         let max = Vector2::new(1.0, 1.0);
         (min, max)
@@ -162,7 +162,7 @@ impl ControlModel for SpenglerGammeterBicycle {
 }
 
 impl SimulationControlModel for SpenglerGammeterBicycle {
-    fn params(&self) -> &[float] {
+    fn default_params() -> &'static [float] {
         &[
             // C1: Steering slip - negative for oversteer, positive for understeer
             0.1,

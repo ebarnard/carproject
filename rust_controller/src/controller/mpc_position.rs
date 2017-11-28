@@ -12,7 +12,6 @@ where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
     horizon: u32,
-    model: M,
     u_mpc: Matrix<M::NI, Dynamic>,
     mpc: OsqpMpc<M::NS, M::NI>,
     centreline: Centreline,
@@ -23,7 +22,7 @@ impl<M: ControlModel> MpcPosition<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    pub fn new(N: u32, model: M, track: &Track) -> MpcPosition<M> {
+    pub fn new(N: u32, track: &Track) -> MpcPosition<M> {
         let centreline = Centreline::from_track(track);
         let lookup = CentrelineLookup::from_centreline(&centreline);
 
@@ -41,19 +40,18 @@ where
 
         // Some components of A and B will always be zero and can be excluded from the sparse
         // constraint matrix
-        let (A_sparsity, B_sparsity) = model.linearise_nonzero_mask();
+        let (A_sparsity, B_sparsity) = M::linearise_nonzero_mask();
         let (A_d_sparsity, B_d_sparsity) = discretise_nonzero_mask(&A_sparsity, &B_sparsity);
 
         let mpc = flame::span_of("osqp mpc create", || {
             let mut mpc = OsqpMpc::new(N as usize, Q, R, &A_d_sparsity, &B_d_sparsity);
-            let (input_min, input_max) = model.input_bounds();
+            let (input_min, input_max) = M::input_bounds();
             mpc.set_input_bounds(input_min, input_max);
             mpc
         });
 
         MpcPosition {
             horizon: N,
-            model,
             u_mpc: MatrixMN::zeros_generic(<M::NI as DimName>::name(), Dynamic::new(N as usize)),
             mpc,
             centreline,
@@ -72,7 +70,7 @@ where
 
         let guard = flame::start_guard("mpc setup");
 
-        let x_0 = self.model.x_from_state(state);
+        let x_0 = M::x_from_state(state);
         let p = Vector::<M::NP>::from_column_slice(params);
 
         let mut centreline_distance = flame::span_of(
@@ -90,11 +88,11 @@ where
 
             // Linearise model around x_i-1 and u_i
             let (A_i_c, B_i_c) =
-                flame::span_of("model linearise", || self.model.linearise(&x_i, &u_i, &p));
+                flame::span_of("model linearise", || M::linearise(&x_i, &u_i, &p));
             let (A_i, B_i) = flame::span_of("model discretise", || discretise(dt, &A_i_c, &B_i_c));
 
             // Update state using nonlinear model
-            x_i = flame::span_of("model integrate", || self.model.step(dt, &x_i, &u_i, &p));
+            x_i = flame::span_of("model integrate", || M::step(dt, &x_i, &u_i, &p));
 
             // Find centreline point
             centreline_distance += s_target;
@@ -140,8 +138,8 @@ where
         self.u_mpc.column_mut(N - 1).copy_from(&solution.u.column(N - 1));
 
         (
-            self.model.u_to_control(&solution.u.column(0).into_owned()),
-            self.model.x_to_state(&solution.x.column(0).into_owned()),
+            M::u_to_control(&solution.u.column(0).into_owned()),
+            M::x_to_state(&solution.x.column(0).into_owned()),
         )
     }
 }
