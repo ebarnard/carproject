@@ -4,7 +4,6 @@ use osqp::{convert_sparse, Settings, Workspace};
 use sparse;
 
 use prelude::*;
-use controller::{Control, State};
 use control_model::{discretise, ControlModel};
 use param_estimator::ParamEstimator;
 
@@ -129,22 +128,20 @@ where
     }
 }
 
-impl<M: ControlModel> ParamEstimator for FixedHorizon<M>
+impl<M: ControlModel> ParamEstimator<M> for FixedHorizon<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    fn update(&mut self, dt: float, x0: &State, u: &Control, x: &State) -> &[float] {
+    fn update(
+        &mut self,
+        dt: float,
+        x0: &Vector<M::NS>,
+        u: &Vector<M::NI>,
+        x: &Vector<M::NS>,
+    ) -> Vector<M::NP> {
         let _guard = flame::start_guard("parameter estimation");
 
-        let x0 = M::x_from_state(x0);
-        let u = M::u_from_control(u);
-        let x = M::x_from_state(x);
-
-        self.record_observation(dt, &x0, &u, &x);
-        self.optimise().as_slice()
-    }
-
-    fn params(&self) -> &[float] {
-        self.params.as_slice()
+        self.record_observation(dt, x0, u, x);
+        self.optimise().clone()
     }
 }

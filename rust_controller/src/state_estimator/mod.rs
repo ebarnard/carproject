@@ -1,18 +1,21 @@
 use prelude::*;
-use controller::{Control, State as ControllerState};
+use control_model::ControlModel;
 use simulation_model::State;
 
 mod ekf;
 pub use self::ekf::EKF;
 
-pub trait StateEstimator {
+pub trait StateEstimator<M: ControlModel>
+where
+    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+{
     fn step(
         &mut self,
         dt: float,
-        control: &Control,
+        u: &Vector<M::NI>,
         measure: Option<Measurement>,
-        params: &[float],
-    ) -> ControllerState;
+        p: &Vector<M::NP>,
+    ) -> Vector<M::NS>;
 }
 
 pub struct Measurement {

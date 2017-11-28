@@ -1,10 +1,8 @@
-use nalgebra::{self, U1, U3, Vector3};
-use nalgebra::allocator::Reallocator;
+use nalgebra::{self, U3, Vector3};
 use nalgebra::linalg::Cholesky;
 
 use prelude::*;
 use control_model::{discretise, ControlModel};
-use controller::{Control, State};
 use state_estimator::{Measurement, StateEstimator};
 
 type NM = U3;
@@ -26,9 +24,7 @@ where
 
 impl<M: ControlModel> EKF<M>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>
-        + Dims2<NM, M::NS>
-        + Reallocator<float, U3, U1, M::NS, U1>,
+    DefaultAllocator: Dims3<M::NS, M::NI, M::NP> + Dims2<NM, M::NS>,
 {
     pub fn new(Q: Matrix<M::NS, M::NS>, R: Matrix<NM, NM>) -> EKF<M> {
         EKF {
@@ -39,30 +35,34 @@ where
             initial: true,
         }
     }
+}
 
-    pub fn predict_update(
+impl<M: ControlModel> StateEstimator<M> for EKF<M>
+where
+    DefaultAllocator: Dims3<M::NS, M::NI, M::NP> + Dims2<NM, M::NS>,
+{
+    fn step(
         &mut self,
         dt: float,
-        control: &Control,
+        u: &Vector<M::NI>,
         measure: Option<Measurement>,
-        params: &[float],
-    ) -> &Vector<M::NS> {
+        p: &Vector<M::NP>,
+    ) -> Vector<M::NS> {
         // Use an MLE initial estimate
         if self.initial {
             if let Some(m) = measure {
-                self.x_hat = Vector3::new(m.position.0, m.position.1, m.heading).fixed_resize(0.0);
+                let m = Vector3::new(m.position.0, m.position.1, m.heading);
+                self.x_hat = nalgebra::zero();
+                self.x_hat.fixed_rows_mut::<U3>(0).copy_from(&m);
                 self.P = self.Q.clone();
 
                 self.initial = false;
             }
 
-            return &self.x_hat;
+            return self.x_hat.clone();
         }
 
         // Predict
-        let u = M::u_from_control(control);
-        // TODO: Check length of params
-        let p = Vector::<M::NP>::from_column_slice(params);
         let (F_c, B_c) = M::linearise(&self.x_hat, &u, &p);
         let (F, _) = discretise(dt, &F_c, &B_c);
 
@@ -97,29 +97,6 @@ where
             self.P = P_predict;
         }
 
-        &self.x_hat
-    }
-}
-
-impl<M: ControlModel> StateEstimator for EKF<M>
-where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>
-        + Dims2<NM, M::NS>
-        + Reallocator<float, U3, U1, M::NS, U1>,
-{
-    fn step(
-        &mut self,
-        dt: float,
-        control: &Control,
-        measure: Option<Measurement>,
-        params: &[float],
-    ) -> State {
-        let state = self.predict_update(dt, control, measure, params);
-        State {
-            position: (state[0], state[1]),
-            heading: state[2],
-            // TODO: sin and cos or just have a single velocity vector
-            velocity: (state[3], 0.0),
-        }
+        self.x_hat.clone()
     }
 }

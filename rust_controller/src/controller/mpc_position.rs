@@ -3,7 +3,7 @@ use log::LogLevel::Debug;
 use nalgebra::{self, DefaultAllocator, DimName, Dynamic, MatrixMN};
 
 use prelude::*;
-use controller::{Control, Controller, OsqpMpc, State};
+use controller::{Controller, OsqpMpc};
 use control_model::{discretise, discretise_nonzero_mask, ControlModel};
 use track::{Centreline, CentrelineLookup, Track};
 
@@ -60,35 +60,36 @@ where
     }
 }
 
-impl<M: ControlModel> Controller for MpcPosition<M>
+impl<M: ControlModel> Controller<M> for MpcPosition<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    fn step(&mut self, dt: float, state: &State, params: &[float]) -> (Control, State) {
+    fn step(
+        &mut self,
+        dt: float,
+        x: &Vector<M::NS>,
+        p: &Vector<M::NP>,
+    ) -> (Vector<M::NI>, Vector<M::NS>) {
         let _guard = flame::start_guard("controller step");
         let N = self.horizon as usize;
 
         let guard = flame::start_guard("mpc setup");
 
-        let x_0 = M::x_from_state(state);
-        let p = Vector::<M::NP>::from_column_slice(params);
-
         let mut centreline_distance = flame::span_of(
             "centreline distance lookup",
-            || self.lookup.centreline_distance(x_0[0], x_0[1]),
+            || self.lookup.centreline_distance(x[0], x[1]),
         );
 
         let s_target = dt * 2.0;
         centreline_distance += 2.0 * s_target;
 
-        let mut x_i = x_0;
+        let mut x_i = x.clone();
 
         for i in 0..N {
             let u_i = self.u_mpc.column(i).into_owned();
 
             // Linearise model around x_i-1 and u_i
-            let (A_i_c, B_i_c) =
-                flame::span_of("model linearise", || M::linearise(&x_i, &u_i, &p));
+            let (A_i_c, B_i_c) = flame::span_of("model linearise", || M::linearise(&x_i, &u_i, &p));
             let (A_i, B_i) = flame::span_of("model discretise", || discretise(dt, &A_i_c, &B_i_c));
 
             // Update state using nonlinear model
@@ -137,9 +138,6 @@ where
         self.u_mpc.columns_mut(0, N - 1).copy_from(&solution.u.columns(1, N - 1));
         self.u_mpc.column_mut(N - 1).copy_from(&solution.u.column(N - 1));
 
-        (
-            M::u_to_control(&solution.u.column(0).into_owned()),
-            M::x_to_state(&solution.x.column(0).into_owned()),
-        )
+        (solution.u.column(0).into_owned(), solution.x.column(0).into_owned())
     }
 }

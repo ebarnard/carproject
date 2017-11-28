@@ -1,4 +1,5 @@
 use prelude::*;
+use control_model::ControlModel;
 
 mod mpc_position;
 pub use self::mpc_position::MpcPosition;
@@ -19,6 +20,14 @@ pub struct Control {
     pub steering_angle: float,
 }
 
-pub trait Controller {
-    fn step(&mut self, dt: float, state: &State, params: &[float]) -> (Control, State);
+pub trait Controller<M: ControlModel>
+where
+    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+{
+    fn step(
+        &mut self,
+        dt: float,
+        x: &Vector<M::NS>,
+        p: &Vector<M::NP>,
+    ) -> (Vector<M::NI>, Vector<M::NS>);
 }
