@@ -128,7 +128,7 @@ fn run_simulation<M: ControlModel>(
         info!("State {:?}", state);
         info!("Control {:?}", M::u_to_control(&control));
 
-        history.record(i as float * dt, &state);
+        history.record(i as float * dt, &state, &M::x_to_state(&predicted_state));
 
         prev_state = state;
         prev_predicted_state = predicted_state;
