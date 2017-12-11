@@ -4,6 +4,7 @@ use simulation_model::State;
 
 mod ekf;
 pub use self::ekf::EKF;
+pub use self::ekf::StateAndParameterEKF;
 
 pub trait StateEstimator<M: ControlModel>
 where
@@ -15,7 +16,7 @@ where
         u: &Vector<M::NI>,
         measure: Option<Measurement>,
         p: &Vector<M::NP>,
-    ) -> Vector<M::NS>;
+    ) -> (Vector<M::NS>, Vector<M::NP>);
 }
 
 pub struct Measurement {

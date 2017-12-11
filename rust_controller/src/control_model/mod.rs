@@ -11,6 +11,9 @@ pub use self::directvelocity::DirectVelocity;
 mod spenglergammeterbicycle;
 pub use self::spenglergammeterbicycle::SpenglerGammeterBicycle;
 
+mod combine_state;
+pub use self::combine_state::CombineState;
+
 pub trait ControlModel
 where
     DefaultAllocator: Dims3<Self::NS, Self::NI, Self::NP>,

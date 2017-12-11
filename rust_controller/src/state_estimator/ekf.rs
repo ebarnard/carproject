@@ -1,15 +1,15 @@
-use nalgebra::{self, U3, Vector3};
+use nalgebra::{self, DimAdd, DimName, DimSum, U0, U3, Vector3};
 use nalgebra::linalg::Cholesky;
 
 use prelude::*;
-use control_model::{discretise, ControlModel};
+use control_model::{discretise, CombineState, ControlModel};
 use state_estimator::{Measurement, StateEstimator};
 
 type NM = U3;
 
 pub struct EKF<M: ControlModel>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+    DefaultAllocator: Dims3<M::NS, M::NI, M::NP> + Dims2<NM, M::NS>,
 {
     // State transition covariance
     Q: Matrix<M::NS, M::NS>,
@@ -47,7 +47,7 @@ where
         u: &Vector<M::NI>,
         measure: Option<Measurement>,
         p: &Vector<M::NP>,
-    ) -> Vector<M::NS> {
+    ) -> (Vector<M::NS>, Vector<M::NP>) {
         // Use an MLE initial estimate
         if self.initial {
             if let Some(m) = measure {
@@ -59,7 +59,7 @@ where
                 self.initial = false;
             }
 
-            return self.x_hat.clone();
+            return (self.x_hat.clone(), p.clone());
         }
 
         // Predict
@@ -97,6 +97,82 @@ where
             self.P = P_predict;
         }
 
-        self.x_hat.clone()
+        (self.x_hat.clone(), p.clone())
+    }
+}
+
+pub struct StateAndParameterEKF<M: ControlModel>
+where
+    DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
+        + Dims3<M::NS, M::NI, M::NP>
+        + Dims2<NM, DimSum<M::NS, M::NP>>,
+    M::NS: DimAdd<M::NP>,
+    DimSum<M::NS, M::NP>: DimName,
+{
+    inner: EKF<CombineState<M>>,
+    Q_param_initial: Matrix<M::NP, M::NP>,
+}
+
+impl<M: ControlModel> StateAndParameterEKF<M>
+where
+    DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
+        + Dims3<M::NS, M::NI, M::NP>
+        + Dims2<NM, DimSum<M::NS, M::NP>>,
+    M::NS: DimAdd<M::NP>,
+    DimSum<M::NS, M::NP>: DimName,
+{
+    pub fn new(
+        Q_state: Matrix<M::NS, M::NS>,
+        Q_param_initial: Matrix<M::NP, M::NP>,
+        R: Matrix<NM, NM>,
+    ) -> StateAndParameterEKF<M> {
+        let mut Q: Matrix<DimSum<M::NS, M::NP>, DimSum<M::NS, M::NP>> = nalgebra::zero();
+        Q.fixed_slice_mut::<M::NS, M::NS>(0, 0).copy_from(&Q_state);
+        Q.fixed_slice_mut::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
+            .copy_from(&(&Q_param_initial * 0.0001));
+
+        StateAndParameterEKF {
+            inner: EKF::new(Q, R),
+            Q_param_initial,
+        }
+    }
+}
+
+impl<M: ControlModel> StateEstimator<M> for StateAndParameterEKF<M>
+where
+    DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
+        + Dims3<M::NS, M::NI, M::NP>
+        + Dims2<NM, DimSum<M::NS, M::NP>>,
+    M::NS: DimAdd<M::NP>,
+    DimSum<M::NS, M::NP>: DimName,
+{
+    fn step(
+        &mut self,
+        dt: float,
+        u: &Vector<M::NI>,
+        measure: Option<Measurement>,
+        p: &Vector<M::NP>,
+    ) -> (Vector<M::NS>, Vector<M::NP>) {
+        // TODO: Handle kalman state initialisation better
+        if self.inner.initial {
+            if let Some(m) = measure {
+                let m = Vector3::new(m.position.0, m.position.1, m.heading);
+                self.inner.x_hat = nalgebra::zero();
+                self.inner.x_hat.fixed_rows_mut::<U3>(0).copy_from(&m);
+                self.inner.x_hat.fixed_rows_mut::<M::NP>(M::NS::dim()).copy_from(p);
+                self.inner.P = self.inner.Q.clone();
+                self.inner
+                    .P
+                    .fixed_slice_mut::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
+                    .copy_from(&self.Q_param_initial);
+
+                self.inner.initial = false;
+            }
+
+            return CombineState::<M>::split_x(&self.inner.x_hat);
+        }
+
+        let x_combined = self.inner.step(dt, u, measure, &nalgebra::zero()).0;
+        CombineState::<M>::split_x(&x_combined)
     }
 }

@@ -17,6 +17,7 @@ pub struct History {
     heading_error: Vec<float>,
     v_error: Vec<float>,
     v_predicted: Vec<float>,
+    param_error: Vec<float>,
 }
 
 impl History {
@@ -32,15 +33,27 @@ impl History {
             heading_error: Vec::with_capacity(n),
             v_error: Vec::with_capacity(n),
             v_predicted: Vec::with_capacity(n),
+            param_error: Vec::with_capacity(n),
         }
     }
 
-    pub fn record(&mut self, t: float, state: &State, controller_state: &ControllerState) {
+    pub fn record(
+        &mut self,
+        t: float,
+        state: &State,
+        controller_state: &ControllerState,
+        param_err: float,
+    ) {
         self.t.push(t);
         let (x, y) = state.position;
         let v = float::hypot(state.velocity.0, state.velocity.1);
         self.x.push(x);
         self.y.push(y);
+        /*let heading = if self.heading.len() > 0 {
+            phase_unwrap(self.heading[0], state.heading)
+        } else {
+            state.heading
+        };*/
         self.heading.push(state.heading);
         self.v.push(v);
         let controller_v = float::hypot(controller_state.velocity.0, controller_state.velocity.1);
@@ -49,6 +62,7 @@ impl History {
         self.heading_error.push(controller_state.heading - state.heading);
         self.v_error.push(controller_v - v);
         self.v_predicted.push(controller_v);
+        self.param_error.push(param_err);
     }
 }
 
@@ -110,6 +124,13 @@ pub fn plot(track: &Track, history: &History) {
         ax.set_pos_grid(3, 3, 7);
         ax.set_title("v predicted", &[]);
         ax.lines(&history.t, &history.v_predicted, &[]);
+    }
+    // param error
+    {
+        let ax = fg.axes2d();
+        ax.set_pos_grid(3, 3, 8);
+        ax.set_title("param error", &[]);
+        ax.lines(&history.t, &history.param_error, &[]);
     }
     fg.show();
 }

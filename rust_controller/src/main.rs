@@ -11,6 +11,7 @@ extern crate kdtree;
 #[macro_use]
 extern crate log;
 extern crate nalgebra;
+extern crate rand;
 extern crate sparse;
 extern crate stats;
 
@@ -26,13 +27,13 @@ mod visualisation;
 mod osqp;
 
 use nalgebra::{Vector3, Vector4, Vector6};
+use rand::distributions::normal::StandardNormal;
 use std::time::Instant;
 use std::panic::{self, AssertUnwindSafe};
 
 use prelude::*;
 use controller::Controller;
 use control_model::{ControlModel, SimulationControlModel, SpenglerGammeterBicycle};
-use param_estimator::ParamEstimator;
 use simulation_model::{SimulationModel, State};
 use state_estimator::StateEstimator;
 use visualisation::History;
@@ -59,24 +60,23 @@ fn run(track: &track::Track, history: &mut History) {
 
     let delta_max = Vector6::new(1.0, 1.0, 1.0, 1.0, 0.0, 0.0) * 0.01;
     let initial_params = Vector6::from_column_slice(Model::default_params()) + &delta_max * 50.0;
-    let mut param_estimator =
-        param_estimator::FixedHorizon::<Model>::new(delta_max, initial_params);
 
-    let Q = Matrix::from_diagonal(&Vector4::new(0.005, 0.005, 0.005, 0.01));
-    let R = Matrix::from_diagonal(&Vector3::new(0.00001, 0.00001, 0.00001));
+    let Q = Matrix::from_diagonal(&Vector4::new(0.000005, 0.000005, 0.0005, 0.00001));
+    let Q_params = Matrix::from_diagonal(&Vector6::new(0.05, 2.0, 0.5, 0.4, 0.0, 0.0));
+    let R = Matrix::from_diagonal(&Vector3::new(0.000004, 0.000004, 0.0009));
 
-    let mut state_estimator = state_estimator::EKF::<Model>::new(Q, R);
+    let mut state_estimator = state_estimator::StateAndParameterEKF::<Model>::new(Q, Q_params, R);
 
     let mut state = State::default();
     state.position = (track.x[0], track.y[0]);
 
     run_simulation(
-        20.0,
+        90.0,
         0.01,
         state,
         &mut SpenglerGammeterBicycle,
         &mut controller,
-        &mut param_estimator,
+        initial_params,
         &mut state_estimator,
         history,
     );
@@ -88,7 +88,7 @@ fn run_simulation<M: ControlModel>(
     mut prev_state: State,
     sim_model: &mut SimulationModel,
     controller: &mut Controller<M>,
-    param_estimator: &mut ParamEstimator<M>,
+    mut params: Vector<M::NP>,
     state_estimator: &mut StateEstimator<M>,
     history: &mut History,
 ) where
@@ -98,22 +98,28 @@ fn run_simulation<M: ControlModel>(
     let mut stats = stats::OnlineStats::new();
 
     let mut control: Vector<M::NI> = nalgebra::zero();
-    let mut prev_predicted_state: Vector<M::NS> = nalgebra::zero();
-    let mut params: Vector<M::NP> = nalgebra::zero();
+
+    let true_params = Vector::<M::NP>::from_column_slice(sim_model.params());
 
     for i in 0..n_steps {
         // Run simulation
         let state = sim_model.step(dt, &prev_state, &M::u_to_control(&control));
-        let measurement = state_estimator::Measurement::from_state(&state);
+        let mut measurement = state_estimator::Measurement::from_state(&state);
+
+        // Add noise to measurement
+        let StandardNormal(x_noise) = rand::random();
+        let StandardNormal(y_noise) = rand::random();
+        let StandardNormal(heading_noise) = rand::random();
+        measurement.position.0 += x_noise * 0.002;
+        measurement.position.1 += y_noise * 0.002;
+        measurement.heading += heading_noise * 0.03;
 
         // Start timer
         let start = Instant::now();
 
-        // Estimate state
-        let predicted_state = state_estimator.step(dt, &control, Some(measurement), &params);
-
-        // Estimate parameters
-        params = param_estimator.update(dt, &prev_predicted_state, &control, &predicted_state);
+        // Estimate state and params
+        let (predicted_state, p) = state_estimator.step(dt, &control, Some(measurement), &params);
+        params = p;
 
         // Run controller
         let (ctrl, _) = controller.step(dt, &predicted_state, &params);
@@ -128,10 +134,10 @@ fn run_simulation<M: ControlModel>(
         info!("State {:?}", state);
         info!("Control {:?}", M::u_to_control(&control));
 
-        history.record(i as float * dt, &state, &M::x_to_state(&predicted_state));
+        let param_err = (&true_params - &params).norm();
+        history.record(i as float * dt, &state, &M::x_to_state(&predicted_state), param_err);
 
         prev_state = state;
-        prev_predicted_state = predicted_state;
     }
 
     println!("Running stats (mean/ms, stdev/ms): {:?}", stats);
