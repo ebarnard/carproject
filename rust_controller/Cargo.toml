@@ -10,7 +10,7 @@ csv = "1.0.0-beta.5"
 nalgebra = "0.13.1"
 itertools = "0.7.2"
 flame = { git = "https://github.com/TyOverby/flame", rev = "983199a2af26ca1f8c5bdd31115933fef16628fa" }
-osqp = { path = "../../rust_osqp" }
+osqp = { git = "https://github.com/ebarnard/osqp.rs" }
 fux_kdtree = "0.2.0"
 gnuplot = "0.0.23"
 log = "0.3.8"
@@ -18,6 +18,7 @@ env_logger = "0.4.3"
 streaming-stats = "0.1.28"
 cubic_spline = { path = "cubic_spline" }
 sparse = { path = "sparse" }
+rand = "0.3.18"
 
 [profile.release]
 debug = true

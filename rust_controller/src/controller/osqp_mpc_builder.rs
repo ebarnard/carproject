@@ -2,7 +2,7 @@ use flame;
 use itertools::{repeat_n, Itertools};
 use log::LogLevel::Debug;
 use nalgebra::{self, DefaultAllocator, DimName, Dynamic as Dy, MatrixMN, U1};
-use osqp::{convert_sparse, Settings, Status, Workspace};
+use osqp::{Settings, Status, Workspace};
 
 use prelude::*;
 use sparse;
@@ -98,21 +98,9 @@ where
         let l = Vector::zeros_generic(Dy::new(N * (ns + ni)), U1);
         let u = Vector::zeros_generic(Dy::new(N * (ns + ni)), U1);
 
-        let settings = Settings {
-            verbose: log_enabled!(Debug) as i64,
-            polish: 0,
-            eps_abs: 1e-2,
-            ..Default::default()
-        };
+        let settings = Settings::default().verbose(log_enabled!(Debug)).polish(false).eps_abs(1e-2);
 
-        let workspace = Workspace::new(
-            convert_sparse(&P),
-            q.as_slice(),
-            convert_sparse(&A),
-            l.as_slice(),
-            u.as_slice(),
-            &settings,
-        );
+        let workspace = Workspace::new(&P, q.as_slice(), &A, l.as_slice(), u.as_slice(), &settings);
 
         OsqpMpc {
             workspace,
@@ -210,11 +198,11 @@ where
         // Set upper and lower bounds for first input difference
         self.workspace.update_lin_cost(self.q.as_slice());
         self.workspace.update_bounds(self.l.as_slice(), self.u.as_slice());
-        self.workspace.update_A(self.A.data());
+        self.workspace.update_A(&self.A);
 
         let solution = self.workspace.solve();
 
-        match solution.status {
+        match solution.status() {
             Status::Solved => (),
             _ => panic!("solver failed"),
         }
@@ -223,8 +211,8 @@ where
         fn add_delta((x0, delta_x): (&mut float, &float)) {
             *x0 += *delta_x
         };
-        self.x_mpc.iter_mut().zip(&solution.x[0..N * ns]).for_each(add_delta);
-        self.u_mpc.iter_mut().zip(&solution.x[N * ns..N * (ni + ns)]).for_each(add_delta);
+        self.x_mpc.iter_mut().zip(&solution.x()[0..N * ns]).for_each(add_delta);
+        self.u_mpc.iter_mut().zip(&solution.x()[N * ns..N * (ni + ns)]).for_each(add_delta);
 
         // Validate constraints
         for i in 0..N {
@@ -233,7 +221,7 @@ where
             let b = u.iter().zip(self.u_min.iter()).all(|(&val, &min)| val >= min - 0.1);
             if !(a && b) {
                 error!("{}", self.u_mpc);
-                error!("delta_u: {:?}", &solution.x[N * ns..N * (ni + ns)]);
+                error!("delta_u: {:?}", &solution.x()[N * ns..N * (ni + ns)]);
                 error!("u_min: {:?}", &self.l.as_slice()[N * ns..N * (ni + ns)]);
                 error!("u_max: {:?}", &self.u.as_slice()[N * ns..N * (ni + ns)]);
                 assert!(false, "u not within constraints");

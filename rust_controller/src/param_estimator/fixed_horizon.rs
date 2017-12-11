@@ -1,7 +1,7 @@
 use flame;
 use log::LogLevel::Debug;
 use nalgebra::{self, DefaultAllocator, DimName, MatrixMN};
-use osqp::{convert_sparse, Settings, Workspace};
+use osqp::{Settings, Workspace};
 use sparse;
 
 use prelude::*;
@@ -44,19 +44,9 @@ where
         let l = l.as_slice();
         let u = delta_p_max.as_slice();
 
-        let settings = Settings {
-            verbose: log_enabled!(Debug) as i64,
-            ..Default::default()
-        };
+        let settings = Settings::default().verbose(log_enabled!(Debug));
 
-        let workspace = Workspace::new(
-            convert_sparse(&P_sparse),
-            f.as_slice(),
-            convert_sparse(&A),
-            l,
-            u,
-            &settings,
-        );
+        let workspace = Workspace::new(&P_sparse, f.as_slice(), &A, l, u, &settings);
 
         FixedHorizon {
             workspace,
@@ -111,12 +101,12 @@ where
         self.P_sparse.set_block(&self.P_block, &self.P);
 
         self.workspace.update_lin_cost(self.f.as_slice());
-        self.workspace.update_P(self.P_sparse.data());
+        self.workspace.update_P(&self.P_sparse);
 
         let solution = self.workspace.solve();
-        assert!(solution.status == ::osqp::Status::Solved);
+        assert!(solution.status() == ::osqp::Status::Solved);
 
-        self.params.iter_mut().zip(solution.x).for_each(|(p0, delta_p)| *p0 += delta_p);
+        self.params.iter_mut().zip(solution.x()).for_each(|(p0, delta_p)| *p0 += delta_p);
 
         // Reset problem
         self.N = 0;
