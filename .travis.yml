@@ -1,4 +1,8 @@
 language: shell
+cache:
+  - cargo
+  - directories:
+      - $TRAVIS_BUILD_DIR/rust_controller/target
 matrix:
   include:
     - os: linux
