@@ -6,7 +6,7 @@ authors = ["Edward Barnard <eabarnard@gmail.com>"]
 [dependencies]
 nalgebra = "0.13.1"
 
-[dependencies.nalgebra-lapack]
+[target.'cfg(target_os = "macos")'.dependencies.nalgebra-lapack]
 version = "0.5"
 default-features = false
 features = [ "accelerate" ]

@@ -1,8 +1,12 @@
 extern crate nalgebra;
+#[cfg(target_os = "macos")]
 extern crate nalgebra_lapack;
 
 use nalgebra::{Dynamic, MatrixMN, U1};
+#[cfg(target_os = "macos")]
 use nalgebra_lapack::Cholesky;
+#[cfg(not(target_os = "macos"))]
+use nalgebra::Cholesky;
 
 #[allow(non_camel_case_types)]
 type float = f64;
