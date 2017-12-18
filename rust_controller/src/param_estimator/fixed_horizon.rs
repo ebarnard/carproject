@@ -1,6 +1,6 @@
 use flame;
 use log::LogLevel::Debug;
-use nalgebra::{self, DefaultAllocator, DimName, MatrixMN};
+use nalgebra::{self, MatrixMN};
 use osqp::{Settings, Workspace};
 use sparse;
 

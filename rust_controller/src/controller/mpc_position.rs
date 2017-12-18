@@ -1,6 +1,6 @@
 use flame;
 use log::LogLevel::Debug;
-use nalgebra::{self, DefaultAllocator, DimName, Dynamic, MatrixMN};
+use nalgebra::{self, Dynamic, MatrixMN};
 
 use prelude::*;
 use controller::{Controller, OsqpMpc};

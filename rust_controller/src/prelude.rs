@@ -31,8 +31,7 @@ pub type Vector<N> = nalgebra::VectorN<float, N>;
 
 use nalgebra::{Dim, Scalar};
 pub use nalgebra::allocator::Allocator;
-
-pub use nalgebra::DefaultAllocator;
+pub use nalgebra::{DefaultAllocator, DimName};
 
 pub trait Dims3<A: Dim, B: Dim, C: Dim>: Dims2<A, B> + Dims2<A, C> + Dims2<B, C> {}
 

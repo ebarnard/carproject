@@ -1,6 +1,5 @@
 use gnuplot::{AxesCommon, Color, Figure};
 use itertools::Itertools;
-use nalgebra::{DefaultAllocator, DimName};
 
 use prelude::*;
 use controller::{Control, State as ControllerState};

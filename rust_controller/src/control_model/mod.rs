@@ -1,4 +1,4 @@
-use nalgebra::{self, DefaultAllocator, DimName, MatrixMN};
+use nalgebra::{self, MatrixMN};
 
 use prelude::*;
 use controller::{Control, State};

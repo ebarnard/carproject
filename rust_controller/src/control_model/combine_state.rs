@@ -1,4 +1,4 @@
-use nalgebra::{self, DimAdd, DimName, DimSum, MatrixMN, U0};
+use nalgebra::{self, DimAdd, DimSum, MatrixMN, U0};
 use std::marker::PhantomData;
 
 use prelude::*;

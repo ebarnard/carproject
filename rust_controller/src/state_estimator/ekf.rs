@@ -1,4 +1,4 @@
-use nalgebra::{self, DimAdd, DimName, DimSum, U0, U3, Vector3};
+use nalgebra::{self, DimAdd, DimSum, U0, U3, Vector3};
 use nalgebra::linalg::Cholesky;
 
 use prelude::*;

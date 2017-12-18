@@ -1,7 +1,7 @@
 use flame;
 use itertools::{repeat_n, Itertools};
 use log::LogLevel::Debug;
-use nalgebra::{self, DefaultAllocator, DimName, Dynamic as Dy, MatrixMN, U1};
+use nalgebra::{self, Dynamic as Dy, MatrixMN, U1};
 use osqp::{Settings, Status, Workspace};
 
 use prelude::*;

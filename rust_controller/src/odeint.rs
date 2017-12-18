@@ -1,6 +1,3 @@
-use nalgebra::{DefaultAllocator, DimName};
-use nalgebra::allocator::Allocator;
-
 use prelude::*;
 
 pub fn rk4<N: DimName, F>(dt: float, num_steps: u32, y_0: &Vector<N>, mut f: F) -> Vector<N>
