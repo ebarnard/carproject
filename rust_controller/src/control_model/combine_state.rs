@@ -52,26 +52,40 @@ where
         let P = M::linearise_parameters(&model_x, u0, &model_p);
 
         let mut A_combined: Matrix<Self::NS, Self::NS> = nalgebra::zero();
-        A_combined.fixed_slice_mut::<M::NS, M::NS>(0, 0).copy_from(&A);
-        A_combined.fixed_slice_mut::<M::NS, M::NP>(0, M::NS::dim()).copy_from(&P);
+        A_combined
+            .fixed_slice_mut::<M::NS, M::NS>(0, 0)
+            .copy_from(&A);
+        A_combined
+            .fixed_slice_mut::<M::NS, M::NP>(0, M::NS::dim())
+            .copy_from(&P);
 
         let mut B_combined: Matrix<Self::NS, Self::NI> = nalgebra::zero();
-        B_combined.fixed_slice_mut::<M::NS, M::NI>(0, 0).copy_from(&B);
+        B_combined
+            .fixed_slice_mut::<M::NS, M::NI>(0, 0)
+            .copy_from(&B);
 
         (A_combined, B_combined)
     }
 
-    fn linearise_nonzero_mask(
-) -> (MatrixMN<bool, Self::NS, Self::NS>, MatrixMN<bool, Self::NS, Self::NI>) {
+    fn linearise_nonzero_mask() -> (
+        MatrixMN<bool, Self::NS, Self::NS>,
+        MatrixMN<bool, Self::NS, Self::NI>,
+    ) {
         let (A_mask, B_mask) = M::linearise_nonzero_mask();
         let P_mask = M::linearise_parameters_sparsity();
 
         let mut A_combined = MatrixMN::<bool, Self::NS, Self::NS>::from_element(false);
-        A_combined.fixed_slice_mut::<M::NS, M::NS>(0, 0).copy_from(&A_mask);
-        A_combined.fixed_slice_mut::<M::NS, M::NP>(0, M::NS::dim()).copy_from(&P_mask);
+        A_combined
+            .fixed_slice_mut::<M::NS, M::NS>(0, 0)
+            .copy_from(&A_mask);
+        A_combined
+            .fixed_slice_mut::<M::NS, M::NP>(0, M::NS::dim())
+            .copy_from(&P_mask);
 
         let mut B_combined = MatrixMN::<bool, Self::NS, Self::NI>::from_element(false);
-        B_combined.fixed_slice_mut::<M::NS, M::NI>(0, 0).copy_from(&B_mask);
+        B_combined
+            .fixed_slice_mut::<M::NS, M::NI>(0, 0)
+            .copy_from(&B_mask);
 
         (A_combined, B_combined)
     }

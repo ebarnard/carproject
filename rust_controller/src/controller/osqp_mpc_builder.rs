@@ -75,10 +75,12 @@ where
         let R = R.build_csc().to_dense();
 
         // Build A matrix
-        let (Ax, A_blocks): (Vec<_>, Vec<_>) =
-            (1..N).map(|_| sparse::Builder::tracked_sparse_block(A_sparsity)).unzip();
-        let (Au, B_blocks): (Vec<_>, Vec<_>) =
-            (0..N).map(|_| sparse::Builder::tracked_sparse_block(B_sparsity)).unzip();
+        let (Ax, A_blocks): (Vec<_>, Vec<_>) = (1..N)
+            .map(|_| sparse::Builder::tracked_sparse_block(A_sparsity))
+            .unzip();
+        let (Au, B_blocks): (Vec<_>, Vec<_>) = (0..N)
+            .map(|_| sparse::Builder::tracked_sparse_block(B_sparsity))
+            .unzip();
 
         let Ax = -sparse::Builder::eye(N * ns)
             + sparse::bmat(&[
@@ -98,7 +100,10 @@ where
         let l = Vector::zeros_generic(Dy::new(N * (ns + ni)), U1);
         let u = Vector::zeros_generic(Dy::new(N * (ns + ni)), U1);
 
-        let settings = Settings::default().verbose(log_enabled!(Debug)).polish(false).eps_abs(1e-2);
+        let settings = Settings::default()
+            .verbose(log_enabled!(Debug))
+            .polish(false)
+            .eps_abs(1e-2);
 
         let workspace = Workspace::new(&P, q.as_slice(), &A, l.as_slice(), u.as_slice(), &settings);
 
@@ -161,11 +166,15 @@ where
         let N = self.N as usize;
 
         // Linear state penalty
-        self.q.rows_mut(i * ns, ns).copy_from(&(&self.Q_stage * (x0 - x_target)));
+        self.q
+            .rows_mut(i * ns, ns)
+            .copy_from(&(&self.Q_stage * (x0 - x_target)));
 
         // Calulcate lower and upper bounds
-        let u_min = self.u_delta_min.zip_map(&(&self.u_min - u0), |a, b| max(a, b));
-        let u_max = self.u_delta_max.zip_map(&(&self.u_max - u0), |a, b| min(a, b));
+        let u_min = self.u_delta_min
+            .zip_map(&(&self.u_min - u0), |a, b| max(a, b));
+        let u_max = self.u_delta_max
+            .zip_map(&(&self.u_max - u0), |a, b| min(a, b));
 
         let intput_bounds_start = N * ns + i * ni;
         self.l.rows_mut(intput_bounds_start, ni).copy_from(&u_min);
@@ -197,7 +206,8 @@ where
 
         // Set upper and lower bounds for first input difference
         self.workspace.update_lin_cost(self.q.as_slice());
-        self.workspace.update_bounds(self.l.as_slice(), self.u.as_slice());
+        self.workspace
+            .update_bounds(self.l.as_slice(), self.u.as_slice());
         self.workspace.update_A(&self.A);
 
         let solution = self.workspace.solve();
@@ -211,14 +221,24 @@ where
         fn add_delta((x0, delta_x): (&mut float, &float)) {
             *x0 += *delta_x
         };
-        self.x_mpc.iter_mut().zip(&solution.x()[0..N * ns]).for_each(add_delta);
-        self.u_mpc.iter_mut().zip(&solution.x()[N * ns..N * (ni + ns)]).for_each(add_delta);
+        self.x_mpc
+            .iter_mut()
+            .zip(&solution.x()[0..N * ns])
+            .for_each(add_delta);
+        self.u_mpc
+            .iter_mut()
+            .zip(&solution.x()[N * ns..N * (ni + ns)])
+            .for_each(add_delta);
 
         // Validate constraints
         for i in 0..N {
             let u = self.u_mpc.column(i);
-            let a = u.iter().zip(self.u_max.iter()).all(|(&val, &max)| val <= max + 0.1);
-            let b = u.iter().zip(self.u_min.iter()).all(|(&val, &min)| val >= min - 0.1);
+            let a = u.iter()
+                .zip(self.u_max.iter())
+                .all(|(&val, &max)| val <= max + 0.1);
+            let b = u.iter()
+                .zip(self.u_min.iter())
+                .all(|(&val, &min)| val >= min - 0.1);
             if !(a && b) {
                 error!("{}", self.u_mpc);
                 error!("delta_u: {:?}", &solution.x()[N * ns..N * (ni + ns)]);

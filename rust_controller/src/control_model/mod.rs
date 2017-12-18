@@ -46,8 +46,10 @@ where
     ) -> (Matrix<Self::NS, Self::NS>, Matrix<Self::NS, Self::NI>);
 
     /// Returns two boolean matrices with true everywhere A and B could contain a non-zero value
-    fn linearise_nonzero_mask(
-    ) -> (MatrixMN<bool, Self::NS, Self::NS>, MatrixMN<bool, Self::NS, Self::NI>) {
+    fn linearise_nonzero_mask() -> (
+        MatrixMN<bool, Self::NS, Self::NS>,
+        MatrixMN<bool, Self::NS, Self::NI>,
+    ) {
         let A_mask = MatrixMN::<bool, Self::NS, Self::NS>::from_element(true);
         let B_mask = MatrixMN::<bool, Self::NS, Self::NI>::from_element(true);
         (A_mask, B_mask)

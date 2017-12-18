@@ -75,10 +75,9 @@ where
 
         let guard = flame::start_guard("mpc setup");
 
-        let mut centreline_distance = flame::span_of(
-            "centreline distance lookup",
-            || self.lookup.centreline_distance(x[0], x[1]),
-        );
+        let mut centreline_distance = flame::span_of("centreline distance lookup", || {
+            self.lookup.centreline_distance(x[0], x[1])
+        });
 
         let s_target = dt * 2.0;
         centreline_distance += 2.0 * s_target;
@@ -97,25 +96,22 @@ where
 
             // Find centreline point
             centreline_distance += s_target;
-            let target = flame::span_of(
-                "centreline point lookup",
-                || self.centreline.nearest_point(centreline_distance),
-            );
-            let theta =
-                flame::span_of("theta calculation", || float::atan2(target.dy_ds, target.dx_ds));
+            let target = flame::span_of("centreline point lookup", || {
+                self.centreline.nearest_point(centreline_distance)
+            });
+            let theta = flame::span_of("theta calculation", || {
+                float::atan2(target.dy_ds, target.dx_ds)
+            });
 
             if log_enabled!(Debug) {
                 debug!(
                     "target for ({}, {}, {}, {}) is: ({}, {}, {})",
-                    x_i[0],
-                    x_i[1],
-                    x_i[2],
-                    x_i[3],
-                    target.x,
-                    target.y,
-                    theta
+                    x_i[0], x_i[1], x_i[2], x_i[3], target.x, target.y, theta
                 );
-                debug!("target distance {}", float::hypot(x_i[0] - target.x, x_i[1] - target.y));
+                debug!(
+                    "target distance {}",
+                    float::hypot(x_i[0] - target.x, x_i[1] - target.y)
+                );
             }
 
             let theta = phase_unwrap(x_i[2], theta);
@@ -125,19 +121,25 @@ where
             x_target[2] = theta;
 
             // Give the values to the builder
-            flame::span_of(
-                "update mpc matrices",
-                || self.mpc.set_model(i, &A_i, &B_i, &x_i, &u_i, &x_target),
-            );
+            flame::span_of("update mpc matrices", || {
+                self.mpc.set_model(i, &A_i, &B_i, &x_i, &u_i, &x_target)
+            });
         }
         guard.end();
 
         let mpc = &mut self.mpc;
         let solution = flame::span_of("mpc solve", || mpc.solve());
 
-        self.u_mpc.columns_mut(0, N - 1).copy_from(&solution.u.columns(1, N - 1));
-        self.u_mpc.column_mut(N - 1).copy_from(&solution.u.column(N - 1));
+        self.u_mpc
+            .columns_mut(0, N - 1)
+            .copy_from(&solution.u.columns(1, N - 1));
+        self.u_mpc
+            .column_mut(N - 1)
+            .copy_from(&solution.u.column(N - 1));
 
-        (solution.u.column(0).into_owned(), solution.x.column(0).into_owned())
+        (
+            solution.u.column(0).into_owned(),
+            solution.x.column(0).into_owned(),
+        )
     }
 }

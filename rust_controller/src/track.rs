@@ -58,8 +58,12 @@ impl Centreline {
 
         let x_spline = CubicSpline::periodic(&track.x);
         let y_spline = CubicSpline::periodic(&track.y);
-        let widths =
-            track.dx.iter().zip(&track.dy).map(|(&dx, &dy)| float::hypot(dx, dy)).collect();
+        let widths = track
+            .dx
+            .iter()
+            .zip(&track.dy)
+            .map(|(&dx, &dy)| float::hypot(dx, dy))
+            .collect();
 
         let x0 = x_spline.evaluate(0.0).0;
         let y0 = y_spline.evaluate(0.0).0;
@@ -158,14 +162,11 @@ impl CentrelineLookup {
     }
 
     pub fn centreline_distance(&self, x: float, y: float) -> float {
-        let nn = self.kd.nearest_search(&IndexedPoint(0.0, [x as f64, y as f64]));
+        let nn = self.kd
+            .nearest_search(&IndexedPoint(0.0, [x as f64, y as f64]));
         debug!(
             "closest centreline point to ({}, {}) is ({}, {}) with s {}",
-            x,
-            y,
-            nn.1[0],
-            nn.1[1],
-            nn.0
+            x, y, nn.1[0], nn.1[1], nn.0
         );
         nn.0
     }

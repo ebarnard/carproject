@@ -44,7 +44,9 @@ where
 {
 }
 
-pub trait Dims2<A: Dim, B: Dim>: Dims2N<float, A, B> + Dims2N<usize, A, B> + Dims2N<bool, A, B> {}
+pub trait Dims2<A: Dim, B: Dim>
+    : Dims2N<float, A, B> + Dims2N<usize, A, B> + Dims2N<bool, A, B> {
+}
 
 impl<A, B> Dims2<A, B> for DefaultAllocator
 where

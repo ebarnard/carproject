@@ -36,28 +36,32 @@ impl ControlModel for DirectVelocity {
 
         let (sin_phi, cos_phi) = phi.sin_cos();
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let A = Matrix3::new(
             0.0, 0.0, -v * sin_phi,
             0.0, 0.0, v * cos_phi,
             0.0, 0.0, 0.0,
         );
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let B = Matrix3x2::new(
             cos_phi, 0.0,
             sin_phi, 0.0,
             0.0, 1.0,
         );
-    
+
         (A, B)
     }
 
     fn linearise_nonzero_mask() -> (Matrix3<bool>, Matrix3x2<bool>) {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let A_mask = Matrix3::new(
             false, false, true,
             false, false, true,
             false, false, false,
         );
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let B_mask = Matrix3x2::new(
             true, false,
             true, false,

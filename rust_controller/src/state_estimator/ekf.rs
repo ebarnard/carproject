@@ -81,7 +81,9 @@ where
 
             // Innovation covariance
             let S = &H * &P_predict * H.transpose() + &self.R;
-            let S_inv = Cholesky::new(S).expect("S must be symmetric positive-definite").inverse();
+            let S_inv = Cholesky::new(S)
+                .expect("S must be symmetric positive-definite")
+                .inverse();
 
             // Kalman gain
             let K = &P_predict * H.transpose() * S_inv;
@@ -163,7 +165,10 @@ where
                 let m = Vector3::new(m.position.0, m.position.1, m.heading);
                 self.inner.x_hat = nalgebra::zero();
                 self.inner.x_hat.fixed_rows_mut::<U3>(0).copy_from(&m);
-                self.inner.x_hat.fixed_rows_mut::<M::NP>(M::NS::dim()).copy_from(p);
+                self.inner
+                    .x_hat
+                    .fixed_rows_mut::<M::NP>(M::NS::dim())
+                    .copy_from(p);
                 self.inner.P = self.inner.Q.clone();
                 self.inner
                     .P
@@ -181,6 +186,9 @@ where
     }
 
     fn param_covariance(&self) -> Matrix<M::NP, M::NP> {
-        self.inner.P.fixed_slice::<M::NP, M::NP>(M::NS::dim(), M::NS::dim()).into_owned()
+        self.inner
+            .P
+            .fixed_slice::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
+            .into_owned()
     }
 }

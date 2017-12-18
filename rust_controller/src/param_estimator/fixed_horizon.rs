@@ -106,7 +106,10 @@ where
         let solution = self.workspace.solve();
         assert!(solution.status() == ::osqp::Status::Solved);
 
-        self.params.iter_mut().zip(solution.x()).for_each(|(p0, delta_p)| *p0 += delta_p);
+        self.params
+            .iter_mut()
+            .zip(solution.x())
+            .for_each(|(p0, delta_p)| *p0 += delta_p);
 
         // Reset problem
         self.N = 0;

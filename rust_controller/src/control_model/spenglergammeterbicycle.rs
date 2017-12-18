@@ -62,6 +62,7 @@ impl ControlModel for SpenglerGammeterBicycle {
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let A = Matrix4::new(
             0.0, 0.0, -v * sin_k, cos_k,
             0.0, 0.0, v * cos_k, sin_k,
@@ -69,6 +70,7 @@ impl ControlModel for SpenglerGammeterBicycle {
             0.0, 0.0, 0.0, -Cm2 * throttle - 2.0 * (Cr2 + C1 * C2 * delta * delta) * v
         );
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let B = Matrix4x2::new(
             0.0, -C1 * v * sin_k,
             0.0, C1 * v * cos_k,
@@ -80,6 +82,7 @@ impl ControlModel for SpenglerGammeterBicycle {
     }
 
     fn linearise_nonzero_mask() -> (Matrix4<bool>, Matrix4x2<bool>) {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let A_mask = Matrix4::new(
             false, false, true, true,
             false, false, true, true,
@@ -87,6 +90,7 @@ impl ControlModel for SpenglerGammeterBicycle {
             false, false, false, true,
         );
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let B_mask = Matrix4x2::new(
             false, true,
             false, true,
@@ -97,11 +101,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         (A_mask, B_mask)
     }
 
-    fn linearise_parameters(
-        x0: &Vector<U4>,
-        u0: &Vector<U2>,
-        p0: &Vector<U6>,
-    ) -> Matrix<U4, U6> {
+    fn linearise_parameters(x0: &Vector<U4>, u0: &Vector<U2>, p0: &Vector<U6>) -> Matrix<U4, U6> {
         let (phi, v, throttle, delta, C1, C2, _Cm1, _Cm2, _Cr2) =
             SpenglerGammeterBicycle::vals(x0, u0, p0);
 
@@ -110,6 +110,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         let v_delta = v * delta;
         let v_delta_2 = v_delta * v_delta;
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         Matrix4x6::new(
             -v_delta * sin_k, 0.0, 0.0, 0.0, 0.0, 0.0,
             v_delta * cos_k, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -119,6 +120,7 @@ impl ControlModel for SpenglerGammeterBicycle {
     }
 
     fn linearise_parameters_sparsity() -> Matrix4x6<bool> {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         Matrix4x6::new(
             true, false, false, false, false, false,
             true, false, false, true, false, false,

@@ -64,11 +64,13 @@ impl History {
         let controller_v = float::hypot(controller_state.velocity.0, controller_state.velocity.1);
         self.x_error.push(controller_state.position.0 - x);
         self.y_error.push(controller_state.position.1 - y);
-        self.heading_error.push(controller_state.heading - state.heading);
+        self.heading_error
+            .push(controller_state.heading - state.heading);
         self.v_error.push(controller_v - v);
         self.control.push(control);
         self.params.extend_from_slice(params.as_slice());
-        self.param_var.extend_from_slice(param_cov.diagonal().as_slice());
+        self.param_var
+            .extend_from_slice(param_cov.diagonal().as_slice());
     }
 }
 
@@ -160,8 +162,16 @@ pub fn plot(track: &Track, history: &History) {
         ax.set_title(&format!("param {}", i), &[]);
         let param = history.params.iter().skip(i as usize).step(np as usize);
         let var = history.param_var.iter().skip(i as usize).step(np as usize);
-        ax.lines(&history.t, param.clone().zip(var.clone()).map(|(p, v)| p + v), &[Color("red")]);
-        ax.lines(&history.t, param.clone().zip(var).map(|(p, v)| p - v), &[Color("red")]);
+        ax.lines(
+            &history.t,
+            param.clone().zip(var.clone()).map(|(p, v)| p + v),
+            &[Color("red")],
+        );
+        ax.lines(
+            &history.t,
+            param.clone().zip(var).map(|(p, v)| p - v),
+            &[Color("red")],
+        );
         ax.lines(&history.t, param, &[]);
     }
     fg.show();

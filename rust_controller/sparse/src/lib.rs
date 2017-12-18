@@ -96,8 +96,9 @@ impl Builder {
     {
         let (nrows, ncols) = block.shape();
 
-        let coords =
-            (0..nrows).flat_map(move |r| (0..ncols).map(move |c| (r, c, block[(r, c)]))).collect();
+        let coords = (0..nrows)
+            .flat_map(move |r| (0..ncols).map(move |c| (r, c, block[(r, c)])))
+            .collect();
 
         Builder {
             tracked_blocks: Vec::new(),
@@ -118,9 +119,11 @@ impl Builder {
         let (nrows, ncols) = sparsity.shape();
 
         let coords = (0..nrows)
-            .flat_map(
-                move |r| (0..ncols).filter(move |&c| sparsity[(r, c)]).map(move |c| (r, c, 0.0)),
-            )
+            .flat_map(move |r| {
+                (0..ncols)
+                    .filter(move |&c| sparsity[(r, c)])
+                    .map(move |c| (r, c, 0.0))
+            })
             .collect();
 
         let sparsity = to_dynamic(sparsity);
@@ -200,9 +203,9 @@ impl Builder {
                     // Ignore entries that are always empty
                     for r in (0..nrows).filter(|&r| sparsity[(r, c)]) {
                         // row_indices are guarenteed to be in ascending order
-                        let first_row_index = *first_row_index.get_or_insert_with(
-                            || rows_start + row_indices.binary_search(&(row + r)).unwrap(),
-                        );
+                        let first_row_index = *first_row_index.get_or_insert_with(|| {
+                            rows_start + row_indices.binary_search(&(row + r)).unwrap()
+                        });
                         block_indices[(r, c)] = Some(first_row_index + sparse_r);
                         sparse_r += 1;
                     }
@@ -286,8 +289,16 @@ pub fn add<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     acc.ncols = ncols;
 
     blocks.iter().map(AsRef::as_ref).fold(acc, |acc, block| {
-        assert_eq!(nrows, block.nrows, "matrices being added must have the same number of rows");
-        assert_eq!(ncols, block.ncols, "matrices being added must have the same number of columns");
+        assert_eq!(
+            nrows,
+            block.nrows,
+            "matrices being added must have the same number of rows"
+        );
+        assert_eq!(
+            ncols,
+            block.ncols,
+            "matrices being added must have the same number of columns"
+        );
         block_merge(acc, block, 0, 0)
     })
 }
@@ -300,10 +311,17 @@ pub fn hstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     let nrows = blocks[0].as_ref().nrows;
     let acc = preallocate_for_merge(blocks);
 
-    let (mut acc, ncols) = blocks.iter().map(AsRef::as_ref).fold((acc, 0), |(acc, ncols), block| {
-        assert_eq!(nrows, block.nrows, "vstack requires matrices to have the same number of rows");
-        (block_merge(acc, block, 0, ncols), ncols + block.ncols)
-    });
+    let (mut acc, ncols) = blocks.iter().map(AsRef::as_ref).fold(
+        (acc, 0),
+        |(acc, ncols), block| {
+            assert_eq!(
+                nrows,
+                block.nrows,
+                "vstack requires matrices to have the same number of rows"
+            );
+            (block_merge(acc, block, 0, ncols), ncols + block.ncols)
+        },
+    );
 
     acc.nrows = nrows;
     acc.ncols = ncols;
@@ -318,14 +336,17 @@ pub fn vstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     let ncols = blocks[0].as_ref().ncols;
     let acc = preallocate_for_merge(blocks);
 
-    let (mut acc, nrows) = blocks.iter().map(AsRef::as_ref).fold((acc, 0), |(acc, nrows), block| {
-        assert_eq!(
-            ncols,
-            block.ncols,
-            "vstack requires matrices to have the same number of columns"
-        );
-        (block_merge(acc, block, nrows, 0), nrows + block.nrows)
-    });
+    let (mut acc, nrows) = blocks.iter().map(AsRef::as_ref).fold(
+        (acc, 0),
+        |(acc, nrows), block| {
+            assert_eq!(
+                ncols,
+                block.ncols,
+                "vstack requires matrices to have the same number of columns"
+            );
+            (block_merge(acc, block, nrows, 0), nrows + block.nrows)
+        },
+    );
 
     acc.nrows = nrows;
     acc.ncols = ncols;
@@ -339,10 +360,16 @@ pub fn block_diag<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
 
     let acc = preallocate_for_merge(blocks);
 
-    let (mut acc, nrows, ncols) =
-        blocks.iter().map(AsRef::as_ref).fold((acc, 0, 0), |(acc, nrows, ncols), block| {
-            (block_merge(acc, block, nrows, ncols), nrows + block.nrows, ncols + block.ncols)
-        });
+    let (mut acc, nrows, ncols) = blocks.iter().map(AsRef::as_ref).fold(
+        (acc, 0, 0),
+        |(acc, nrows, ncols), block| {
+            (
+                block_merge(acc, block, nrows, ncols),
+                nrows + block.nrows,
+                ncols + block.ncols,
+            )
+        },
+    );
 
     acc.nrows = nrows;
     acc.ncols = ncols;
@@ -395,21 +422,28 @@ pub fn bmat<B: AsRef<Builder>>(blocks: &[&[Option<B>]]) -> Builder {
     let block_col_offsets = block_ncols.iter().scan(0, cumsum);
 
     // Merge the matrices
-    let blocks_iter = blocks.iter().flat_map(|r| r.iter().filter_map(Option::as_ref));
+    let blocks_iter = blocks
+        .iter()
+        .flat_map(|r| r.iter().filter_map(Option::as_ref));
     let mut acc = preallocate_for_merge(blocks_iter);
     acc.nrows = block_nrows.iter().map(|x| x.unwrap()).sum();
     acc.ncols = block_ncols.iter().map(|x| x.unwrap()).sum();
 
-    blocks.iter().zip(block_row_offsets).fold(acc, |acc, (row, row_offset)| {
-        row.iter().zip(block_col_offsets.clone()).fold(acc, |acc, (block, col_offset)| {
-            if let &Some(ref block) = block {
-                let block = block.as_ref();
-                block_merge(acc, block, row_offset, col_offset)
-            } else {
-                acc
-            }
+    blocks
+        .iter()
+        .zip(block_row_offsets)
+        .fold(acc, |acc, (row, row_offset)| {
+            row.iter()
+                .zip(block_col_offsets.clone())
+                .fold(acc, |acc, (block, col_offset)| {
+                    if let &Some(ref block) = block {
+                        let block = block.as_ref();
+                        block_merge(acc, block, row_offset, col_offset)
+                    } else {
+                        acc
+                    }
+                })
         })
-    })
 }
 
 fn preallocate_for_merge<'a, I: 'a, B: 'a + AsRef<Builder>>(blocks: I) -> Builder
@@ -417,8 +451,9 @@ where
     I: IntoIterator<Item = &'a B>,
 {
     let blocks = blocks.into_iter().map(AsRef::as_ref);
-    let (nnz, nt) =
-        blocks.fold((0, 0), |(nnz, nt), b| (nnz + b.coords.len(), nt + b.tracked_blocks.len()));
+    let (nnz, nt) = blocks.fold((0, 0), |(nnz, nt), b| {
+        (nnz + b.coords.len(), nt + b.tracked_blocks.len())
+    });
     let mut builder = Builder::with_capacity(0, 0, nnz);
     builder.tracked_blocks = Vec::with_capacity(nt);
     builder
@@ -483,8 +518,8 @@ impl CSCMatrix {
         assert_eq!(block.nrows, nrows);
         assert_eq!(block.ncols, ncols);
 
-        let tracked_block_index =
-            self.tracked_blocks.binary_search_by(|&(id, _)| id.cmp(&block.id));
+        let tracked_block_index = self.tracked_blocks
+            .binary_search_by(|&(id, _)| id.cmp(&block.id));
         let tracked_block_index = tracked_block_index.expect("Block not in this matrix");
         let &(_, ref indices) = &self.tracked_blocks[tracked_block_index];
 
@@ -492,7 +527,11 @@ impl CSCMatrix {
             if let &Some(index) = index {
                 self.data[index] = val;
             } else {
-                assert_eq!(0.0, val, "unexpected non-zero element in sparse tracked block");
+                assert_eq!(
+                    0.0,
+                    val,
+                    "unexpected non-zero element in sparse tracked block"
+                );
             }
         }
     }
@@ -534,17 +573,20 @@ mod tests {
 
     #[test]
     fn add_simple() {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let a = Matrix3::new(
             14.0, 0.0, 9.0,
             0.0, 0.0, 0.0,
             1.0, 0.0, 7.0,
         );
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let b = Matrix3::new(
             2.0, 0.0, 5.0,
             0.0, 4.0, 6.0,
             0.0, 0.0, 3.0,
         );
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let expected = to_dynamic(&Matrix3::new(
             16.0, 0.0, 14.0,
             0.0, 4.0, 6.0,
@@ -561,12 +603,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn add_panic() {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let a = Matrix3::new(
             14.0, 0.0, 9.0,
             0.0, 0.0, 0.0,
             1.0, 0.0, 7.0,
         );
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let b = Matrix2x3::new(
             2.0, 0.0, 5.0,
             0.0, 4.0, 6.0,
@@ -578,16 +622,19 @@ mod tests {
     #[test]
     fn block_diag_empty_row() {
         let a = Matrix1::new(1.0);
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let b = Matrix2x3::new(
             2.0, 3.0, 0.0,
             5.0, 6.0, 0.0,
         );
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let c = Matrix3x2::new(
             0.0, 0.0,
             10.0, 0.0,
             12.0, 0.0,
         );
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let expected = to_dynamic(&Matrix6::new(
             1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 2.0, 3.0, 0.0, 0.0, 0.0,
@@ -606,20 +653,24 @@ mod tests {
 
     #[test]
     fn bmat_test() {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let b = Matrix2x3::new(
             2.0, 3.0, 4.0,
             5.0, 0.0, 7.0,
         );
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let c = Matrix2::new(
             14.0, 0.0,
             16.0, 17.0,
         );
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let d = Matrix3x2::new(
             0.0, 0.0,
             0.0, 0.0,
             0.0, 0.0,
         );
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let expected = to_dynamic(&Matrix6::new(
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 2.0, 3.0, 4.0, 14.0, 0.0,
@@ -629,42 +680,50 @@ mod tests {
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         ));
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let comparison = bmat(&[
             &[Some(Builder::zeros(1, 1)), None, None],
             &[None, Some(Builder::block(&b)), Some(Builder::block(&c))],
             &[None, None, Some(Builder::block(&d))],
-        ]).build_csc().to_dense();
-    
+        ]).build_csc()
+            .to_dense();
+
         assert_eq!(expected, comparison);
     }
 
     #[test]
     fn bmat_tracked() {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let b = Matrix2x3::new(
             2.0, 3.0, 4.0,
             5.0, 0.0, 7.0,
         );
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let c_sp = Matrix2::new(
             true, true,
             true, true,
         );
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let c_val = Matrix2::new(
             14.0, 0.0,
             16.0, 17.0,
         );
         let (c, c_block) = Builder::tracked_sparse_block(&c_sp);
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let d_sp = Matrix3x2::new(
             false, false,
             true, false,
             true, false,
         );
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let d_val_1 = Matrix3x2::new(
             0.0, 0.0,
             0.0, 0.0,
             1.0, 0.0,
         );
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let d_val_2 = Matrix3x2::new(
             0.0, 0.0,
             99.0, 0.0,
@@ -672,6 +731,7 @@ mod tests {
         );
         let (d, d_block) = Builder::tracked_sparse_block(&d_sp);
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let expected_1 = to_dynamic(&Matrix6::new(
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 2.0, 3.0, 4.0, 14.0, 0.0,
@@ -681,6 +741,7 @@ mod tests {
             0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
         ));
 
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let expected_2 = to_dynamic(&Matrix6::new(
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 2.0, 3.0, 4.0, 14.0, 0.0,
