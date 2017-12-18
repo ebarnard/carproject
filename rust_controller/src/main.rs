@@ -99,8 +99,6 @@ fn run_simulation<M: ControlModel>(
 
     let mut control: Vector<M::NI> = nalgebra::zero();
 
-    let true_params = Vector::<M::NP>::from_column_slice(sim_model.params());
-
     for i in 0..n_steps {
         // Run simulation
         let state = sim_model.step(dt, &prev_state, &M::u_to_control(&control));
@@ -134,8 +132,14 @@ fn run_simulation<M: ControlModel>(
         info!("State {:?}", state);
         info!("Control {:?}", M::u_to_control(&control));
 
-        let param_err = (&true_params - &params).norm();
-        history.record(i as float * dt, &state, &M::x_to_state(&predicted_state), param_err);
+        history.record(
+            i as float * dt,
+            &state,
+            &M::x_to_state(&predicted_state),
+            M::u_to_control(&control),
+            &params,
+            &state_estimator.param_covariance(),
+        );
 
         prev_state = state;
     }

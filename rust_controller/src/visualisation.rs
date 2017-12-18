@@ -1,11 +1,12 @@
 use gnuplot::{AxesCommon, Color, Figure};
+use itertools::Itertools;
+use nalgebra::{DefaultAllocator, DimName};
 
 use prelude::*;
-use controller::State as ControllerState;
+use controller::{Control, State as ControllerState};
 use simulation_model::State;
 use track::Track;
 
-#[derive(Default)]
 pub struct History {
     x: Vec<float>,
     y: Vec<float>,
@@ -16,8 +17,10 @@ pub struct History {
     y_error: Vec<float>,
     heading_error: Vec<float>,
     v_error: Vec<float>,
-    v_predicted: Vec<float>,
-    param_error: Vec<float>,
+    control: Vec<Control>,
+    np: Option<usize>,
+    params: Vec<float>,
+    param_var: Vec<float>,
 }
 
 impl History {
@@ -32,28 +35,31 @@ impl History {
             y_error: Vec::with_capacity(n),
             heading_error: Vec::with_capacity(n),
             v_error: Vec::with_capacity(n),
-            v_predicted: Vec::with_capacity(n),
-            param_error: Vec::with_capacity(n),
+            control: Vec::with_capacity(n),
+            np: None,
+            params: Vec::with_capacity(n),
+            param_var: Vec::with_capacity(n),
         }
     }
 
-    pub fn record(
+    pub fn record<NP: DimName>(
         &mut self,
         t: float,
         state: &State,
         controller_state: &ControllerState,
-        param_err: float,
-    ) {
+        control: Control,
+        params: &Vector<NP>,
+        param_cov: &Matrix<NP, NP>,
+    ) where
+        DefaultAllocator: Dims2<NP, NP>,
+    {
+        assert_eq!(NP::dim(), *self.np.get_or_insert_with(|| NP::dim()));
+
         self.t.push(t);
         let (x, y) = state.position;
         let v = float::hypot(state.velocity.0, state.velocity.1);
         self.x.push(x);
         self.y.push(y);
-        /*let heading = if self.heading.len() > 0 {
-            phase_unwrap(self.heading[0], state.heading)
-        } else {
-            state.heading
-        };*/
         self.heading.push(state.heading);
         self.v.push(v);
         let controller_v = float::hypot(controller_state.velocity.0, controller_state.velocity.1);
@@ -61,8 +67,9 @@ impl History {
         self.y_error.push(controller_state.position.1 - y);
         self.heading_error.push(controller_state.heading - state.heading);
         self.v_error.push(controller_v - v);
-        self.v_predicted.push(controller_v);
-        self.param_error.push(param_err);
+        self.control.push(control);
+        self.params.extend_from_slice(params.as_slice());
+        self.param_var.extend_from_slice(param_cov.diagonal().as_slice());
     }
 }
 
@@ -118,19 +125,45 @@ pub fn plot(track: &Track, history: &History) {
         ax.set_title("v error", &[]);
         ax.lines(&history.t, &history.v_error, &[]);
     }
-    // v predicted
+    // throttle
     {
         let ax = fg.axes2d();
         ax.set_pos_grid(3, 3, 7);
-        ax.set_title("v predicted", &[]);
-        ax.lines(&history.t, &history.v_predicted, &[]);
+        ax.set_title("throttle", &[]);
+        ax.lines(
+            &history.t,
+            history.control.iter().map(|c| c.throttle_position),
+            &[],
+        );
     }
-    // param error
+    // steering
     {
         let ax = fg.axes2d();
         ax.set_pos_grid(3, 3, 8);
-        ax.set_title("param error", &[]);
-        ax.lines(&history.t, &history.param_error, &[]);
+        ax.set_title("steering", &[]);
+        ax.lines(
+            &history.t,
+            history.control.iter().map(|c| c.steering_angle),
+            &[],
+        );
+    }
+    fg.show();
+
+    // Plot params and param covariances
+    let mut fg = Figure::new();
+    fg.set_terminal("qt", "");
+    let np = history.np.unwrap() as u32;
+    let ncols = (np as float).sqrt().ceil() as u32;
+    let nrows = 1 + (np - 1) / ncols;
+    for i in 0..np {
+        let ax = fg.axes2d();
+        ax.set_pos_grid(nrows, ncols, i);
+        ax.set_title(&format!("param {}", i), &[]);
+        let param = history.params.iter().skip(i as usize).step(np as usize);
+        let var = history.param_var.iter().skip(i as usize).step(np as usize);
+        ax.lines(&history.t, param.clone().zip(var.clone()).map(|(p, v)| p + v), &[Color("red")]);
+        ax.lines(&history.t, param.clone().zip(var).map(|(p, v)| p - v), &[Color("red")]);
+        ax.lines(&history.t, param, &[]);
     }
     fg.show();
 }

@@ -17,6 +17,8 @@ where
         measure: Option<Measurement>,
         p: &Vector<M::NP>,
     ) -> (Vector<M::NS>, Vector<M::NP>);
+
+    fn param_covariance(&self) -> Matrix<M::NP, M::NP>;
 }
 
 pub struct Measurement {

@@ -99,6 +99,10 @@ where
 
         (self.x_hat.clone(), p.clone())
     }
+
+    fn param_covariance(&self) -> Matrix<M::NP, M::NP> {
+        unimplemented!();
+    }
 }
 
 pub struct StateAndParameterEKF<M: ControlModel>
@@ -174,5 +178,9 @@ where
 
         let x_combined = self.inner.step(dt, u, measure, &nalgebra::zero()).0;
         CombineState::<M>::split_x(&x_combined)
+    }
+
+    fn param_covariance(&self) -> Matrix<M::NP, M::NP> {
+        self.inner.P.fixed_slice::<M::NP, M::NP>(M::NS::dim(), M::NS::dim()).into_owned()
     }
 }
