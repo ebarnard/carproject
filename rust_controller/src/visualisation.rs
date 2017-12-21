@@ -150,7 +150,7 @@ pub fn plot(track: &Track, history: &History) {
     }
     fg.show();
 
-    // Plot params and param covariances
+    // Plot params and param standard deviations
     let mut fg = Figure::new();
     fg.set_terminal("qt", "");
     let np = history.np.unwrap() as u32;
@@ -161,15 +161,21 @@ pub fn plot(track: &Track, history: &History) {
         ax.set_pos_grid(nrows, ncols, i);
         ax.set_title(&format!("param {}", i), &[]);
         let param = history.params.iter().skip(i as usize).step(np as usize);
-        let var = history.param_var.iter().skip(i as usize).step(np as usize);
+        let sd = history
+            .param_var
+            .iter()
+            .skip(i as usize)
+            .step(np as usize)
+            .cloned()
+            .map(float::sqrt);
         ax.lines(
             &history.t,
-            param.clone().zip(var.clone()).map(|(p, v)| p + v),
+            param.clone().zip(sd.clone()).map(|(p, v)| p + v),
             &[Color("red")],
         );
         ax.lines(
             &history.t,
-            param.clone().zip(var).map(|(p, v)| p - v),
+            param.clone().zip(sd).map(|(p, v)| p - v),
             &[Color("red")],
         );
         ax.lines(&history.t, param, &[]);
