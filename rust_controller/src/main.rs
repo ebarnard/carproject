@@ -29,7 +29,6 @@ mod visualisation;
 mod osqp;
 
 use nalgebra::{Vector3, Vector4, Vector6};
-use rand::distributions::normal::StandardNormal;
 use std::time::Instant;
 use std::panic::{self, AssertUnwindSafe};
 
@@ -117,12 +116,9 @@ fn run_simulation<M: ControlModel>(
         let mut measurement = state_estimator::Measurement::from_state(&state);
 
         // Add noise to measurement
-        let StandardNormal(x_noise) = rand::random();
-        let StandardNormal(y_noise) = rand::random();
-        let StandardNormal(heading_noise) = rand::random();
-        measurement.position.0 += x_noise * 0.002;
-        measurement.position.1 += y_noise * 0.002;
-        measurement.heading += heading_noise * 0.03;
+        measurement.position.0 += randn() * 0.002;
+        measurement.position.1 += randn() * 0.002;
+        measurement.heading += randn() * 0.03;
 
         // Start timer
         let start = Instant::now();

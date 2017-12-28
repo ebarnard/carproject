@@ -26,6 +26,13 @@ pub fn phase_unwrap(a: float, mut b: float) -> float {
     b
 }
 
+pub fn randn() -> float {
+    use rand;
+    use rand::distributions::normal::StandardNormal;
+    let StandardNormal(n) = rand::random();
+    n
+}
+
 pub type Matrix<R, C> = nalgebra::MatrixMN<float, R, C>;
 pub type Vector<N> = nalgebra::VectorN<float, N>;
 
