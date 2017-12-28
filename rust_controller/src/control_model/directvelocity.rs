@@ -3,7 +3,7 @@ use nalgebra::dimension::{U0, U2, U3};
 
 use prelude::*;
 use controller::State;
-use control_model::{ControlModel, SimulationControlModel};
+use control_model::ControlModel;
 
 pub struct DirectVelocity;
 
@@ -12,7 +12,7 @@ impl ControlModel for DirectVelocity {
     type NI = U2;
     type NP = U0;
 
-    fn state_equation(x: &Vector<U3>, u: &Vector<U2>, _p: &Vector<U0>) -> Vector<U3> {
+    fn state_equation(&self, x: &Vector<U3>, u: &Vector<U2>, _p: &Vector<U0>) -> Vector<U3> {
         let phi = x[2];
         let v = u[0];
         let delta = u[1];
@@ -27,6 +27,7 @@ impl ControlModel for DirectVelocity {
     }
 
     fn linearise(
+        &self,
         x0: &Vector<U3>,
         u0: &Vector<U2>,
         _p0: &Vector<U0>,
@@ -53,7 +54,7 @@ impl ControlModel for DirectVelocity {
         (A, B)
     }
 
-    fn linearise_nonzero_mask() -> (Matrix3<bool>, Matrix3x2<bool>) {
+    fn linearise_nonzero_mask(&self) -> (Matrix3<bool>, Matrix3x2<bool>) {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let A_mask = Matrix3::new(
             false, false, true,
@@ -72,6 +73,7 @@ impl ControlModel for DirectVelocity {
     }
 
     fn linearise_parameters(
+        &self,
         _x0: &Vector<U3>,
         _u0: &Vector<U2>,
         _p0: &Vector<U0>,
@@ -79,14 +81,14 @@ impl ControlModel for DirectVelocity {
         nalgebra::zero()
     }
 
-    fn x_from_state(state: &State) -> Vector<U3> {
+    fn x_from_state(&self, state: &State) -> Vector<U3> {
         let (x, y) = state.position;
         let phi = state.heading;
 
         Vector3::new(x, y, phi)
     }
 
-    fn x_to_state(x: &Vector<U3>) -> State {
+    fn x_to_state(&self, x: &Vector<U3>) -> State {
         State {
             position: (x[0], x[1]),
             heading: x[2],
@@ -94,15 +96,9 @@ impl ControlModel for DirectVelocity {
         }
     }
 
-    fn input_bounds() -> (Vector<U2>, Vector<U2>) {
+    fn input_bounds(&self) -> (Vector<U2>, Vector<U2>) {
         let min = Vector2::new(0.0, -2.0);
         let max = Vector2::new(10.0, 2.0);
         (min, max)
-    }
-}
-
-impl SimulationControlModel for DirectVelocity {
-    fn default_params() -> &'static [float] {
-        &[]
     }
 }

@@ -1,11 +1,10 @@
 use nalgebra::{self, DimAdd, DimSum, MatrixMN, U0};
-use std::marker::PhantomData;
 
 use prelude::*;
 use control_model::ControlModel;
 use controller::State;
 
-pub struct CombineState<M>(PhantomData<M>);
+pub struct CombineState<M>(pub M);
 
 impl<M: ControlModel> CombineState<M>
 where
@@ -13,6 +12,10 @@ where
     M::NS: DimAdd<M::NP>,
     DimSum<M::NS, M::NP>: DimName,
 {
+    pub fn from_ref(model: &M) -> &CombineState<M> {
+        unsafe { &*(model as *const M as *const CombineState<M>) }
+    }
+
     pub fn split_x(x: &Vector<<Self as ControlModel>::NS>) -> (Vector<M::NS>, Vector<M::NP>) {
         let model_x = x.fixed_rows::<M::NS>(0).into_owned();
         let model_p = x.fixed_rows::<M::NP>(M::NS::dim()).into_owned();
@@ -31,25 +34,27 @@ where
     type NP = U0;
 
     fn state_equation(
+        &self,
         x: &Vector<Self::NS>,
         u: &Vector<Self::NI>,
         _p: &Vector<Self::NP>,
     ) -> Vector<Self::NS> {
         let (model_x, model_p) = Self::split_x(x);
-        let x_dot = M::state_equation(&model_x, u, &model_p);
+        let x_dot = self.0.state_equation(&model_x, u, &model_p);
         let mut x_dot_combined: Vector<Self::NS> = nalgebra::zero();
         x_dot_combined.fixed_rows_mut::<M::NS>(0).copy_from(&x_dot);
         x_dot_combined
     }
 
     fn linearise(
+        &self,
         x0: &Vector<Self::NS>,
         u0: &Vector<Self::NI>,
         _p0: &Vector<Self::NP>,
     ) -> (Matrix<Self::NS, Self::NS>, Matrix<Self::NS, Self::NI>) {
         let (model_x, model_p) = Self::split_x(x0);
-        let (A, B) = M::linearise(&model_x, u0, &model_p);
-        let P = M::linearise_parameters(&model_x, u0, &model_p);
+        let (A, B) = self.0.linearise(&model_x, u0, &model_p);
+        let P = self.0.linearise_parameters(&model_x, u0, &model_p);
 
         let mut A_combined: Matrix<Self::NS, Self::NS> = nalgebra::zero();
         A_combined
@@ -67,12 +72,14 @@ where
         (A_combined, B_combined)
     }
 
-    fn linearise_nonzero_mask() -> (
+    fn linearise_nonzero_mask(
+        &self,
+    ) -> (
         MatrixMN<bool, Self::NS, Self::NS>,
         MatrixMN<bool, Self::NS, Self::NI>,
     ) {
-        let (A_mask, B_mask) = M::linearise_nonzero_mask();
-        let P_mask = M::linearise_parameters_sparsity();
+        let (A_mask, B_mask) = self.0.linearise_nonzero_mask();
+        let P_mask = self.0.linearise_parameters_sparsity();
 
         let mut A_combined = MatrixMN::<bool, Self::NS, Self::NS>::from_element(false);
         A_combined
@@ -91,6 +98,7 @@ where
     }
 
     fn linearise_parameters(
+        &self,
         _x0: &Vector<Self::NS>,
         _u0: &Vector<Self::NI>,
         _p0: &Vector<Self::NP>,
@@ -98,15 +106,15 @@ where
         nalgebra::zero()
     }
 
-    fn x_from_state(_state: &State) -> Vector<Self::NS> {
+    fn x_from_state(&self, _state: &State) -> Vector<Self::NS> {
         panic!("x_form_state cannot be called on a CombineState<M>")
     }
 
-    fn x_to_state(x: &Vector<Self::NS>) -> State {
-        M::x_to_state(&x.fixed_rows::<M::NS>(0).into_owned())
+    fn x_to_state(&self, x: &Vector<Self::NS>) -> State {
+        self.0.x_to_state(&x.fixed_rows::<M::NS>(0).into_owned())
     }
 
-    fn input_bounds() -> (Vector<Self::NI>, Vector<Self::NI>) {
-        M::input_bounds()
+    fn input_bounds(&self) -> (Vector<Self::NI>, Vector<Self::NI>) {
+        self.0.input_bounds()
     }
 }

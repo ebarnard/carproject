@@ -10,6 +10,7 @@ where
 {
     fn update(
         &mut self,
+        model: &M,
         dt: float,
         x0: &Vector<M::NS>,
         u: &Vector<M::NI>,

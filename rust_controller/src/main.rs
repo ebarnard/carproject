@@ -34,7 +34,7 @@ use std::panic::{self, AssertUnwindSafe};
 
 use prelude::*;
 use controller::Controller;
-use control_model::{ControlModel, SimulationControlModel, SpenglerGammeterBicycle};
+use control_model::{ControlModel};
 use simulation_model::{SimulationModel, State};
 use state_estimator::StateEstimator;
 use visualisation::History;
@@ -54,13 +54,15 @@ fn main() {
     flame_merge::write_flame();
 }
 
-type Model = SpenglerGammeterBicycle;
+type Model = control_model::SpenglerGammeterBicycle;
 
 fn run(track: &track::Track, history: &mut History) {
-    let mut controller = controller::MpcPosition::<Model>::new(50, &track);
+    let model = control_model::SpenglerGammeterBicycle;
+    let mut controller = controller::MpcPosition::<Model>::new(&model, 50, &track);
 
+    let params = Vector6::new(0.5, 2.0, 2.0, 1.5, 0.0, 0.0045);
     let delta_max = Vector6::new(1.0, 1.0, 1.0, 1.0, 0.0, 0.0) * 0.01;
-    let initial_params = Vector6::from_column_slice(Model::default_params()) + &delta_max * 50.0;
+    let initial_params = &params + &delta_max * 50.0;
 
     let Q = Matrix::from_diagonal(&Vector4::new(0.000005, 0.000005, 0.0005, 0.00001));
     let Q_params = Matrix::from_diagonal(&Vector6::new(0.05, 2.0, 0.5, 0.4, 0.0, 0.0));
@@ -75,7 +77,8 @@ fn run(track: &track::Track, history: &mut History) {
         90.0,
         0.01,
         state,
-        &mut SpenglerGammeterBicycle,
+        &mut simulation_model::SpenglerGammeterBicycle::new(params),
+        &model,
         &mut controller,
         initial_params,
         &mut state_estimator,
@@ -88,6 +91,7 @@ fn run_simulation<M: ControlModel>(
     dt: float,
     mut prev_state: State,
     sim_model: &mut SimulationModel,
+    model: &M,
     controller: &mut Controller<M>,
     mut params: Vector<M::NP>,
     state_estimator: &mut StateEstimator<M>,
@@ -102,7 +106,8 @@ fn run_simulation<M: ControlModel>(
 
     for i in 0..n_steps {
         // Run simulation
-        let state = sim_model.step(dt, &prev_state, &M::u_to_control(&control));
+        let ctrl = model.u_to_control(&control);
+        let state = sim_model.step(dt, &prev_state, &ctrl);
         let mut measurement = state_estimator::Measurement::from_state(&state);
 
         // Add noise to measurement
@@ -117,11 +122,12 @@ fn run_simulation<M: ControlModel>(
         let start = Instant::now();
 
         // Estimate state and params
-        let (predicted_state, p) = state_estimator.step(dt, &control, Some(measurement), &params);
+        let (predicted_state, p) =
+            state_estimator.step(model, dt, &control, Some(measurement), &params);
         params = p;
 
         // Run controller
-        let (ctrl, _) = controller.step(dt, &predicted_state, &params);
+        let (ctrl, _) = controller.step(model, dt, &predicted_state, &params);
         control = ctrl;
 
         // Stop timer
@@ -131,13 +137,13 @@ fn run_simulation<M: ControlModel>(
 
         info!("Controller took {} ms", millis);
         info!("State {:?}", state);
-        info!("Control {:?}", M::u_to_control(&control));
+        info!("Control {:?}", model.u_to_control(&control));
 
         history.record(
             i as float * dt,
             &state,
-            &M::x_to_state(&predicted_state),
-            M::u_to_control(&control),
+            &model.x_to_state(&predicted_state),
+            model.u_to_control(&control),
             &params,
             &state_estimator.param_covariance(),
         );

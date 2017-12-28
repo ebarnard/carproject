@@ -26,6 +26,7 @@ where
 {
     fn step(
         &mut self,
+        model: &M,
         dt: float,
         x: &Vector<M::NS>,
         p: &Vector<M::NP>,

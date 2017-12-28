@@ -12,6 +12,7 @@ where
 {
     fn step(
         &mut self,
+        model: &M,
         dt: float,
         u: &Vector<M::NI>,
         measure: Option<Measurement>,

@@ -22,7 +22,7 @@ impl<M: ControlModel> MpcPosition<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    pub fn new(N: u32, track: &Track) -> MpcPosition<M> {
+    pub fn new(model: &M, N: u32, track: &Track) -> MpcPosition<M> {
         let centreline = Centreline::from_track(track);
         let lookup = CentrelineLookup::from_centreline(&centreline);
 
@@ -40,12 +40,12 @@ where
 
         // Some components of A and B will always be zero and can be excluded from the sparse
         // constraint matrix
-        let (A_sparsity, B_sparsity) = M::linearise_nonzero_mask();
+        let (A_sparsity, B_sparsity) = model.linearise_nonzero_mask();
         let (A_d_sparsity, B_d_sparsity) = discretise_nonzero_mask(&A_sparsity, &B_sparsity);
 
         let mpc = flame::span_of("osqp mpc create", || {
             let mut mpc = OsqpMpc::new(N as usize, Q, R, &A_d_sparsity, &B_d_sparsity);
-            let (input_min, input_max) = M::input_bounds();
+            let (input_min, input_max) = model.input_bounds();
             mpc.set_input_bounds(input_min, input_max);
             mpc
         });
@@ -66,6 +66,7 @@ where
 {
     fn step(
         &mut self,
+        model: &M,
         dt: float,
         x: &Vector<M::NS>,
         p: &Vector<M::NP>,
@@ -88,11 +89,12 @@ where
             let u_i = self.u_mpc.column(i).into_owned();
 
             // Linearise model around x_i-1 and u_i
-            let (A_i_c, B_i_c) = flame::span_of("model linearise", || M::linearise(&x_i, &u_i, &p));
+            let (A_i_c, B_i_c) =
+                flame::span_of("model linearise", || model.linearise(&x_i, &u_i, &p));
             let (A_i, B_i) = flame::span_of("model discretise", || discretise(dt, &A_i_c, &B_i_c));
 
             // Update state using nonlinear model
-            x_i = flame::span_of("model integrate", || M::step(dt, &x_i, &u_i, &p));
+            x_i = flame::span_of("model integrate", || model.step(dt, &x_i, &u_i, &p));
 
             // Find centreline point
             centreline_distance += s_target;

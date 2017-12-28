@@ -43,6 +43,7 @@ where
 {
     fn step(
         &mut self,
+        model: &M,
         dt: float,
         u: &Vector<M::NI>,
         measure: Option<Measurement>,
@@ -63,10 +64,10 @@ where
         }
 
         // Predict
-        let (F_c, B_c) = M::linearise(&self.x_hat, &u, &p);
+        let (F_c, B_c) = model.linearise(&self.x_hat, &u, &p);
         let (F, _) = discretise(dt, &F_c, &B_c);
 
-        let x_predict = M::step(dt, &self.x_hat, &u, &p);
+        let x_predict = model.step(dt, &self.x_hat, &u, &p);
         let P_predict = &F * &self.P * F.transpose() + &self.Q;
 
         // Update
@@ -154,6 +155,7 @@ where
 {
     fn step(
         &mut self,
+        model: &M,
         dt: float,
         u: &Vector<M::NI>,
         measure: Option<Measurement>,
@@ -181,7 +183,15 @@ where
             return CombineState::<M>::split_x(&self.inner.x_hat);
         }
 
-        let x_combined = self.inner.step(dt, u, measure, &nalgebra::zero()).0;
+        let x_combined = self.inner
+            .step(
+                CombineState::from_ref(model),
+                dt,
+                u,
+                measure,
+                &nalgebra::zero(),
+            )
+            .0;
         CombineState::<M>::split_x(&x_combined)
     }
 

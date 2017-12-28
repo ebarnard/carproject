@@ -62,18 +62,19 @@ where
 
     pub fn record_observation(
         &mut self,
+        model: &M,
         dt: float,
         x0: &Vector<M::NS>,
         u0: &Vector<M::NI>,
         x: &Vector<M::NS>,
     ) {
         // Linearise and discretise the vehicle model around its parameters
-        let (A_c, _) = M::linearise(x0, u0, &self.params);
-        let P_c = M::linearise_parameters(x0, u0, &self.params);
+        let (A_c, _) = model.linearise(x0, u0, &self.params);
+        let P_c = model.linearise_parameters(x0, u0, &self.params);
         let (_, P) = discretise(dt, &A_c, &P_c);
 
         // Predict the current state using x0 and the current model parameters
-        let x_hat = M::step(dt, x0, u0, &self.params);
+        let x_hat = model.step(dt, x0, u0, &self.params);
 
         // State prediction error
         let e = x - x_hat;
@@ -128,6 +129,7 @@ where
 {
     fn update(
         &mut self,
+        model: &M,
         dt: float,
         x0: &Vector<M::NS>,
         u: &Vector<M::NI>,
@@ -135,7 +137,7 @@ where
     ) -> Vector<M::NP> {
         let _guard = flame::start_guard("parameter estimation");
 
-        self.record_observation(dt, x0, u, x);
+        self.record_observation(model, dt, x0, u, x);
         self.optimise().clone()
     }
 }
