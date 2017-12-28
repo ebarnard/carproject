@@ -21,6 +21,10 @@ where
     type NI: DimName;
     type NP: DimName;
 
+    fn new() -> Self
+    where
+        Self: Sized;
+
     fn step(
         &self,
         dt: float,

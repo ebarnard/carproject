@@ -33,6 +33,13 @@ where
     type NI = M::NI;
     type NP = U0;
 
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        panic!("ControlModel::new cannot be called on a CombineState<M>")
+    }
+
     fn state_equation(
         &self,
         x: &Vector<Self::NS>,

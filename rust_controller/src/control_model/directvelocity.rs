@@ -12,6 +12,13 @@ impl ControlModel for DirectVelocity {
     type NI = U2;
     type NP = U0;
 
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        DirectVelocity
+    }
+
     fn state_equation(&self, x: &Vector<U3>, u: &Vector<U2>, _p: &Vector<U0>) -> Vector<U3> {
         let phi = x[2];
         let v = u[0];

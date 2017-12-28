@@ -34,6 +34,13 @@ impl ControlModel for SpenglerGammeterBicycle {
     type NI = U2;
     type NP = U6;
 
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        SpenglerGammeterBicycle
+    }
+
     fn state_equation(&self, x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U6>) -> Vector<U4> {
         let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr2) =
             SpenglerGammeterBicycle::vals(x, u, p);

@@ -117,7 +117,7 @@ where
     DimSum<M::NS, M::NP>: DimName,
 {
     inner: EKF<CombineState<M>>,
-    Q_param_initial: Matrix<M::NP, M::NP>,
+    Q_initial_params: Matrix<M::NP, M::NP>,
 }
 
 impl<M: ControlModel> StateAndParameterEKF<M>
@@ -130,17 +130,18 @@ where
 {
     pub fn new(
         Q_state: Matrix<M::NS, M::NS>,
-        Q_param_initial: Matrix<M::NP, M::NP>,
+        Q_params: Matrix<M::NP, M::NP>,
+        Q_initial_params: Matrix<M::NP, M::NP>,
         R: Matrix<NM, NM>,
     ) -> StateAndParameterEKF<M> {
         let mut Q: Matrix<DimSum<M::NS, M::NP>, DimSum<M::NS, M::NP>> = nalgebra::zero();
         Q.fixed_slice_mut::<M::NS, M::NS>(0, 0).copy_from(&Q_state);
         Q.fixed_slice_mut::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
-            .copy_from(&(&Q_param_initial * 0.0001));
+            .copy_from(&Q_params);
 
         StateAndParameterEKF {
             inner: EKF::new(Q, R),
-            Q_param_initial,
+            Q_initial_params,
         }
     }
 }
@@ -175,7 +176,7 @@ where
                 self.inner
                     .P
                     .fixed_slice_mut::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
-                    .copy_from(&self.Q_param_initial);
+                    .copy_from(&self.Q_initial_params);
 
                 self.inner.initial = false;
             }

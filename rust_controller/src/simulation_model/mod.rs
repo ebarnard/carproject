@@ -1,3 +1,5 @@
+use config;
+
 use prelude::*;
 use controller::{Control, State as ControllerState};
 use control_model::{self, ControlModel};
@@ -20,26 +22,48 @@ impl State {
 }
 
 pub trait SimulationModel {
+    fn new(params: &[float]) -> Self
+    where
+        Self: Sized;
+
     fn step(&mut self, dt: float, state: &State, control: &Control) -> State;
 }
 
-macro_rules! simulation_control_model(
-    ($name:ident) => (
-        pub struct $name {
-            model: control_model::$name,
-            params: Vector<<control_model::$name as ControlModel>::NP>,
-        }
+pub fn model_from_config(config: &config::Simulator) -> Box<SimulationModel> {
+    let model = MODELS
+        .iter()
+        .find(|&&(n, _)| n == &config.model)
+        .expect("simulation model not found");
+    (model.1)(&config.params.clone())
+}
 
-        impl $name {
-            pub fn new(params: Vector<<control_model::$name as ControlModel>::NP>) -> Self {
-                $name {
-                    params,
-                    model: control_model::$name,
-                }
-            }
+static MODELS: &'static [(&'static str, fn(&[float]) -> Box<SimulationModel>)] = &[
+    ("direct_velocity", new::<DirectVelocity>),
+    ("spengler_gammeter_bicycle", new::<SpenglerGammeterBicycle>),
+];
+
+fn new<T: 'static + SimulationModel>(params: &[float]) -> Box<SimulationModel> {
+    Box::new(T::new(params))
+}
+
+macro_rules! simulation_control_model(
+    ($name:ident, $model:ty) => (
+        pub struct $name {
+            model: $model,
+            params: Vector<<$model as ControlModel>::NP>,
         }
 
         impl SimulationModel for $name {
+            fn new(params: &[float]) -> Self
+            where
+                Self: Sized
+            {
+                $name {
+                    params: Vector::<<$model as ControlModel>::NP>::from_column_slice(params),
+                    model: <$model as ControlModel>::new(),
+                }
+            }
+
             fn step(&mut self, dt: float, state: &State, control: &Control) -> State {
                 let x = self.model.x_from_state(&state.to_controller_state());
                 let u = self.model.u_from_control(control);
@@ -56,5 +80,8 @@ macro_rules! simulation_control_model(
     );
 );
 
-simulation_control_model!(DirectVelocity);
-simulation_control_model!(SpenglerGammeterBicycle);
+simulation_control_model!(DirectVelocity, control_model::DirectVelocity);
+simulation_control_model!(
+    SpenglerGammeterBicycle,
+    control_model::SpenglerGammeterBicycle
+);

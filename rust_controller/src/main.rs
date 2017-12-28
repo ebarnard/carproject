@@ -1,6 +1,7 @@
 // Ignore this lint otherwise many warnings are generated for common mathematical notation
 #![allow(non_snake_case)]
 
+extern crate config;
 extern crate csv;
 extern crate cubic_spline;
 extern crate env_logger;
@@ -34,7 +35,7 @@ use std::panic::{self, AssertUnwindSafe};
 
 use prelude::*;
 use controller::Controller;
-use control_model::{ControlModel};
+use control_model::ControlModel;
 use simulation_model::{SimulationModel, State};
 use state_estimator::StateEstimator;
 use visualisation::History;
@@ -42,10 +43,11 @@ use visualisation::History;
 fn main() {
     env_logger::init().expect("logger init failed");
 
-    let track = track::Track::load("data/tracks/3yp_track2500.csv");
+    let config = config::load();
+    let track = track::Track::load(&*config.track);
     let mut history = History::new(0);
 
-    if panic::catch_unwind(AssertUnwindSafe(|| run(&track, &mut history))).is_err() {
+    if panic::catch_unwind(AssertUnwindSafe(|| run(&config, &track, &mut history))).is_err() {
         error!("simulation failed");
     }
 
@@ -56,28 +58,32 @@ fn main() {
 
 type Model = control_model::SpenglerGammeterBicycle;
 
-fn run(track: &track::Track, history: &mut History) {
+fn run(config: &config::Config, track: &track::Track, history: &mut History) {
     let model = control_model::SpenglerGammeterBicycle;
+
     let mut controller = controller::MpcPosition::<Model>::new(&model, 50, &track);
 
-    let params = Vector6::new(0.5, 2.0, 2.0, 1.5, 0.0, 0.0045);
-    let delta_max = Vector6::new(1.0, 1.0, 1.0, 1.0, 0.0, 0.0) * 0.01;
-    let initial_params = &params + &delta_max * 50.0;
+    let initial_params = Vector6::from_column_slice(&config.controller.initial_params);
+    let Q_state = Matrix::from_diagonal(&Vector4::from_column_slice(&config.controller.Q_state));
+    let Q_initial_params = Matrix::from_diagonal(&Vector6::from_column_slice(
+        &config.controller.Q_initial_params,
+    ));
+    let Q_params = &Q_initial_params * config.controller.Q_params_multiplier;
+    let R = Matrix::from_diagonal(&Vector3::from_column_slice(&config.controller.R));
 
-    let Q = Matrix::from_diagonal(&Vector4::new(0.000005, 0.000005, 0.0005, 0.00001));
-    let Q_params = Matrix::from_diagonal(&Vector6::new(0.05, 2.0, 0.5, 0.4, 0.0, 0.0));
-    let R = Matrix::from_diagonal(&Vector3::new(0.000004, 0.000004, 0.0009));
-
-    let mut state_estimator = state_estimator::StateAndParameterEKF::<Model>::new(Q, Q_params, R);
+    let mut state_estimator =
+        state_estimator::StateAndParameterEKF::<Model>::new(Q_state, Q_params, Q_initial_params, R);
 
     let mut state = State::default();
     state.position = (track.x[0], track.y[0]);
 
+    let mut sim_model = simulation_model::model_from_config(&config.simulator);
+
     run_simulation(
-        90.0,
-        0.01,
+        config.t,
+        config.dt,
         state,
-        &mut simulation_model::SpenglerGammeterBicycle::new(params),
+        &mut *sim_model,
         &model,
         &mut controller,
         initial_params,

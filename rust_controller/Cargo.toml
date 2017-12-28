@@ -18,6 +18,7 @@ env_logger = "0.4.3"
 streaming-stats = "0.1.28"
 cubic_spline = { path = "cubic_spline" }
 sparse = { path = "sparse" }
+config = { path = "config" }
 rand = "0.3.18"
 
 [profile.release]
