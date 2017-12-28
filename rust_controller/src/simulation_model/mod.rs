@@ -30,11 +30,11 @@ pub trait SimulationModel {
 }
 
 pub fn model_from_config(config: &config::Simulator) -> Box<SimulationModel> {
-    let model = MODELS
+    MODELS
         .iter()
-        .find(|&&(n, _)| n == &config.model)
-        .expect("simulation model not found");
-    (model.1)(&config.params.clone())
+        .find(|m| m.0 == &config.model)
+        .expect("simulation model not found")
+        .1(&config.params)
 }
 
 static MODELS: &'static [(&'static str, fn(&[float]) -> Box<SimulationModel>)] = &[
