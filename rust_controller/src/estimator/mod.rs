@@ -6,7 +6,9 @@ mod ekf;
 pub use self::ekf::EKF;
 pub use self::ekf::JointEKF;
 
-pub trait StateEstimator<M: ControlModel>
+mod param_least_squares;
+
+pub trait Estimator<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {

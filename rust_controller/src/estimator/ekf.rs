@@ -3,7 +3,7 @@ use nalgebra::linalg::Cholesky;
 
 use prelude::*;
 use control_model::{discretise, CombineState, ControlModel};
-use state_estimator::{Measurement, StateEstimator};
+use estimator::{Estimator, Measurement};
 
 type NM = U3;
 
@@ -37,7 +37,7 @@ where
     }
 }
 
-impl<M: ControlModel> StateEstimator<M> for EKF<M>
+impl<M: ControlModel> Estimator<M> for EKF<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP> + Dims2<NM, M::NS>,
 {
@@ -146,7 +146,7 @@ where
     }
 }
 
-impl<M: ControlModel> StateEstimator<M> for JointEKF<M>
+impl<M: ControlModel> Estimator<M> for JointEKF<M>
 where
     DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
         + Dims3<M::NS, M::NI, M::NP>

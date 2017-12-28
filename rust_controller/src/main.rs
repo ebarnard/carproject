@@ -19,11 +19,10 @@ extern crate stats;
 mod prelude;
 mod control_model;
 mod controller;
+mod estimator;
 mod flame_merge;
-mod param_estimator;
 mod odeint;
 mod simulation_model;
-mod state_estimator;
 mod track;
 mod visualisation;
 mod osqp;
@@ -36,7 +35,7 @@ use prelude::*;
 use controller::Controller;
 use control_model::ControlModel;
 use simulation_model::{SimulationModel, State};
-use state_estimator::{JointEKF, StateEstimator};
+use estimator::{Estimator, JointEKF, Measurement};
 use visualisation::History;
 
 fn main() {
@@ -98,7 +97,7 @@ fn run_simulation<M: ControlModel>(
     model: &M,
     controller: &mut Controller<M>,
     mut params: Vector<M::NP>,
-    state_estimator: &mut StateEstimator<M>,
+    estimator: &mut Estimator<M>,
     history: &mut History,
 ) where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
@@ -112,7 +111,7 @@ fn run_simulation<M: ControlModel>(
         // Run simulation
         let ctrl = model.u_to_control(&control);
         let state = sim_model.step(dt, &prev_state, &ctrl);
-        let mut measurement = state_estimator::Measurement::from_state(&state);
+        let mut measurement = Measurement::from_state(&state);
 
         // Add noise to measurement
         measurement.position.0 += randn() * 0.002;
@@ -123,8 +122,7 @@ fn run_simulation<M: ControlModel>(
         let start = Instant::now();
 
         // Estimate state and params
-        let (predicted_state, p) =
-            state_estimator.step(model, dt, &control, Some(measurement), &params);
+        let (predicted_state, p) = estimator.step(model, dt, &control, Some(measurement), &params);
         params = p;
 
         // Run controller
@@ -146,7 +144,7 @@ fn run_simulation<M: ControlModel>(
             &model.x_to_state(&predicted_state),
             model.u_to_control(&control),
             &params,
-            &state_estimator.param_covariance(),
+            &estimator.param_covariance(),
         );
 
         prev_state = state;

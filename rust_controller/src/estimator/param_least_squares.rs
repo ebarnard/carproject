@@ -1,4 +1,3 @@
-use flame;
 use log::LogLevel::Debug;
 use nalgebra::{self, MatrixMN};
 use osqp::{Settings, Workspace};
@@ -6,9 +5,8 @@ use sparse;
 
 use prelude::*;
 use control_model::{discretise, ControlModel};
-use param_estimator::ParamEstimator;
 
-pub struct FixedHorizon<M: ControlModel>
+pub struct ParamLeastSquares<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
@@ -25,11 +23,11 @@ where
     N: u32,
 }
 
-impl<M: ControlModel> FixedHorizon<M>
+impl<M: ControlModel> ParamLeastSquares<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    pub fn new(delta_p_max: Vector<M::NP>, params: Vector<M::NP>) -> FixedHorizon<M> {
+    pub fn new(delta_p_max: Vector<M::NP>, params: Vector<M::NP>) -> ParamLeastSquares<M> {
         // TODO: Choose this more carefully based on parameter scales.
         let Q = Matrix::<M::NS, M::NS>::identity();
 
@@ -48,7 +46,7 @@ where
 
         let workspace = Workspace::new(&P_sparse, f.as_slice(), &A, l, u, &settings);
 
-        FixedHorizon {
+        ParamLeastSquares {
             workspace,
             params,
             Q,
@@ -96,7 +94,7 @@ where
         self.f *= 1.0 / self.N as float;
 
         // TODO: Do we want a guassian prior on p_k-1?
-        //self.P += 0.1 * ::nalgebra::MatrixMN::<float, M::NP, M::NP>::identity();
+        self.P += 0.5 * MatrixMN::<float, M::NP, M::NP>::identity();
 
         // Update sparse representation of P
         self.P_sparse.set_block(&self.P_block, &self.P);
@@ -120,24 +118,5 @@ where
         debug!("new params: {}", self.params);
 
         &self.params
-    }
-}
-
-impl<M: ControlModel> ParamEstimator<M> for FixedHorizon<M>
-where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
-{
-    fn update(
-        &mut self,
-        model: &M,
-        dt: float,
-        x0: &Vector<M::NS>,
-        u: &Vector<M::NI>,
-        x: &Vector<M::NS>,
-    ) -> Vector<M::NP> {
-        let _guard = flame::start_guard("parameter estimation");
-
-        self.record_observation(model, dt, x0, u, x);
-        self.optimise().clone()
     }
 }
