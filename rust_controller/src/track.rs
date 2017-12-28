@@ -23,11 +23,11 @@ impl Track {
         let mut reader = csv::Reader::from_path(path).expect("Unable to open track");
         for row in reader.deserialize() {
             let (x, y, dx, dy): (float, float, float, float) = row.expect("Error reading track");
-            track.x.push(x * 0.04);
-            track.y.push(y * 0.04);
-            track.dx.push(dx * 0.04);
-            track.dy.push(dy * 0.04);
-            debug!("row {} {}", x * 0.04, y * 0.04);
+            track.x.push(x);
+            track.y.push(y);
+            track.dx.push(dx);
+            track.dy.push(dy);
+            debug!("row {} {}", x, y);
         }
         track
     }
