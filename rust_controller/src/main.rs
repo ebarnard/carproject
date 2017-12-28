@@ -36,7 +36,7 @@ use prelude::*;
 use controller::Controller;
 use control_model::ControlModel;
 use simulation_model::{SimulationModel, State};
-use state_estimator::StateEstimator;
+use state_estimator::{JointEKF, StateEstimator};
 use visualisation::History;
 
 fn main() {
@@ -70,8 +70,7 @@ fn run(config: &config::Config, track: &track::Track, history: &mut History) {
     let Q_params = &Q_initial_params * config.controller.Q_params_multiplier;
     let R = Matrix::from_diagonal(&Vector3::from_column_slice(&config.controller.R));
 
-    let mut state_estimator =
-        state_estimator::StateAndParameterEKF::<Model>::new(Q_state, Q_params, Q_initial_params, R);
+    let mut state_estimator = JointEKF::<Model>::new(Q_state, Q_params, Q_initial_params, R);
 
     let mut state = State::default();
     state.position = (track.x[0], track.y[0]);

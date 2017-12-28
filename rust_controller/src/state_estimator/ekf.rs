@@ -108,7 +108,7 @@ where
     }
 }
 
-pub struct StateAndParameterEKF<M: ControlModel>
+pub struct JointEKF<M: ControlModel>
 where
     DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
         + Dims3<M::NS, M::NI, M::NP>
@@ -120,7 +120,7 @@ where
     Q_initial_params: Matrix<M::NP, M::NP>,
 }
 
-impl<M: ControlModel> StateAndParameterEKF<M>
+impl<M: ControlModel> JointEKF<M>
 where
     DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
         + Dims3<M::NS, M::NI, M::NP>
@@ -133,20 +133,20 @@ where
         Q_params: Matrix<M::NP, M::NP>,
         Q_initial_params: Matrix<M::NP, M::NP>,
         R: Matrix<NM, NM>,
-    ) -> StateAndParameterEKF<M> {
+    ) -> JointEKF<M> {
         let mut Q: Matrix<DimSum<M::NS, M::NP>, DimSum<M::NS, M::NP>> = nalgebra::zero();
         Q.fixed_slice_mut::<M::NS, M::NS>(0, 0).copy_from(&Q_state);
         Q.fixed_slice_mut::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
             .copy_from(&Q_params);
 
-        StateAndParameterEKF {
+        JointEKF {
             inner: EKF::new(Q, R),
             Q_initial_params,
         }
     }
 }
 
-impl<M: ControlModel> StateEstimator<M> for StateAndParameterEKF<M>
+impl<M: ControlModel> StateEstimator<M> for JointEKF<M>
 where
     DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
         + Dims3<M::NS, M::NI, M::NP>

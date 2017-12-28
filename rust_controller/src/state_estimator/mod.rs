@@ -4,7 +4,7 @@ use simulation_model::State;
 
 mod ekf;
 pub use self::ekf::EKF;
-pub use self::ekf::StateAndParameterEKF;
+pub use self::ekf::JointEKF;
 
 pub trait StateEstimator<M: ControlModel>
 where
