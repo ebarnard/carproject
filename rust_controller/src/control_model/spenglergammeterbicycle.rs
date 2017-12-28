@@ -89,7 +89,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         (A, B)
     }
 
-    fn linearise_nonzero_mask(&self) -> (Matrix4<bool>, Matrix4x2<bool>) {
+    fn linearise_sparsity(&self) -> (Matrix4<bool>, Matrix4x2<bool>) {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let A_mask = Matrix4::new(
             false, false, true, true,

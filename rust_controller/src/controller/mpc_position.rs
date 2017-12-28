@@ -4,7 +4,7 @@ use nalgebra::{self, Dynamic, MatrixMN};
 
 use prelude::*;
 use controller::{Controller, OsqpMpc};
-use control_model::{discretise, discretise_nonzero_mask, ControlModel};
+use control_model::{discretise, discretise_sparsity, ControlModel};
 use track::{Centreline, CentrelineLookup, Track};
 
 pub struct MpcPosition<M: ControlModel>
@@ -40,8 +40,8 @@ where
 
         // Some components of A and B will always be zero and can be excluded from the sparse
         // constraint matrix
-        let (A_sparsity, B_sparsity) = model.linearise_nonzero_mask();
-        let (A_d_sparsity, B_d_sparsity) = discretise_nonzero_mask(&A_sparsity, &B_sparsity);
+        let (A_sparsity, B_sparsity) = model.linearise_sparsity();
+        let (A_d_sparsity, B_d_sparsity) = discretise_sparsity(&A_sparsity, &B_sparsity);
 
         let mpc = flame::span_of("osqp mpc create", || {
             let mut mpc = OsqpMpc::new(N as usize, Q, R, &A_d_sparsity, &B_d_sparsity);

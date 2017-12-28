@@ -52,7 +52,7 @@ where
     ) -> (Matrix<Self::NS, Self::NS>, Matrix<Self::NS, Self::NI>);
 
     /// Returns two boolean matrices with true everywhere A and B could contain a non-zero value
-    fn linearise_nonzero_mask(
+    fn linearise_sparsity(
         &self,
     ) -> (
         MatrixMN<bool, Self::NS, Self::NS>,
@@ -114,7 +114,7 @@ where
     (A_d, B_d)
 }
 
-pub fn discretise_nonzero_mask<NS: DimName, NI: DimName>(
+pub fn discretise_sparsity<NS: DimName, NI: DimName>(
     A: &MatrixMN<bool, NS, NS>,
     B: &MatrixMN<bool, NS, NI>,
 ) -> (MatrixMN<bool, NS, NS>, MatrixMN<bool, NS, NI>)

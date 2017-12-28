@@ -61,7 +61,7 @@ impl ControlModel for DirectVelocity {
         (A, B)
     }
 
-    fn linearise_nonzero_mask(&self) -> (Matrix3<bool>, Matrix3x2<bool>) {
+    fn linearise_sparsity(&self) -> (Matrix3<bool>, Matrix3x2<bool>) {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let A_mask = Matrix3::new(
             false, false, true,

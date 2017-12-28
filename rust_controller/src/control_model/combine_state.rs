@@ -79,13 +79,13 @@ where
         (A_combined, B_combined)
     }
 
-    fn linearise_nonzero_mask(
+    fn linearise_sparsity(
         &self,
     ) -> (
         MatrixMN<bool, Self::NS, Self::NS>,
         MatrixMN<bool, Self::NS, Self::NI>,
     ) {
-        let (A_mask, B_mask) = self.0.linearise_nonzero_mask();
+        let (A_mask, B_mask) = self.0.linearise_sparsity();
         let P_mask = self.0.linearise_parameters_sparsity();
 
         let mut A_combined = MatrixMN::<bool, Self::NS, Self::NS>::from_element(false);
