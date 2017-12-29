@@ -89,9 +89,8 @@ where
             let u_i = self.u_mpc.column(i).into_owned();
 
             // Linearise model around x_i-1 and u_i
-            let (A_i_c, B_i_c) =
-                flame::span_of("model linearise", || model.linearise(&x_i, &u_i, &p));
-            let (A_i, B_i) = flame::span_of("model discretise", || discretise(dt, &A_i_c, &B_i_c));
+            let (A_c, B_c) = flame::span_of("model linearise", || model.linearise(&x_i, &u_i, &p));
+            let (A, B) = flame::span_of("model discretise", || discretise(dt, &A_c, &B_c));
 
             // Update state using nonlinear model
             x_i = flame::span_of("model integrate", || model.step(dt, &x_i, &u_i, &p));
@@ -124,7 +123,8 @@ where
 
             // Give the values to the builder
             flame::span_of("update mpc matrices", || {
-                self.mpc.set_model(i, &A_i, &B_i, &x_i, &u_i, &x_target)
+                self.mpc
+                    .set_model(i, &A, &B, &x_i, &u_i, &x_target, &nalgebra::zero())
             });
         }
         guard.end();

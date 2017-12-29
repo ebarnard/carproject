@@ -149,9 +149,9 @@ where
         x0: &Vector<NS>,
         u0: &Vector<NI>,
         x_target: &Vector<NS>,
+        x_linear_penalty: &Vector<NS>,
     ) {
         assert!(i < self.N);
-        let i = i as usize;
 
         if i > 0 {
             let A_block = &self.A_blocks[i - 1];
@@ -163,26 +163,22 @@ where
 
         let ns = NS::dim();
         let ni = NI::dim();
-        let N = self.N as usize;
 
         // Linear state penalty
-        self.q
-            .rows_mut(i * ns, ns)
-            .copy_from(&(&self.Q_stage * (x0 - x_target)));
+        let q = &self.Q_stage * (x0 - x_target) + x_linear_penalty;
+        self.q.rows_mut(i * ns, ns).copy_from(&q);
 
         // Calulcate lower and upper bounds
-        let u_min = self.u_delta_min
-            .zip_map(&(&self.u_min - u0), |a, b| max(a, b));
-        let u_max = self.u_delta_max
-            .zip_map(&(&self.u_max - u0), |a, b| min(a, b));
+        let u_min = self.u_delta_min.zip_map(&(&self.u_min - u0), max);
+        let u_max = self.u_delta_max.zip_map(&(&self.u_max - u0), min);
 
-        let intput_bounds_start = N * ns + i * ni;
-        self.l.rows_mut(intput_bounds_start, ni).copy_from(&u_min);
-        self.u.rows_mut(intput_bounds_start, ni).copy_from(&u_max);
+        let u_bounds_start = self.N * ns + i * ni;
+        self.l.rows_mut(u_bounds_start, ni).copy_from(&u_min);
+        self.u.rows_mut(u_bounds_start, ni).copy_from(&u_max);
 
         // Save x0 and u0
-        self.x_mpc.column_mut(i).copy_from(&x0);
-        self.u_mpc.column_mut(i).copy_from(&u0);
+        self.x_mpc.column_mut(i).copy_from(x0);
+        self.u_mpc.column_mut(i).copy_from(u0);
     }
 
     pub fn solve(&mut self) -> Solution<NS, NI> {
