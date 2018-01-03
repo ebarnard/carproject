@@ -1,5 +1,6 @@
 use csv;
 use kdtree::kdtree::{Kdtree, KdtreePointTrait};
+use nalgebra::{Matrix2, U2, LU};
 use std::path::Path;
 
 use prelude::*;
@@ -40,6 +41,7 @@ pub struct Centreline {
     x_spline: CubicSpline,
     y_spline: CubicSpline,
     widths: Vec<float>,
+    dt_ds: float,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -48,11 +50,15 @@ pub struct CentrelinePoint {
     pub y: float,
     pub dx_ds: float,
     pub dy_ds: float,
+    pub dx_ds2: float,
+    pub dy_ds2: float,
     pub track_width: float,
-    pub kappa: float,
 }
 
 impl Centreline {
+    /// Creates a spline track model from a given track.
+    ///
+    /// Panics if track points are not equally spaced.
     pub fn from_track(track: &Track) -> Centreline {
         let n = track.x.len();
 
@@ -68,14 +74,18 @@ impl Centreline {
         let x0 = x_spline.evaluate(0.0).0;
         let y0 = y_spline.evaluate(0.0).0;
 
-        let cumulative_distance: Vec<_> = (0..n)
+        let ds_dt: Vec<_> = (0..n)
             .map(|i| (i + 1) as float)
-            .map(|s| (x_spline.evaluate(s).0, y_spline.evaluate(s).0))
+            .map(|t| (x_spline.evaluate(t).0, y_spline.evaluate(t).0))
             .scan((x0, y0), |acc, (x, y)| {
                 let ds = float::hypot(x - acc.0, y - acc.1);
                 *acc = (x, y);
                 Some(ds)
             })
+            .collect();
+
+        let cumulative_distance: Vec<_> = ds_dt
+            .iter()
             .scan(0.0, |s, ds| {
                 *s += ds;
                 Some(*s)
@@ -84,13 +94,26 @@ impl Centreline {
 
         let total_distance = cumulative_distance[n - 1];
 
-        Centreline {
+        let centreline = Centreline {
             total_distance,
             cumulative_distance,
             x_spline,
             y_spline,
             widths,
+            dt_ds: n as float / ds_dt.iter().sum::<float>(),
+        };
+
+        // TODO: Combine this check with ds_dt calculation.
+        for &s in &centreline.cumulative_distance {
+            let p = centreline.nearest_point(s);
+            let d = float::hypot(p.dx_ds, p.dy_ds);
+            assert!(
+                (d - 1.0).abs() < 1e05,
+                "track points are not equally spaced"
+            );
         }
+
+        centreline
     }
 
     pub fn nearest_point(&self, s: float) -> CentrelinePoint {
@@ -108,29 +131,54 @@ impl Centreline {
 
         let t = i as float + (s - s_segment_start) / (s_segment_end - s_segment_start);
 
-        let (x, dx, dx2) = self.x_spline.evaluate(t);
-        let (y, dy, dy2) = self.y_spline.evaluate(t);
-
-        let kappa_num = dx * dy2 - dy * dx2;
-        let kappa_denom = dx * dx + dy * dy;
-        let kappa_denom = kappa_denom * kappa_denom.sqrt();
-        let kappa = kappa_num / kappa_denom;
+        let (x, dx_dt, dx_dt2) = self.x_spline.evaluate(t);
+        let (y, dy_dt, dy_dt2) = self.y_spline.evaluate(t);
 
         let point = CentrelinePoint {
             x,
             y,
-            // TODO: Fix _ds magnitude
-            // dx_ds = dx_dt * dt_ds
-            // dt_ds = 1 / spacing
-            dx_ds: dx,
-            dy_ds: dy,
+            dx_ds: dx_dt * self.dt_ds,
+            dy_ds: dy_dt * self.dt_ds,
+            dx_ds2: dx_dt2 * self.dt_ds * self.dt_ds,
+            dy_ds2: dy_dt2 * self.dt_ds * self.dt_ds,
             track_width: self.widths[i],
-            kappa,
         };
 
         debug!("centreline point at s={} x={} y={}", s, point.x, point.y);
 
         point
+    }
+}
+
+impl CentrelinePoint {
+    /// Returns the perpendicular distance from the track centreline.
+    /// Right-handed (90deg anticlockwise) positive.
+    pub fn a(&self, x: float, y: float) -> float {
+        // The sign on a is calculated using a dot product of the normal gradient and the
+        // centreline error.
+        let x_normal = x - self.x;
+        let y_normal = y - self.y;
+        let a_sign = (x_normal * -self.dy_ds + y_normal * self.dx_ds).signum();
+        a_sign * float::hypot(x_normal, y_normal)
+    }
+
+    /// Returns the jacobian of the track parameterisation evalualted at (s, a).
+    /// [delta_s, delta_a]' = J * [delta_x, delta_y]'
+    pub fn jacobian(&self, a: float) -> Matrix<U2, U2> {
+        let dx_ds = self.dx_ds;
+        let dy_ds = self.dy_ds;
+        let dx_ds2 = self.dx_ds2;
+        let dy_ds2 = self.dy_ds2;
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        let J_inv = Matrix2::new(
+            dx_ds - a * dy_ds2, -dy_ds,
+            dy_ds + a * dx_ds2, dx_ds,
+        );
+
+        LU::new(J_inv)
+            .try_inverse()
+            .expect("jacobian must be invertible")
     }
 }
 
