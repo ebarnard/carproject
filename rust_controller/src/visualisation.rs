@@ -75,61 +75,88 @@ impl History {
 }
 
 pub fn plot(track: &Track, history: &History) {
+    // Plot position
     let mut fg = Figure::new();
     fg.set_terminal("qt", "");
-    // Position
     {
+        let mut x_min = Vec::with_capacity(track.x.len());
+        let mut y_min = Vec::with_capacity(track.y.len());
+        let mut x_max = Vec::with_capacity(track.x.len());
+        let mut y_max = Vec::with_capacity(track.y.len());
+
+        for i in 0..track.x.len() {
+            x_min.push(track.x[i] - track.dx[i] / 2.0);
+            y_min.push(track.y[i] - track.dy[i] / 2.0);
+            x_max.push(track.x[i] + track.dx[i] / 2.0);
+            y_max.push(track.y[i] + track.dy[i] / 2.0);
+        }
+
         let ax = fg.axes2d();
-        ax.set_pos_grid(3, 3, 0);
-        ax.lines(&track.x, &track.y, &[Color("green")]);
+        ax.lines(&x_min, &y_min, &[Color("green")]);
+        ax.lines(&x_max, &y_max, &[Color("green")]);
         ax.lines(&history.x, &history.y, &[Color("black")]);
     }
+    fg.show();
+
+    // Plot state and state errors
+    let nrows = 3;
+    let ncols = 3;
+    let mut i = 0;
+    let mut fg = Figure::new();
+    fg.set_terminal("qt", "");
     // Speed
     {
         let ax = fg.axes2d();
-        ax.set_pos_grid(3, 3, 1);
+        ax.set_pos_grid(nrows, ncols, i);
+        i += 1;
         ax.set_title("v", &[]);
         ax.lines(&history.t, &history.v, &[]);
     }
     // Heading
     {
         let ax = fg.axes2d();
-        ax.set_pos_grid(3, 3, 2);
+        ax.set_pos_grid(nrows, ncols, i);
+        i += 1;
         ax.set_title("heading", &[]);
         ax.lines(&history.t, &history.heading, &[]);
     }
     // X error
     {
         let ax = fg.axes2d();
-        ax.set_pos_grid(3, 3, 3);
+        ax.set_pos_grid(nrows, ncols, i);
+        i += 1;
         ax.set_title("x error", &[]);
         ax.lines(&history.t, &history.x_error, &[]);
     }
     // Y error
     {
         let ax = fg.axes2d();
-        ax.set_pos_grid(3, 3, 4);
+        ax.set_pos_grid(nrows, ncols, i);
+        i += 1;
         ax.set_title("y error", &[]);
         ax.lines(&history.t, &history.y_error, &[]);
     }
     // heading error
     {
         let ax = fg.axes2d();
-        ax.set_pos_grid(3, 3, 5);
+        ax.set_pos_grid(nrows, ncols, i);
+        i += 1;
         ax.set_title("heading error", &[]);
         ax.lines(&history.t, &history.heading_error, &[]);
     }
     // v error
     {
         let ax = fg.axes2d();
-        ax.set_pos_grid(3, 3, 6);
+        ax.set_pos_grid(nrows, ncols, i);
+        i += 1;
         ax.set_title("v error", &[]);
         ax.lines(&history.t, &history.v_error, &[]);
     }
     // throttle
     {
         let ax = fg.axes2d();
-        ax.set_pos_grid(3, 3, 7);
+        ax.set_pos_grid(nrows, ncols, i);
+        i += 1;
         ax.set_title("throttle", &[]);
         ax.lines(
             &history.t,
@@ -140,7 +167,7 @@ pub fn plot(track: &Track, history: &History) {
     // steering
     {
         let ax = fg.axes2d();
-        ax.set_pos_grid(3, 3, 8);
+        ax.set_pos_grid(nrows, ncols, i);
         ax.set_title("steering", &[]);
         ax.lines(
             &history.t,
