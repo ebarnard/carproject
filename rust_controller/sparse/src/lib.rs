@@ -7,7 +7,7 @@ use nalgebra::allocator::Allocator;
 use std::convert::AsRef;
 use std::marker::PhantomData;
 use std::mem;
-use std::ops::{Add, Neg};
+use std::ops::{Add, Mul, Neg};
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 
 #[allow(non_camel_case_types)]
@@ -20,7 +20,7 @@ pub struct TrackedBlock<M, N> {
     phantom: PhantomData<(M, N)>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Builder {
     tracked_blocks: Vec<(usize, usize, usize, MatrixMN<bool, Dy, Dy>)>,
     coords: Vec<(usize, usize, float)>,
@@ -263,6 +263,26 @@ impl<'a, 'b> Add<&'b Builder> for &'a Builder {
 
     fn add(self, other: &'b Builder) -> Builder {
         add(&[self, other])
+    }
+}
+
+impl Mul<float> for Builder {
+    type Output = Builder;
+
+    fn mul(mut self, other: float) -> Builder {
+        for &mut (_, _, ref mut val) in &mut self.coords {
+            *val = other * (*val);
+        }
+        self
+    }
+}
+
+impl<'a> Mul<float> for &'a Builder {
+    type Output = Builder;
+
+    fn mul(self, other: float) -> Builder {
+        let cloned: Builder = self.clone();
+        cloned * other
     }
 }
 
@@ -617,6 +637,25 @@ mod tests {
         );
 
         Builder::block(&a) + Builder::block(&b);
+    }
+
+    #[test]
+    fn mul_f64() {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        let a = Matrix3::new(
+            14.0, 0.0, 9.0,
+            0.0, 0.0, 0.0,
+            1.0, 0.0, 7.0,
+        );
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        let expected = Matrix3::new(
+            42.0, 0.0, 27.0,
+            0.0, 0.0, 0.0,
+            3.0, 0.0, 21.0,
+        );
+
+        assert_eq!(expected, a * 3.0);
     }
 
     #[test]
