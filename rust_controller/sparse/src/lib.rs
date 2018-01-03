@@ -538,20 +538,32 @@ impl CSCMatrix {
         assert_eq!(block.nrows, nrows);
         assert_eq!(block.ncols, ncols);
 
-        let tracked_block_index = self.tracked_blocks
+        let start_idx = self.tracked_blocks
             .binary_search_by(|&(id, _)| id.cmp(&block.id));
-        let tracked_block_index = tracked_block_index.expect("Block not in this matrix");
-        let &(_, ref indices) = &self.tracked_blocks[tracked_block_index];
+        let mut start_idx = start_idx.expect("Block not in this matrix");
 
-        for (index, &val) in indices.iter().zip(value.iter()) {
-            if let &Some(index) = index {
-                self.data[index] = val;
-            } else {
-                assert_eq!(
-                    0.0,
-                    val,
-                    "unexpected non-zero element in sparse tracked block"
-                );
+        for i in (0..start_idx).rev() {
+            if self.tracked_blocks[i].0 != block.id {
+                break;
+            }
+            start_idx = i;
+        }
+
+        for i in start_idx..self.tracked_blocks.len() {
+            let &(id, ref indices) = &self.tracked_blocks[i];
+            if id != block.id {
+                break;
+            }
+            for (index, &val) in indices.iter().zip(value.iter()) {
+                if let &Some(index) = index {
+                    self.data[index] = val;
+                } else {
+                    assert_eq!(
+                        0.0,
+                        val,
+                        "unexpected non-zero element in sparse tracked block"
+                    );
+                }
             }
         }
     }
@@ -733,9 +745,9 @@ mod tests {
     #[test]
     fn bmat_tracked() {
         #[cfg_attr(rustfmt, rustfmt_skip)]
-        let b = Matrix2x3::new(
-            2.0, 3.0, 4.0,
-            5.0, 0.0, 7.0,
+        let b = Matrix2::new(
+            2.0, 3.0,
+            5.0, 0.0,
         );
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -773,27 +785,27 @@ mod tests {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let expected_1 = to_dynamic(&Matrix6::new(
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 2.0, 3.0, 4.0, 14.0, 0.0,
-            0.0, 5.0, 0.0, 7.0, 16.0, 17.0,
+            0.0, 0.0, 2.0, 3.0, 14.0, 0.0,
+            0.0, 0.0, 5.0, 0.0, 16.0, 17.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+            1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
         ));
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let expected_2 = to_dynamic(&Matrix6::new(
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 2.0, 3.0, 4.0, 14.0, 0.0,
-            0.0, 5.0, 0.0, 7.0, 16.0, 17.0,
+            0.0, 0.0, 2.0, 3.0, 14.0, 0.0,
+            0.0, 0.0, 5.0, 0.0, 16.0, 17.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 99.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 18.0, 0.0,
+            99.0, 0.0, 0.0, 0.0, 99.0, 0.0,
+            18.0, 0.0, 0.0, 0.0, 18.0, 0.0,
         ));
 
         let mut comparison = bmat(&[
-            &[Some(Builder::zeros(1, 1)), None, None],
-            &[None, Some(Builder::block(&b)), Some(c)],
-            &[None, None, Some(d)],
+            &[Some(&Builder::zeros(1, 2)), None, None],
+            &[None, Some(&Builder::block(&b)), Some(&c)],
+            &[Some(&d), None, Some(&d)],
         ]).build_csc();
 
         comparison.set_block(&c_block, &c_val);
