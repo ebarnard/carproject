@@ -209,7 +209,7 @@ where
         let solution = self.workspace.solve();
 
         match solution.status() {
-            Status::Solved => (),
+            Status::Solved | Status::SolvedInaccurate => (),
             _ => panic!("solver failed"),
         }
 
