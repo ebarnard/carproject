@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 #[allow(non_camel_case_types)]
 type float = f64;
 
-pub struct TrackedBlock<M, N> {
+pub struct BlockRef<M, N> {
     id: usize,
     nrows: usize,
     ncols: usize,
@@ -90,9 +90,9 @@ impl Builder {
         }
     }
 
-    pub fn tracked_sparse_block<M: DimName, N: DimName>(
+    pub fn block_mut<M: DimName, N: DimName>(
         sparsity: &MatrixMN<bool, M, N>,
-    ) -> (Builder, TrackedBlock<M, N>)
+    ) -> (Builder, BlockRef<M, N>)
     where
         DefaultAllocator: Allocator<bool, M, N>,
     {
@@ -119,7 +119,7 @@ impl Builder {
                 nrows,
                 ncols,
             },
-            TrackedBlock {
+            BlockRef {
                 id,
                 nrows,
                 ncols,
@@ -511,7 +511,7 @@ impl CSCMatrix {
 
     pub fn set_block<M: Dim, N: Dim>(
         &mut self,
-        block: &TrackedBlock<M, N>,
+        block: &BlockRef<M, N>,
         value: &MatrixMN<float, M, N>,
     ) where
         DefaultAllocator: Allocator<float, M, N>,
@@ -725,7 +725,7 @@ mod tests {
     }
 
     #[test]
-    fn bmat_tracked() {
+    fn bmat_mut_blocks() {
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let b = Matrix2::new(
             2.0, 3.0,
@@ -742,7 +742,7 @@ mod tests {
             14.0, 0.0,
             16.0, 17.0,
         );
-        let (c, c_block) = Builder::tracked_sparse_block(&c_sp);
+        let (c, c_block) = Builder::block_mut(&c_sp);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let d_sp = Matrix3x2::new(
@@ -762,7 +762,7 @@ mod tests {
             99.0, 0.0,
             18.0, 0.0,
         );
-        let (d, d_block) = Builder::tracked_sparse_block(&d_sp);
+        let (d, d_block) = Builder::block_mut(&d_sp);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let expected_1 = to_dynamic(&Matrix6::new(

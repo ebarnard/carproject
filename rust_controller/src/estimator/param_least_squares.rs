@@ -17,7 +17,7 @@ where
     // QP hessian
     P: Matrix<M::NP, M::NP>,
     P_sparse: sparse::CSCMatrix,
-    P_block: sparse::TrackedBlock<M::NP, M::NP>,
+    P_block: sparse::BlockRef<M::NP, M::NP>,
     // QP linear
     f: Vector<M::NP>,
     N: u32,
@@ -32,7 +32,7 @@ where
         let Q = Matrix::<M::NS, M::NS>::identity();
 
         let P_sparsity = MatrixMN::<bool, M::NP, M::NP>::from_element(true);
-        let (mut P_sparse, P_block) = sparse::Builder::tracked_sparse_block(&P_sparsity);
+        let (mut P_sparse, P_block) = sparse::Builder::block_mut(&P_sparsity);
         let P_sparse = P_sparse.build_csc();
         let f: Vector<M::NP> = nalgebra::zero();
 

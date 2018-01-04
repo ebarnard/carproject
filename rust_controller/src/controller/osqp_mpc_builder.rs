@@ -27,9 +27,9 @@ where
     A: sparse::CSCMatrix,
     l: Vector<Dy>,
     u: Vector<Dy>,
-    A_blocks: Vec<sparse::TrackedBlock<NS, NS>>,
-    B_blocks: Vec<sparse::TrackedBlock<NS, NI>>,
-    stage_ineq_blocks: Vec<sparse::TrackedBlock<U1, NS>>,
+    A_blocks: Vec<sparse::BlockRef<NS, NS>>,
+    B_blocks: Vec<sparse::BlockRef<NS, NI>>,
+    stage_ineq_blocks: Vec<sparse::BlockRef<U1, NS>>,
     u_min: Vector<NI>,
     u_max: Vector<NI>,
     u_delta_min: Vector<NI>,
@@ -87,10 +87,10 @@ where
 
         // Build state evolution matrices
         let (Ax, A_blocks): (Vec<_>, Vec<_>) = (1..N)
-            .map(|_| sparse::Builder::tracked_sparse_block(A_sparsity))
+            .map(|_| sparse::Builder::block_mut(A_sparsity))
             .unzip();
         let (Au, B_blocks): (Vec<_>, Vec<_>) = (0..N)
-            .map(|_| sparse::Builder::tracked_sparse_block(B_sparsity))
+            .map(|_| sparse::Builder::block_mut(B_sparsity))
             .unzip();
 
         let Ax = -sparse::Builder::eye(N * ns)
@@ -112,7 +112,7 @@ where
                     .iter()
                     .map(|ineq_sparsity| {
                         let ineq_sparsity = ineq_sparsity.transpose();
-                        let (ineq, block) = sparse::Builder::tracked_sparse_block(&ineq_sparsity);
+                        let (ineq, block) = sparse::Builder::block_mut(&ineq_sparsity);
                         stage_ineq_blocks.push(block);
                         ineq
                     })
