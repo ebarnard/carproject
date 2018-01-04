@@ -4,6 +4,9 @@ use control_model::ControlModel;
 mod mpc_position;
 pub use self::mpc_position::MpcPosition;
 
+mod mpc_time;
+pub use self::mpc_time::MpcTime;
+
 mod osqp_mpc_builder;
 pub use self::osqp_mpc_builder::OsqpMpc;
 
