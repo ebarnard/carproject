@@ -1,14 +1,18 @@
 extern crate itertools;
 extern crate nalgebra;
 
+mod erased_into_iter;
+
 use itertools::Itertools;
-use nalgebra::{DefaultAllocator, Dim, DimName, Dynamic as Dy, MatrixMN};
+use nalgebra::{DefaultAllocator, Dim, DimName, Dynamic as Dy, MatrixMN, MatrixSlice};
 use nalgebra::allocator::Allocator;
 use std::convert::AsRef;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Add, Mul, Neg};
 use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+
+use erased_into_iter::{Erased, ErasedIntoIter};
 
 #[allow(non_camel_case_types)]
 type float = f64;
@@ -289,102 +293,66 @@ where
 }
 
 pub fn add<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
-    if blocks.len() == 0 {
-        return zeros(0, 0);
-    }
-
-    let nrows = blocks[0].as_ref().nrows;
-    let ncols = blocks[0].as_ref().ncols;
-    let mut acc = preallocate_for_merge(blocks);
-    acc.nrows = nrows;
-    acc.ncols = ncols;
-
-    blocks.iter().map(AsRef::as_ref).fold(acc, |acc, block| {
+    fn op(acc: &mut Builder, nrows: &mut usize, ncols: &mut usize, block: &Builder) {
         assert_eq!(
-            nrows,
+            *nrows,
             block.nrows,
             "matrices being added must have the same number of rows"
         );
         assert_eq!(
-            ncols,
+            *ncols,
             block.ncols,
             "matrices being added must have the same number of columns"
         );
-        block_merge(acc, block, 0, 0)
-    })
+        block_merge(acc, block, 0, 0);
+    }
+
+    let (nrows, ncols) = blocks
+        .get(0)
+        .map(AsRef::as_ref)
+        .map(|b| (b.nrows, b.ncols))
+        .unwrap_or((0, 0));
+    merge_op(&mut erase_iter(blocks), nrows, ncols, op)
 }
 
 pub fn hstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
-    if blocks.len() == 0 {
-        return zeros(0, 0);
+    fn op(acc: &mut Builder, nrows: &mut usize, ncols: &mut usize, block: &Builder) {
+        assert_eq!(
+            *nrows,
+            block.nrows,
+            "vstack requires matrices to have the same number of rows"
+        );
+        block_merge(acc, block, 0, *ncols);
+        *ncols += block.ncols;
     }
 
-    let nrows = blocks[0].as_ref().nrows;
-    let acc = preallocate_for_merge(blocks);
-
-    let (mut acc, ncols) = blocks.iter().map(AsRef::as_ref).fold(
-        (acc, 0),
-        |(acc, ncols), block| {
-            assert_eq!(
-                nrows,
-                block.nrows,
-                "vstack requires matrices to have the same number of rows"
-            );
-            (block_merge(acc, block, 0, ncols), ncols + block.ncols)
-        },
-    );
-
-    acc.nrows = nrows;
-    acc.ncols = ncols;
-    acc
+    let nrows = blocks.get(0).map(|b| b.as_ref().nrows).unwrap_or(0);
+    merge_op(&mut erase_iter(blocks), nrows, 0, op)
 }
 
 pub fn vstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
-    if blocks.len() == 0 {
-        return zeros(0, 0);
+    fn op(acc: &mut Builder, nrows: &mut usize, ncols: &mut usize, block: &Builder) {
+        assert_eq!(
+            *ncols,
+            block.ncols,
+            "vstack requires matrices to have the same number of columns"
+        );
+        block_merge(acc, block, *nrows, 0);
+        *nrows += block.nrows;
     }
 
-    let ncols = blocks[0].as_ref().ncols;
-    let acc = preallocate_for_merge(blocks);
-
-    let (mut acc, nrows) = blocks.iter().map(AsRef::as_ref).fold(
-        (acc, 0),
-        |(acc, nrows), block| {
-            assert_eq!(
-                ncols,
-                block.ncols,
-                "vstack requires matrices to have the same number of columns"
-            );
-            (block_merge(acc, block, nrows, 0), nrows + block.nrows)
-        },
-    );
-
-    acc.nrows = nrows;
-    acc.ncols = ncols;
-    acc
+    let ncols = blocks.get(0).map(|b| b.as_ref().ncols).unwrap_or(0);
+    merge_op(&mut erase_iter(blocks), 0, ncols, op)
 }
 
 pub fn block_diag<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
-    if blocks.len() == 0 {
-        return zeros(0, 0);
+    fn op(acc: &mut Builder, nrows: &mut usize, ncols: &mut usize, block: &Builder) {
+        block_merge(acc, block, *nrows, *ncols);
+        *nrows += block.nrows;
+        *ncols += block.ncols;
     }
 
-    let acc = preallocate_for_merge(blocks);
-
-    let (mut acc, nrows, ncols) = blocks.iter().map(AsRef::as_ref).fold(
-        (acc, 0, 0),
-        |(acc, nrows, ncols), block| {
-            (
-                block_merge(acc, block, nrows, ncols),
-                nrows + block.nrows,
-                ncols + block.ncols,
-            )
-        },
-    );
-
-    acc.nrows = nrows;
-    acc.ncols = ncols;
-    acc
+    merge_op(&mut erase_iter(blocks), 0, 0, op)
 }
 
 pub fn bmat<B: AsRef<Builder>>(blocks: &[&[Option<B>]]) -> Builder {
@@ -433,10 +401,11 @@ pub fn bmat<B: AsRef<Builder>>(blocks: &[&[Option<B>]]) -> Builder {
     let block_col_offsets = block_ncols.iter().scan(0, cumsum);
 
     // Merge the matrices
-    let blocks_iter = blocks
+    let mut blocks_iter = blocks
         .iter()
-        .flat_map(|r| r.iter().filter_map(Option::as_ref));
-    let mut acc = preallocate_for_merge(blocks_iter);
+        .flat_map(|r| r.iter().filter_map(Option::as_ref))
+        .map(AsRef::as_ref);
+    let mut acc = preallocate_for_merge(&mut blocks_iter);
     acc.nrows = block_nrows.iter().map(|x| x.unwrap()).sum();
     acc.ncols = block_ncols.iter().map(|x| x.unwrap()).sum();
 
@@ -446,10 +415,10 @@ pub fn bmat<B: AsRef<Builder>>(blocks: &[&[Option<B>]]) -> Builder {
         .fold(acc, |acc, (row, row_offset)| {
             row.iter()
                 .zip(block_col_offsets.clone())
-                .fold(acc, |acc, (block, col_offset)| {
+                .fold(acc, |mut acc, (block, col_offset)| {
                     if let &Some(ref block) = block {
-                        let block = block.as_ref();
-                        block_merge(acc, block, row_offset, col_offset)
+                        block_merge(&mut acc, block.as_ref(), row_offset, col_offset);
+                        acc
                     } else {
                         acc
                     }
@@ -457,12 +426,8 @@ pub fn bmat<B: AsRef<Builder>>(blocks: &[&[Option<B>]]) -> Builder {
         })
 }
 
-fn preallocate_for_merge<'a, I: 'a, B: 'a + AsRef<Builder>>(blocks: I) -> Builder
-where
-    I: IntoIterator<Item = &'a B>,
-{
-    let blocks = blocks.into_iter().map(AsRef::as_ref);
-    let (nnz, nt) = blocks.fold((0, 0), |(nnz, nt), b| {
+fn preallocate_for_merge(blocks: &mut Iterator<Item = &Builder>) -> Builder {
+    let (nnz, nt) = blocks.map(AsRef::as_ref).fold((0, 0), |(nnz, nt), b| {
         (nnz + b.coords.len(), nt + b.tracked_blocks.len())
     });
     let mut builder = Builder::with_capacity(0, 0, nnz);
@@ -470,7 +435,34 @@ where
     builder
 }
 
-fn block_merge(mut left: Builder, right: &Builder, row_shift: usize, col_shift: usize) -> Builder {
+fn erase_iter<'a, B: AsRef<Builder>>(
+    blocks: &'a [B],
+) -> Erased<::std::iter::Map<::std::slice::Iter<'a, B>, for<'r> fn(&'r B) -> &'r Builder>> {
+    Erased::new(blocks.iter().map(AsRef::as_ref))
+}
+
+fn merge_op(
+    blocks: &mut ErasedIntoIter<Item = &Builder>,
+    nrows: usize,
+    ncols: usize,
+    op: fn(&mut Builder, &mut usize, &mut usize, &Builder),
+) -> Builder {
+    let acc = preallocate_for_merge(blocks.into_iter());
+
+    let (mut acc, final_nrows, final_ncols) = blocks.into_iter().fold(
+        (acc, nrows, ncols),
+        |(mut acc, mut nrows, mut ncols), block| {
+            op(&mut acc, &mut nrows, &mut ncols, block);
+            (acc, nrows, ncols)
+        },
+    );
+
+    acc.nrows = final_nrows;
+    acc.ncols = final_ncols;
+    acc
+}
+
+fn block_merge(left: &mut Builder, right: &Builder, row_shift: usize, col_shift: usize) {
     let left_coords_len = left.coords.len();
     let left_tracked_blocks_len = left.tracked_blocks.len();
 
@@ -488,8 +480,6 @@ fn block_merge(mut left: Builder, right: &Builder, row_shift: usize, col_shift: 
         *r += row_shift;
         *c += col_shift;
     }
-
-    left
 }
 
 pub struct CscMatrix {
@@ -529,12 +519,19 @@ impl CscMatrix {
         assert_eq!(block.nrows, nrows);
         assert_eq!(block.ncols, ncols);
 
+        self.set_block_inner(
+            block.id,
+            value.slice_with_steps((0, 0), (nrows, ncols), (0, 0)),
+        );
+    }
+
+    fn set_block_inner(&mut self, block_id: usize, value: MatrixSlice<float, Dy, Dy, Dy, Dy>) {
         let start_idx = self.tracked_blocks
-            .binary_search_by(|&(id, _)| id.cmp(&block.id));
+            .binary_search_by(|&(id, _)| id.cmp(&block_id));
         let mut start_idx = start_idx.expect("Block not in this matrix");
 
         for i in (0..start_idx).rev() {
-            if self.tracked_blocks[i].0 != block.id {
+            if self.tracked_blocks[i].0 != block_id {
                 break;
             }
             start_idx = i;
@@ -542,7 +539,7 @@ impl CscMatrix {
 
         for i in start_idx..self.tracked_blocks.len() {
             let &(id, ref indices) = &self.tracked_blocks[i];
-            if id != block.id {
+            if id != block_id {
                 break;
             }
             for (index, &val) in indices.iter().zip(value.iter()) {
@@ -593,6 +590,14 @@ fn dy(n: usize) -> Dy {
 mod tests {
     use super::*;
     use nalgebra::{Matrix1, Matrix2, Matrix2x3, Matrix3, Matrix3x2, Matrix6};
+
+    #[test]
+    fn empty_ops_should_not_panic() {
+        add::<Builder>(&[]);
+        hstack::<Builder>(&[]);
+        vstack::<Builder>(&[]);
+        block_diag::<Builder>(&[]);
+    }
 
     #[test]
     fn add_simple() {
