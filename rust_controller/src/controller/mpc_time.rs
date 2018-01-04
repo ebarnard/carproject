@@ -89,11 +89,11 @@ where
             let u_i = self.u_mpc.column(i).into_owned();
 
             // Linearise model around x_i-1 and u_i
-            let (A_c, B_c) = flame::span_of("model linearise", || model.linearise(&x_i, &u_i, &p));
+            let (A_c, B_c) = flame::span_of("model linearise", || model.linearise(&x_i, &u_i, p));
             let (A, B) = flame::span_of("model discretise", || discretise(dt, &A_c, &B_c));
 
             // Update state using nonlinear model
-            x_i = flame::span_of("model integrate", || model.step(dt, &x_i, &u_i, &p));
+            x_i = flame::span_of("model integrate", || model.step(dt, &x_i, &u_i, p));
 
             // Find centreline point
             let centreline = flame::span_of("centreline point lookup", || {

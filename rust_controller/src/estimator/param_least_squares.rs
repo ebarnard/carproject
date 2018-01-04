@@ -90,8 +90,8 @@ where
         }
 
         // Normalise scaling of P and q
-        self.P *= 1.0 / self.N as float;
-        self.f *= 1.0 / self.N as float;
+        self.P *= 1.0 / float::from(self.N);
+        self.f *= 1.0 / float::from(self.N);
 
         // TODO: Do we want a guassian prior on p_k-1?
         self.P += 0.5 * MatrixMN::<float, M::NP, M::NP>::identity();

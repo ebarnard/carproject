@@ -64,10 +64,10 @@ where
         }
 
         // Predict
-        let (F_c, B_c) = model.linearise(&self.x_hat, &u, &p);
+        let (F_c, B_c) = model.linearise(&self.x_hat, u, p);
         let (F, _) = discretise(dt, &F_c, &B_c);
 
-        let x_predict = model.step(dt, &self.x_hat, &u, &p);
+        let x_predict = model.step(dt, &self.x_hat, u, p);
         let P_predict = &F * &self.P * F.transpose() + &self.Q;
 
         // Update
@@ -81,7 +81,7 @@ where
             let y = z - &H * &x_predict;
 
             // Innovation covariance
-            let S = &H * &P_predict * H.transpose() + &self.R;
+            let S = &H * &P_predict * H.transpose() + self.R;
             let S_inv = Cholesky::new(S)
                 .expect("S must be symmetric positive-definite")
                 .inverse();

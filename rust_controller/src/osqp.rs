@@ -50,7 +50,7 @@ impl Workspace {
         self.inner.update_A(convert_sparse(A))
     }
 
-    pub fn solve<'a>(&'a mut self) -> Solution<'a> {
+    pub fn solve(&mut self) -> Solution {
         let _guard = flame::start_guard("osqp solve");
         self.inner.solve()
     }

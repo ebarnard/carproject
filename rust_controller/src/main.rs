@@ -59,14 +59,14 @@ type Model = control_model::SpenglerGammeterBicycle;
 fn run(config: &config::Config, track: &track::Track, history: &mut History) {
     let model = control_model::SpenglerGammeterBicycle;
 
-    let mut controller = controller::MpcTime::<Model>::new(&model, 50, &track);
+    let mut controller = controller::MpcTime::<Model>::new(&model, 50, track);
 
     let initial_params = Vector6::from_column_slice(&config.controller.initial_params);
     let Q_state = Matrix::from_diagonal(&Vector4::from_column_slice(&config.controller.Q_state));
     let Q_initial_params = Matrix::from_diagonal(&Vector6::from_column_slice(
         &config.controller.Q_initial_params,
     ));
-    let Q_params = &Q_initial_params * config.controller.Q_params_multiplier;
+    let Q_params = Q_initial_params * config.controller.Q_params_multiplier;
     let R = Matrix::from_diagonal(&Vector3::from_column_slice(&config.controller.R));
 
     let mut state_estimator = JointEKF::<Model>::new(Q_state, Q_params, Q_initial_params, R);
@@ -131,7 +131,7 @@ fn run_simulation<M: ControlModel>(
 
         // Stop timer
         let dur = Instant::now().duration_since(start);
-        let millis = (dur.as_secs() as f64) * 1000.0 + (dur.subsec_nanos() as f64) * 0.000_001;
+        let millis = (dur.as_secs() as f64) * 1000.0 + f64::from(dur.subsec_nanos()) * 0.000_001;
         stats.add(millis);
 
         info!("Controller took {} ms", millis);

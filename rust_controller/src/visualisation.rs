@@ -52,7 +52,7 @@ impl History {
     ) where
         DefaultAllocator: Dims2<NP, NP>,
     {
-        assert_eq!(NP::dim(), *self.np.get_or_insert_with(|| NP::dim()));
+        assert_eq!(NP::dim(), *self.np.get_or_insert_with(NP::dim));
 
         self.t.push(t);
         let (x, y) = state.position;
@@ -181,7 +181,7 @@ pub fn plot(track: &Track, history: &History) {
     let mut fg = Figure::new();
     fg.set_terminal("qt", "");
     let np = history.np.unwrap() as u32;
-    let ncols = (np as float).sqrt().ceil() as u32;
+    let ncols = float::from(np).sqrt().ceil() as u32;
     let nrows = 1 + (np - 1) / ncols;
     for i in 0..np {
         let ax = fg.axes2d();

@@ -32,7 +32,7 @@ pub trait SimulationModel {
 pub fn model_from_config(config: &config::Simulator) -> Box<SimulationModel> {
     MODELS
         .iter()
-        .find(|m| m.0 == &config.model)
+        .find(|m| m.0 == config.model)
         .expect("simulation model not found")
         .1(&config.params)
 }
