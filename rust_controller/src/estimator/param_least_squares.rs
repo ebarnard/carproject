@@ -32,12 +32,12 @@ where
         let Q = Matrix::<M::NS, M::NS>::identity();
 
         let P_sparsity = MatrixMN::<bool, M::NP, M::NP>::from_element(true);
-        let (mut P_sparse, P_block) = sparse::Builder::block_mut(&P_sparsity);
+        let (mut P_sparse, P_block) = sparse::block_mut(&P_sparsity);
         let P_sparse = P_sparse.build_csc();
         let f: Vector<M::NP> = nalgebra::zero();
 
         // Maximum allowed delta_p deviation
-        let A = sparse::Builder::eye(<M::NP as DimName>::dim()).build_csc();
+        let A = sparse::eye(<M::NP as DimName>::dim()).build_csc();
         let l = -&delta_p_max;
         let l = l.as_slice();
         let u = delta_p_max.as_slice();

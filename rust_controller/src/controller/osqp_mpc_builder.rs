@@ -58,22 +58,22 @@ where
         let n_stage_ineq = stage_ineq_sparsity.len();
 
         // Build state quadratic penalty
-        let Q = sparse::Builder::block(&Q_stage);
+        let Q = sparse::block(&Q_stage);
         let Q = sparse::block_diag(&repeat_n(&Q, N).collect_vec());
 
         // Build input delta quadratic penalty
         let R_grad = Matrix::from_diagonal(&R_stage_grad);
-        let R_grad = sparse::Builder::block(&R_grad);
+        let R_grad = sparse::block(&R_grad);
         let R_diag = sparse::block_diag(&repeat_n(&R_grad, N - 1).collect_vec());
         let R_main_diag = sparse::block_diag(&[&(&R_diag + &R_diag), &R_grad]);
         let R_min_diag = -R_diag;
         let R_sub_diag = sparse::bmat(&[
-            &[None, Some(&sparse::Builder::zeros(ni, ni))],
+            &[None, Some(&sparse::zeros(ni, ni))],
             &[Some(&R_min_diag), None],
         ]);
         let R_super_diag = sparse::bmat(&[
             &[None, Some(&R_min_diag)],
-            &[Some(&sparse::Builder::zeros(ni, ni)), None],
+            &[Some(&sparse::zeros(ni, ni)), None],
         ]);
         let mut R = R_main_diag + R_sub_diag + R_super_diag;
 
@@ -82,20 +82,18 @@ where
             &Q,
             &R,
             // Soft stage inequality penalty variable has no quadratic cost
-            &sparse::Builder::zeros(N * n_stage_ineq, N * n_stage_ineq),
+            &sparse::zeros(N * n_stage_ineq, N * n_stage_ineq),
         ]).build_csc();
 
         // Build state evolution matrices
-        let (Ax, A_blocks): (Vec<_>, Vec<_>) = (1..N)
-            .map(|_| sparse::Builder::block_mut(A_sparsity))
-            .unzip();
-        let (Au, B_blocks): (Vec<_>, Vec<_>) = (0..N)
-            .map(|_| sparse::Builder::block_mut(B_sparsity))
-            .unzip();
+        let (Ax, A_blocks): (Vec<_>, Vec<_>) =
+            (1..N).map(|_| sparse::block_mut(A_sparsity)).unzip();
+        let (Au, B_blocks): (Vec<_>, Vec<_>) =
+            (0..N).map(|_| sparse::block_mut(B_sparsity)).unzip();
 
-        let Ax = -sparse::Builder::eye(N * ns)
+        let Ax = -sparse::eye(N * ns)
             + sparse::bmat(&[
-                &[None, Some(sparse::Builder::zeros(ns, ns))],
+                &[None, Some(sparse::zeros(ns, ns))],
                 &[Some(sparse::block_diag(&Ax)), None],
             ]);
         let Au = sparse::block_diag(&Au);
@@ -112,12 +110,12 @@ where
                     .iter()
                     .map(|ineq_sparsity| {
                         let ineq_sparsity = ineq_sparsity.transpose();
-                        let (ineq, block) = sparse::Builder::block_mut(&ineq_sparsity);
+                        let (ineq, block) = sparse::block_mut(&ineq_sparsity);
                         stage_ineq_blocks.push(block);
                         ineq
                     })
                     // Ensure stage_ineqs has N * ns columns
-                    .chain(once(sparse::Builder::zeros(0, ns)))
+                    .chain(once(sparse::zeros(0, ns)))
                     .collect::<Vec<_>>())
             })
             .collect::<Vec<_>>());
@@ -126,7 +124,7 @@ where
             .map(|_| {
                 sparse::vstack(&stage_ineq_sparsity
                     .iter()
-                    .map(|_| sparse::Builder::eye(1))
+                    .map(|_| sparse::eye(1))
                     .collect::<Vec<_>>())
             })
             .collect::<Vec<_>>());
@@ -137,13 +135,13 @@ where
             // State evolution
             &[Some(Ax), Some(Au), None],
             // Input absolute and delta constraints
-            &[None, Some(sparse::Builder::eye(N * ni)), None],
+            &[None, Some(sparse::eye(N * ni)), None],
             // Soft stage inequality min constraints
             &[Some(stage_ineqs.clone()), None, Some(stage_ineq_diag.clone())],
             // Soft stage inequality max constraints
             &[Some(stage_ineqs), None, Some(-stage_ineq_diag)],
             // Soft stage inequality penalty variable is positive constraint
-            &[None, None, Some(sparse::Builder::eye(N * n_stage_ineq))],
+            &[None, None, Some(sparse::eye(N * n_stage_ineq))],
         ]).build_csc();
 
         let mut q = Vector::zeros_generic(Dy::new(N * (ns + ni + n_stage_ineq)), U1);

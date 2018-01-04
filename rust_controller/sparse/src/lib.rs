@@ -29,39 +29,6 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn zeros(nrows: usize, ncols: usize) -> Builder {
-        Builder::with_capacity(nrows, ncols, 0)
-    }
-
-    pub fn eye(n: usize) -> Builder {
-        let mut builder = Builder::with_capacity(n, n, n);
-        for i in 0..n {
-            builder.coords.push((i, i, 1.0));
-        }
-        builder
-    }
-
-    pub fn diags(n: usize, vals: &[&[float]], diag: &[isize]) -> Builder {
-        let cap = diag.iter().map(|&d| n - d.abs() as usize).sum();
-        let mut builder = Builder::with_capacity(n, n, cap);
-
-        for (&k, &v) in diag.iter().zip(vals) {
-            assert!((k.abs() as usize) < n);
-            if k >= 0 {
-                let k = k as usize;
-                for (i, &v) in (0..(n - k)).zip(v.iter().cycle()) {
-                    builder.coords.push((i, i + k, v));
-                }
-            } else if k < 0 {
-                let k = -k as usize;
-                for (i, &v) in (0..(n - k)).zip(v.iter().cycle()) {
-                    builder.coords.push((i + k, i, v));
-                }
-            }
-        }
-        builder
-    }
-
     pub fn with_capacity(nrows: usize, ncols: usize, nnz: usize) -> Builder {
         Builder {
             tracked_blocks: Vec::new(),
@@ -69,63 +36,6 @@ impl Builder {
             nrows,
             ncols,
         }
-    }
-
-    pub fn block<M: Dim, N: Dim>(block: &MatrixMN<float, M, N>) -> Builder
-    where
-        DefaultAllocator: Allocator<float, M, N>,
-    {
-        let (nrows, ncols) = block.shape();
-
-        let coords = (0..nrows)
-            .flat_map(move |r| (0..ncols).map(move |c| (r, c, block[(r, c)])))
-            .filter(|&(_, _, val)| val != 0.0)
-            .collect();
-
-        Builder {
-            tracked_blocks: Vec::new(),
-            coords,
-            nrows,
-            ncols,
-        }
-    }
-
-    pub fn block_mut<M: DimName, N: DimName>(
-        sparsity: &MatrixMN<bool, M, N>,
-    ) -> (Builder, BlockRef<M, N>)
-    where
-        DefaultAllocator: Allocator<bool, M, N>,
-    {
-        static NEXT_ID: AtomicUsize = ATOMIC_USIZE_INIT;
-
-        let (nrows, ncols) = sparsity.shape();
-
-        let coords = (0..nrows)
-            .flat_map(move |r| {
-                (0..ncols)
-                    .filter(move |&c| sparsity[(r, c)])
-                    .map(move |c| (r, c, 0.0))
-            })
-            .collect();
-
-        let sparsity = to_dynamic(sparsity);
-
-        let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-
-        (
-            Builder {
-                tracked_blocks: vec![(id, 0, 0, sparsity)],
-                coords,
-                nrows,
-                ncols,
-            },
-            BlockRef {
-                id,
-                nrows,
-                ncols,
-                phantom: PhantomData,
-            },
-        )
     }
 
     pub fn shape(&self) -> (usize, usize) {
@@ -279,9 +189,99 @@ impl Neg for Builder {
     }
 }
 
+pub fn zeros(nrows: usize, ncols: usize) -> Builder {
+    Builder::with_capacity(nrows, ncols, 0)
+}
+
+pub fn eye(n: usize) -> Builder {
+    let mut builder = Builder::with_capacity(n, n, n);
+    for i in 0..n {
+        builder.coords.push((i, i, 1.0));
+    }
+    builder
+}
+
+pub fn diags(n: usize, vals: &[&[float]], diag: &[isize]) -> Builder {
+    let cap = diag.iter().map(|&d| n - d.abs() as usize).sum();
+    let mut builder = Builder::with_capacity(n, n, cap);
+
+    for (&k, &v) in diag.iter().zip(vals) {
+        assert!((k.abs() as usize) < n);
+        if k >= 0 {
+            let k = k as usize;
+            for (i, &v) in (0..(n - k)).zip(v.iter().cycle()) {
+                builder.coords.push((i, i + k, v));
+            }
+        } else if k < 0 {
+            let k = -k as usize;
+            for (i, &v) in (0..(n - k)).zip(v.iter().cycle()) {
+                builder.coords.push((i + k, i, v));
+            }
+        }
+    }
+    builder
+}
+
+pub fn block<M: Dim, N: Dim>(block: &MatrixMN<float, M, N>) -> Builder
+where
+    DefaultAllocator: Allocator<float, M, N>,
+{
+    let (nrows, ncols) = block.shape();
+
+    let coords = (0..nrows)
+        .flat_map(move |r| (0..ncols).map(move |c| (r, c, block[(r, c)])))
+        .filter(|&(_, _, val)| val != 0.0)
+        .collect();
+
+    Builder {
+        tracked_blocks: Vec::new(),
+        coords,
+        nrows,
+        ncols,
+    }
+}
+
+pub fn block_mut<M: DimName, N: DimName>(
+    sparsity: &MatrixMN<bool, M, N>,
+) -> (Builder, BlockRef<M, N>)
+where
+    DefaultAllocator: Allocator<bool, M, N>,
+{
+    static NEXT_ID: AtomicUsize = ATOMIC_USIZE_INIT;
+
+    let (nrows, ncols) = sparsity.shape();
+
+    let coords = (0..nrows)
+        .flat_map(move |r| {
+            (0..ncols)
+                .filter(move |&c| sparsity[(r, c)])
+                .map(move |c| (r, c, 0.0))
+        })
+        .collect();
+
+    let sparsity = to_dynamic(sparsity);
+
+    let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+
+    (
+        Builder {
+            tracked_blocks: vec![(id, 0, 0, sparsity)],
+            coords,
+            nrows,
+            ncols,
+        },
+        BlockRef {
+            id,
+            nrows,
+            ncols,
+            phantom: PhantomData,
+        },
+    )
+}
+
 pub fn add<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     if blocks.len() == 0 {
-        return Builder::zeros(0, 0);
+        return zeros(0, 0);
     }
 
     let nrows = blocks[0].as_ref().nrows;
@@ -307,7 +307,7 @@ pub fn add<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
 
 pub fn hstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     if blocks.len() == 0 {
-        return Builder::zeros(0, 0);
+        return zeros(0, 0);
     }
 
     let nrows = blocks[0].as_ref().nrows;
@@ -332,7 +332,7 @@ pub fn hstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
 
 pub fn vstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     if blocks.len() == 0 {
-        return Builder::zeros(0, 0);
+        return zeros(0, 0);
     }
 
     let ncols = blocks[0].as_ref().ncols;
@@ -357,7 +357,7 @@ pub fn vstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
 
 pub fn block_diag<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     if blocks.len() == 0 {
-        return Builder::zeros(0, 0);
+        return zeros(0, 0);
     }
 
     let acc = preallocate_for_merge(blocks);
@@ -381,7 +381,7 @@ pub fn block_diag<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
 pub fn bmat<B: AsRef<Builder>>(blocks: &[&[Option<B>]]) -> Builder {
     let nrows = blocks.len();
     if nrows == 0 {
-        return Builder::zeros(0, 0);
+        return zeros(0, 0);
     }
 
     let ncols = blocks[0].len();
@@ -607,9 +607,7 @@ mod tests {
             1.0, 0.0, 10.0,
         ));
 
-        let comparison = (Builder::block(&a) + Builder::block(&b))
-            .build_csc()
-            .to_dense();
+        let comparison = (block(&a) + block(&b)).build_csc().to_dense();
 
         assert_eq!(expected, comparison);
     }
@@ -630,7 +628,7 @@ mod tests {
             0.0, 4.0, 6.0,
         );
 
-        Builder::block(&a) + Builder::block(&b);
+        block(&a) + block(&b);
     }
 
     #[test]
@@ -677,7 +675,7 @@ mod tests {
             0.0, 0.0, 0.0, 0.0, 12.0, 0.0,
         ));
 
-        let comparison = block_diag(&[Builder::block(&a), Builder::block(&b), Builder::block(&c)])
+        let comparison = block_diag(&[block(&a), block(&b), block(&c)])
             .build_csc()
             .to_dense();
 
@@ -715,9 +713,9 @@ mod tests {
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let comparison = bmat(&[
-            &[Some(Builder::zeros(1, 1)), None, None],
-            &[None, Some(Builder::block(&b)), Some(Builder::block(&c))],
-            &[None, None, Some(Builder::block(&d))],
+            &[Some(zeros(1, 1)), None, None],
+            &[None, Some(block(&b)), Some(block(&c))],
+            &[None, None, Some(block(&d))],
         ]).build_csc()
             .to_dense();
 
@@ -742,7 +740,7 @@ mod tests {
             14.0, 0.0,
             16.0, 17.0,
         );
-        let (c, c_block) = Builder::block_mut(&c_sp);
+        let (c, c_block) = block_mut(&c_sp);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let d_sp = Matrix3x2::new(
@@ -762,7 +760,7 @@ mod tests {
             99.0, 0.0,
             18.0, 0.0,
         );
-        let (d, d_block) = Builder::block_mut(&d_sp);
+        let (d, d_block) = block_mut(&d_sp);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let expected_1 = to_dynamic(&Matrix6::new(
@@ -785,8 +783,8 @@ mod tests {
         ));
 
         let mut comparison = bmat(&[
-            &[Some(&Builder::zeros(1, 2)), None, None],
-            &[None, Some(&Builder::block(&b)), Some(&c)],
+            &[Some(&zeros(1, 2)), None, None],
+            &[None, Some(&block(&b)), Some(&c)],
             &[Some(&d), None, Some(&d)],
         ]).build_csc();
 
