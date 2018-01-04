@@ -15,9 +15,9 @@ pub struct Workspace {
 impl Workspace {
     #[allow(non_snake_case)]
     pub fn new(
-        P: &sparse::CSCMatrix,
+        P: &sparse::CscMatrix,
         q: &[float],
-        A: &sparse::CSCMatrix,
+        A: &sparse::CscMatrix,
         l: &[float],
         u: &[float],
         settings: &Settings,
@@ -39,13 +39,13 @@ impl Workspace {
     }
 
     #[allow(non_snake_case)]
-    pub fn update_P(&mut self, P: &sparse::CSCMatrix) {
+    pub fn update_P(&mut self, P: &sparse::CscMatrix) {
         let _guard = flame::start_guard("osqp update_P");
         self.inner.update_P(convert_sparse(P))
     }
 
     #[allow(non_snake_case)]
-    pub fn update_A(&mut self, A: &sparse::CSCMatrix) {
+    pub fn update_A(&mut self, A: &sparse::CscMatrix) {
         let _guard = flame::start_guard("osqp update_A");
         self.inner.update_A(convert_sparse(A))
     }
@@ -58,7 +58,7 @@ impl Workspace {
 
 use sparse;
 
-pub fn convert_sparse(this: &sparse::CSCMatrix) -> CscMatrix {
+pub fn convert_sparse(this: &sparse::CscMatrix) -> CscMatrix {
     let (nrows, ncols) = this.shape();
     CscMatrix {
         nrows,

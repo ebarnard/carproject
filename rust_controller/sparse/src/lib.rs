@@ -42,7 +42,7 @@ impl Builder {
         (self.nrows, self.ncols)
     }
 
-    pub fn build_csc(&mut self) -> CSCMatrix {
+    pub fn build_csc(&mut self) -> CscMatrix {
         // Sort and sum any duplicates in the same cell
         let mut coords = mem::replace(&mut self.coords, Vec::new());
         coords.sort_unstable_by_key(|&(r, c, _)| (c, r));
@@ -109,7 +109,7 @@ impl Builder {
 
         tracked_blocks.sort_unstable_by_key(|b| b.0);
 
-        CSCMatrix {
+        CscMatrix {
             nrows: self.nrows,
             ncols: self.ncols,
             indptr,
@@ -492,7 +492,7 @@ fn block_merge(mut left: Builder, right: &Builder, row_shift: usize, col_shift: 
     left
 }
 
-pub struct CSCMatrix {
+pub struct CscMatrix {
     nrows: usize,
     ncols: usize,
     indptr: Vec<usize>,
@@ -501,7 +501,7 @@ pub struct CSCMatrix {
     tracked_blocks: Vec<(usize, MatrixMN<Option<usize>, Dy, Dy>)>,
 }
 
-impl CSCMatrix {
+impl CscMatrix {
     pub fn shape(&self) -> (usize, usize) {
         (self.nrows, self.ncols)
     }

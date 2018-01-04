@@ -17,14 +17,14 @@ where
     n_stage_ineq: usize,
     // Objective:
     R: Matrix<Dy, Dy>,
-    P: sparse::CSCMatrix,
+    P: sparse::CscMatrix,
     q: Vector<Dy>,
     Q_stage: Matrix<NS, NS>,
     R_stage_grad: Vector<NI>,
     // Inequalities:
     // N * ns state transition rows
     // N * ni input constraints
-    A: sparse::CSCMatrix,
+    A: sparse::CscMatrix,
     l: Vector<Dy>,
     u: Vector<Dy>,
     A_blocks: Vec<sparse::BlockRef<NS, NS>>,

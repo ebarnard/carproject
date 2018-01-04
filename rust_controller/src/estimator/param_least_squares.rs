@@ -16,7 +16,7 @@ where
     Q: Matrix<M::NS, M::NS>,
     // QP hessian
     P: Matrix<M::NP, M::NP>,
-    P_sparse: sparse::CSCMatrix,
+    P_sparse: sparse::CscMatrix,
     P_block: sparse::BlockRef<M::NP, M::NP>,
     // QP linear
     f: Vector<M::NP>,
