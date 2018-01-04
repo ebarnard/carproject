@@ -9,8 +9,7 @@ use cubic_spline::CubicSpline;
 pub struct Track {
     pub x: Vec<float>,
     pub y: Vec<float>,
-    pub dx: Vec<float>,
-    pub dy: Vec<float>,
+    pub width: Vec<float>,
 }
 
 impl Track {
@@ -18,17 +17,14 @@ impl Track {
         let mut track = Track {
             x: Vec::new(),
             y: Vec::new(),
-            dx: Vec::new(),
-            dy: Vec::new(),
+            width: Vec::new(),
         };
-        let mut reader = csv::Reader::from_path(path).expect("Unable to open track");
+        let mut reader = csv::Reader::from_path(path).expect("unable to open track");
         for row in reader.deserialize() {
-            let (x, y, dx, dy): (float, float, float, float) = row.expect("Error reading track");
+            let (x, y, width): (float, float, float) = row.expect("error reading track");
             track.x.push(x);
             track.y.push(y);
-            track.dx.push(dx);
-            track.dy.push(dy);
-            debug!("row {} {}", x, y);
+            track.width.push(width);
         }
         track
     }
@@ -64,12 +60,6 @@ impl Centreline {
 
         let x_spline = CubicSpline::periodic(&track.x);
         let y_spline = CubicSpline::periodic(&track.y);
-        let widths = track
-            .dx
-            .iter()
-            .zip(&track.dy)
-            .map(|(&dx, &dy)| float::hypot(dx, dy))
-            .collect();
 
         let x0 = x_spline.evaluate(0.0).0;
         let y0 = y_spline.evaluate(0.0).0;
@@ -99,7 +89,7 @@ impl Centreline {
             cumulative_distance,
             x_spline,
             y_spline,
-            widths,
+            widths: track.width.clone(),
             dt_ds: n as float / ds_dt.iter().sum::<float>(),
         };
 
@@ -114,6 +104,10 @@ impl Centreline {
         }
 
         centreline
+    }
+
+    pub fn total_distance(&self) -> float {
+        self.total_distance
     }
 
     pub fn nearest_point(&self, s: float) -> CentrelinePoint {

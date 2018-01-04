@@ -49,7 +49,7 @@ fn main() {
         error!("simulation failed");
     }
 
-    visualisation::plot(&track, &history);
+    visualisation::plot(&track::Centreline::from_track(&track), &history);
 
     flame_merge::write_flame();
 }

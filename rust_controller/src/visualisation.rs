@@ -4,7 +4,7 @@ use itertools::Itertools;
 use prelude::*;
 use controller::{Control, State as ControllerState};
 use simulation_model::State;
-use track::Track;
+use track::Centreline;
 
 pub struct History {
     x: Vec<float>,
@@ -74,21 +74,27 @@ impl History {
     }
 }
 
-pub fn plot(track: &Track, history: &History) {
+pub fn plot(track: &Centreline, history: &History) {
     // Plot position
     let mut fg = Figure::new();
     fg.set_terminal("qt", "");
     {
-        let mut x_min = Vec::with_capacity(track.x.len());
-        let mut y_min = Vec::with_capacity(track.y.len());
-        let mut x_max = Vec::with_capacity(track.x.len());
-        let mut y_max = Vec::with_capacity(track.y.len());
+        let n = 1000;
+        let total_s = track.total_distance();
+        let mut x_min = Vec::with_capacity(n);
+        let mut y_min = Vec::with_capacity(n);
+        let mut x_max = Vec::with_capacity(n);
+        let mut y_max = Vec::with_capacity(n);
 
-        for i in 0..track.x.len() {
-            x_min.push(track.x[i] - track.dx[i] / 2.0);
-            y_min.push(track.y[i] - track.dy[i] / 2.0);
-            x_max.push(track.x[i] + track.dx[i] / 2.0);
-            y_max.push(track.y[i] + track.dy[i] / 2.0);
+        for i in 0..n {
+            let s = total_s * (i as float) / (n as float);
+            let point = track.nearest_point(s);
+            let half_dx = -point.dy_ds * point.track_width * 0.5;
+            let half_dy = point.dx_ds * point.track_width * 0.5;
+            x_min.push(point.x - half_dx);
+            y_min.push(point.y - half_dy);
+            x_max.push(point.x + half_dx);
+            y_max.push(point.y + half_dy);
         }
 
         let ax = fg.axes2d();
