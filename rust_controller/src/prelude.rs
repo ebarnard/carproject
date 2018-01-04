@@ -36,7 +36,7 @@ pub fn randn() -> float {
 pub type Matrix<R, C> = nalgebra::MatrixMN<float, R, C>;
 pub type Vector<N> = nalgebra::VectorN<float, N>;
 
-use nalgebra::{Dim, Scalar};
+use nalgebra::{Dim, Scalar, U1};
 pub use nalgebra::allocator::Allocator;
 pub use nalgebra::{DefaultAllocator, DimName};
 
@@ -69,7 +69,9 @@ pub trait Dims2N<N: Scalar, A: Dim, B: Dim>
     + Allocator<N, A, B>
     + Allocator<N, B, A>
     + Allocator<N, A>
-    + Allocator<N, B> {
+    + Allocator<N, B>
+    + Allocator<N, U1, A>
+    + Allocator<N, U1, B> {
 }
 
 impl<N, A, B> Dims2N<N, A, B> for DefaultAllocator
@@ -82,6 +84,8 @@ where
         + Allocator<N, A, B>
         + Allocator<N, B, A>
         + Allocator<N, A>
-        + Allocator<N, B>,
+        + Allocator<N, B>
+        + Allocator<N, U1, A>
+        + Allocator<N, U1, B>,
 {
 }

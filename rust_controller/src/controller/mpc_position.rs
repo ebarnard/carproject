@@ -44,7 +44,7 @@ where
         let (A_d_sparsity, B_d_sparsity) = discretise_sparsity(&A_sparsity, &B_sparsity);
 
         let mpc = flame::span_of("osqp mpc create", || {
-            let mut mpc = OsqpMpc::new(N as usize, Q, R, &A_d_sparsity, &B_d_sparsity);
+            let mut mpc = OsqpMpc::new(N as usize, Q, R, &A_d_sparsity, &B_d_sparsity, &[]);
             let (input_min, input_max) = model.input_bounds();
             mpc.set_input_bounds(input_min, input_max);
             mpc
