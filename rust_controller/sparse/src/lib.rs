@@ -189,6 +189,15 @@ impl Neg for Builder {
     }
 }
 
+impl<'a> Neg for &'a Builder {
+    type Output = Builder;
+
+    fn neg(self) -> Builder {
+        let cloned: Builder = self.clone();
+        -cloned
+    }
+}
+
 pub fn zeros(nrows: usize, ncols: usize) -> Builder {
     Builder::with_capacity(nrows, ncols, 0)
 }

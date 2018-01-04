@@ -130,18 +130,17 @@ where
             .collect::<Vec<_>>());
 
         // Build constraint matrix A
-        #[cfg_attr(rustfmt, rustfmt_skip)]
         let A = sparse::bmat(&[
             // State evolution
-            &[Some(Ax), Some(Au), None],
+            &[Some(&Ax), Some(&Au), None],
             // Input absolute and delta constraints
-            &[None, Some(sparse::eye(N * ni)), None],
+            &[None, Some(&sparse::eye(N * ni)), None],
             // Soft stage inequality min constraints
-            &[Some(stage_ineqs.clone()), None, Some(stage_ineq_diag.clone())],
+            &[Some(&stage_ineqs), None, Some(&stage_ineq_diag)],
             // Soft stage inequality max constraints
-            &[Some(stage_ineqs), None, Some(-stage_ineq_diag)],
+            &[Some(&stage_ineqs), None, Some(&-&stage_ineq_diag)],
             // Soft stage inequality penalty variable is positive constraint
-            &[None, None, Some(sparse::eye(N * n_stage_ineq))],
+            &[None, None, Some(&sparse::eye(N * n_stage_ineq))],
         ]).build_csc();
 
         let mut q = Vector::zeros_generic(Dy::new(N * (ns + ni + n_stage_ineq)), U1);
