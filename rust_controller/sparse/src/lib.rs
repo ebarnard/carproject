@@ -90,24 +90,6 @@ impl Builder {
         }
     }
 
-    pub fn nonzero_block<M: Dim, N: Dim>(block: &MatrixMN<float, M, N>) -> Builder
-    where
-        DefaultAllocator: Allocator<float, M, N>,
-    {
-        let (nrows, ncols) = block.shape();
-
-        let coords = (0..nrows)
-            .flat_map(move |r| (0..ncols).map(move |c| (r, c, block[(r, c)])))
-            .collect();
-
-        Builder {
-            tracked_blocks: Vec::new(),
-            coords,
-            nrows,
-            ncols,
-        }
-    }
-
     pub fn tracked_sparse_block<M: DimName, N: DimName>(
         sparsity: &MatrixMN<bool, M, N>,
     ) -> (Builder, TrackedBlock<M, N>)
