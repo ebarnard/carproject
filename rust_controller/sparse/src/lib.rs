@@ -7,6 +7,7 @@ use itertools::Itertools;
 use nalgebra::{DefaultAllocator, Dim, DimName, Dynamic as Dy, MatrixMN, MatrixSlice};
 use nalgebra::allocator::Allocator;
 use std::convert::AsRef;
+use std::iter::once;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Add, Mul, Neg};
@@ -360,69 +361,73 @@ pub fn bmat<B: AsRef<Builder>>(blocks: &[&[Option<B>]]) -> Builder {
     if nrows == 0 {
         return zeros(0, 0);
     }
-
     let ncols = blocks[0].len();
-    assert!(blocks.iter().all(|row| row.len() == ncols));
+    assert!(
+        blocks.iter().all(|row| row.len() == ncols),
+        "bmat must be given a rectangular layout"
+    );
 
-    // All blocks in a row must have the same number of rows
-    let mut block_nrows = vec![None; nrows];
-    // All blocks in a column must have the same number of columns
-    let mut block_ncols = vec![None; ncols];
-
-    // Check the above two assertions hold
-    for (row, nrows) in blocks.iter().zip(block_nrows.iter_mut()) {
-        for (block, ncols) in row.iter().zip(block_ncols.iter_mut()) {
+    // Check that all blocks in a row/column must have the same number of rows/columns
+    let mut block_nrows = vec![usize::max_value(); nrows];
+    let mut block_ncols = vec![usize::max_value(); ncols];
+    fn check_or_assign(left: &mut usize, right: usize, name: &str) {
+        assert!(right != usize::max_value());
+        if *left == usize::max_value() {
+            *left = right;
+        } else {
+            assert_eq!(
+                *left,
+                right,
+                "bmat requires all blocks in a {0} to have the same number of {0}s",
+                name,
+            );
+        }
+    }
+    for (row, nrows) in blocks.iter().zip(&mut block_nrows) {
+        for (block, ncols) in row.iter().zip(&mut block_ncols) {
             if let &Some(ref block) = block {
                 let block = block.as_ref();
-                let nrows = *nrows.get_or_insert(block.nrows);
-                assert_eq!(
-                    nrows,
-                    block.nrows,
-                    "bmat requires all blocks in a row to have the same number of rows"
-                );
-                let ncols = *ncols.get_or_insert(block.ncols);
-                assert_eq!(
-                    ncols,
-                    block.ncols,
-                    "bmat requires all blocks in a column to have the same number of columns"
-                );
+                check_or_assign(nrows, block.nrows, "row");
+                check_or_assign(ncols, block.ncols, "column");
             }
         }
     }
 
-    // Check that the resulting matrix has a known size
-    fn cumsum(sum: &mut usize, n: &Option<usize>) -> Option<usize> {
-        let n = n.expect("bmat requires all rows and columns must have a known size");
-        let ret = *sum;
-        *sum += n;
-        Some(ret)
+    // Calculate row and column offsets and check that the resulting matrix has a known size
+    fn cumsum(vals: &mut [usize], name: &str) {
+        let mut acc = 0;
+        for n in vals {
+            if *n == usize::max_value() {
+                panic!("bmat requires all {}s to have a known size", name);
+            }
+            acc += *n;
+            *n = acc;
+        }
     }
-    let block_row_offsets = block_nrows.iter().scan(0, cumsum);
-    let block_col_offsets = block_ncols.iter().scan(0, cumsum);
+    cumsum(&mut block_nrows, "row");
+    cumsum(&mut block_ncols, "column");
 
-    // Merge the matrices
-    let mut blocks_iter = blocks
+    // Merge the blocks
+    let mut acc = preallocate_for_merge(&mut blocks
         .iter()
         .flat_map(|r| r.iter().filter_map(Option::as_ref))
-        .map(AsRef::as_ref);
-    let mut acc = preallocate_for_merge(&mut blocks_iter);
-    acc.nrows = block_nrows.iter().map(|x| x.unwrap()).sum();
-    acc.ncols = block_ncols.iter().map(|x| x.unwrap()).sum();
+        .map(AsRef::as_ref));
+    acc.nrows = *block_nrows.last().unwrap();
+    acc.ncols = *block_ncols.last().unwrap();;
 
     blocks
         .iter()
-        .zip(block_row_offsets)
-        .fold(acc, |acc, (row, row_offset)| {
-            row.iter()
-                .zip(block_col_offsets.clone())
-                .fold(acc, |mut acc, (block, col_offset)| {
+        .zip(once(&0).chain(&block_nrows))
+        .fold(acc, |acc, (row, &row_offset)| {
+            row.iter().zip(once(&0).chain(&block_ncols)).fold(
+                acc,
+                |mut acc, (block, &col_offset)| {
                     if let &Some(ref block) = block {
                         block_merge(&mut acc, block.as_ref(), row_offset, col_offset);
-                        acc
-                    } else {
-                        acc
                     }
-                })
+                    acc
+                },
+            )
         })
 }
 
