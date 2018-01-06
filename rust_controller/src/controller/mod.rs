@@ -1,6 +1,9 @@
 use prelude::*;
 use control_model::ControlModel;
 
+mod mpc_base;
+use self::mpc_base::MpcBase;
+
 mod mpc_position;
 pub use self::mpc_position::MpcPosition;
 
