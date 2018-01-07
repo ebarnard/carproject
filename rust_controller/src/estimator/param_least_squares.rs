@@ -1,6 +1,6 @@
 use log::LogLevel::Debug;
 use nalgebra::{self, MatrixMN};
-use osqp::{Settings, Workspace};
+use osqp::{Problem, Settings};
 use sparse;
 
 use prelude::*;
@@ -10,7 +10,7 @@ pub struct ParamLeastSquares<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    workspace: Workspace,
+    problem: Problem,
     params: Vector<M::NP>,
     // Cost matrix for the state prediction errors
     Q: Matrix<M::NS, M::NS>,
@@ -44,10 +44,10 @@ where
 
         let settings = Settings::default().verbose(log_enabled!(Debug));
 
-        let workspace = Workspace::new(&P_sparse, f.as_slice(), &A, l, u, &settings);
+        let problem = Problem::new(&P_sparse, f.as_slice(), &A, l, u, &settings);
 
         ParamLeastSquares {
-            workspace,
+            problem,
             params,
             Q,
             P: nalgebra::zero(),
@@ -99,11 +99,10 @@ where
         // Update sparse representation of P
         self.P_sparse.set_block(&self.P_block, &self.P);
 
-        self.workspace.update_lin_cost(self.f.as_slice());
-        self.workspace.update_P(&self.P_sparse);
+        self.problem.update_lin_cost(self.f.as_slice());
+        self.problem.update_P(&self.P_sparse);
 
-        let solution = self.workspace.solve();
-        assert!(solution.status() == ::osqp::Status::Solved);
+        let solution = self.problem.solve().solution().expect("solver failed");
 
         self.params
             .iter_mut()

@@ -1,18 +1,19 @@
 extern crate osqp as osqp_inner;
 
 use flame;
-use self::osqp_inner::Workspace as InnerWorkspace;
+use self::osqp_inner::Problem as InnerProblem;
 pub use self::osqp_inner::*;
 
 use prelude::*;
+use sparse;
 
 #[allow(non_snake_case)]
-pub struct Workspace {
-    inner: InnerWorkspace,
+pub struct Problem {
+    inner: InnerProblem,
 }
 
 #[allow(dead_code)]
-impl Workspace {
+impl Problem {
     #[allow(non_snake_case)]
     pub fn new(
         P: &sparse::CscMatrix,
@@ -21,10 +22,10 @@ impl Workspace {
         l: &[float],
         u: &[float],
         settings: &Settings,
-    ) -> Workspace {
+    ) -> Problem {
         let _guard = flame::start_guard("osqp setup");
-        Workspace {
-            inner: InnerWorkspace::new(convert_sparse(P), q, convert_sparse(A), l, u, settings),
+        Problem {
+            inner: InnerProblem::new(convert_sparse(P), q, convert_sparse(A), l, u, settings),
         }
     }
 
@@ -50,13 +51,11 @@ impl Workspace {
         self.inner.update_A(convert_sparse(A))
     }
 
-    pub fn solve(&mut self) -> Solution {
+    pub fn solve(&mut self) -> Status {
         let _guard = flame::start_guard("osqp solve");
         self.inner.solve()
     }
 }
-
-use sparse;
 
 pub fn convert_sparse(this: &sparse::CscMatrix) -> CscMatrix {
     let (nrows, ncols) = this.shape();

@@ -2,7 +2,7 @@ use flame;
 use itertools::{repeat_n, Itertools};
 use log::LogLevel::Debug;
 use nalgebra::{self, Dynamic as Dy, MatrixMN, U1, VectorN};
-use osqp::{Settings, Status, Workspace};
+use osqp::{Problem, Settings};
 use std::iter::once;
 
 use prelude::*;
@@ -12,7 +12,7 @@ pub struct OsqpMpc<NS: DimName, NI: DimName>
 where
     DefaultAllocator: Dims2<NS, NI>,
 {
-    workspace: Workspace,
+    problem: Problem,
     N: usize,
     n_stage_ineq: usize,
     // Objective:
@@ -166,10 +166,10 @@ where
             .polish(false)
             .eps_abs(1e-2);
 
-        let workspace = Workspace::new(&P, q.as_slice(), &A, l.as_slice(), u.as_slice(), &settings);
+        let problem = Problem::new(&P, q.as_slice(), &A, l.as_slice(), u.as_slice(), &settings);
 
         OsqpMpc {
-            workspace,
+            problem,
             N,
             n_stage_ineq,
             R: R.build_csc().to_dense(),
@@ -284,17 +284,12 @@ where
         guard.end();
 
         // Set upper and lower bounds for first input difference
-        self.workspace.update_lin_cost(self.q.as_slice());
-        self.workspace
+        self.problem.update_lin_cost(self.q.as_slice());
+        self.problem
             .update_bounds(self.l.as_slice(), self.u.as_slice());
-        self.workspace.update_A(&self.A);
+        self.problem.update_A(&self.A);
 
-        let solution = self.workspace.solve();
-
-        match solution.status() {
-            Status::Solved | Status::SolvedInaccurate => (),
-            _ => panic!("solver failed"),
-        }
+        let solution = self.problem.solve().solution().expect("solver failed");
 
         // Add the deltas to the solutions
         fn add_delta((x0, delta_x): (&mut float, &float)) {
