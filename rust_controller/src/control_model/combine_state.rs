@@ -124,4 +124,8 @@ where
     fn input_bounds(&self) -> (Vector<Self::NI>, Vector<Self::NI>) {
         self.0.input_bounds()
     }
+
+    fn input_delta_bounds(&self) -> (Vector<Self::NI>, Vector<Self::NI>) {
+        self.0.input_delta_bounds()
+    }
 }

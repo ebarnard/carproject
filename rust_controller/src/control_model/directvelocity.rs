@@ -108,4 +108,10 @@ impl ControlModel for DirectVelocity {
         let max = Vector2::new(10.0, 2.0);
         (min, max)
     }
+
+    fn input_delta_bounds(&self) -> (Vector<U2>, Vector<U2>) {
+        let min = Vector2::new(NEG_INFINITY, NEG_INFINITY);
+        let max = Vector2::new(INFINITY, INFINITY);
+        (min, max)
+    }
 }

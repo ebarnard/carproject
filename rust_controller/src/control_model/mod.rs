@@ -93,8 +93,12 @@ where
         u
     }
 
-    /// Returns the mininum and maximum allowable input values
+    /// Returns the mininum and maximum allowable input values.
     fn input_bounds(&self) -> (Vector<Self::NI>, Vector<Self::NI>);
+
+    /// Returns the mininum and maximum allowable input change at each mpc iteration.
+    /// Linearised models can be wildly incorrect with large deltas.
+    fn input_delta_bounds(&self) -> (Vector<Self::NI>, Vector<Self::NI>);
 }
 
 pub fn discretise<NS: DimName, NI: DimName>(

@@ -174,4 +174,10 @@ impl ControlModel for SpenglerGammeterBicycle {
         let max = Vector2::new(1.0, 1.0);
         (min, max)
     }
+
+    fn input_delta_bounds(&self) -> (Vector<U2>, Vector<U2>) {
+        let min = Vector2::new(NEG_INFINITY, -0.1);
+        let max = Vector2::new(INFINITY, 0.1);
+        (min, max)
+    }
 }

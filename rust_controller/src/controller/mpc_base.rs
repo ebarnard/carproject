@@ -41,6 +41,8 @@ where
             );
             let (input_min, input_max) = model.input_bounds();
             mpc.set_input_bounds(input_min, input_max);
+            let (input_delta_min, input_delta_max) = model.input_delta_bounds();
+            mpc.set_input_delta_bounds(input_delta_min, input_delta_max);
             mpc
         });
 
