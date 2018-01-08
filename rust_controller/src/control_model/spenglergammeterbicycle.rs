@@ -12,7 +12,7 @@ impl SpenglerGammeterBicycle {
         x: &Vector<U4>,
         u: &Vector<U2>,
         p: &Vector<U6>,
-    ) -> (float, float, float, float, float, float, float, float, float) {
+    ) -> (float, float, float, float, float, float, float, float, float, float) {
         let phi = x[2];
         let v = x[3];
 
@@ -23,9 +23,10 @@ impl SpenglerGammeterBicycle {
         let C2 = p[1];
         let Cm1 = p[2];
         let Cm2 = p[3];
+        let Cr1 = p[4];
         let Cr2 = p[5];
 
-        (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr2)
+        (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2)
     }
 }
 
@@ -42,7 +43,7 @@ impl ControlModel for SpenglerGammeterBicycle {
     }
 
     fn state_equation(&self, x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U6>) -> Vector<U4> {
-        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr2) =
+        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2) =
             SpenglerGammeterBicycle::vals(x, u, p);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
@@ -52,7 +53,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         let phi_dot = C2 * delta * v;
 
         let v_dot_motor = Cm1 * throttle - Cm2 * throttle * v;
-        let v_dot_friction = -Cr2 * v * v;
+        let v_dot_friction = -Cr2 * v * v - Cr1 * v.signum();
         let v_dot_cornering = -v * v * delta * delta * C1 * C2;
         let v_dot = v_dot_motor + v_dot_friction + v_dot_cornering;
 
@@ -65,7 +66,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         u0: &Vector<U2>,
         p0: &Vector<U6>,
     ) -> (Matrix<U4, U4>, Matrix<U4, U2>) {
-        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr2) =
+        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, _Cr1, Cr2) =
             SpenglerGammeterBicycle::vals(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
@@ -115,7 +116,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         u0: &Vector<U2>,
         p0: &Vector<U6>,
     ) -> Matrix<U4, U6> {
-        let (phi, v, throttle, delta, C1, C2, _Cm1, _Cm2, _Cr2) =
+        let (phi, v, throttle, delta, C1, C2, _Cm1, _Cm2, _Cr1, _Cr2) =
             SpenglerGammeterBicycle::vals(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
@@ -128,7 +129,7 @@ impl ControlModel for SpenglerGammeterBicycle {
             -v_delta * sin_k, 0.0, 0.0, 0.0, 0.0, 0.0,
             v_delta * cos_k, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, v_delta, 0.0, 0.0, 0.0, 0.0,
-            -v_delta_2 * C2, -v_delta_2 * C1, throttle, -throttle * v, 0.0, -v * v
+            -v_delta_2 * C2, -v_delta_2 * C1, throttle, -throttle * v, -v.signum(), -v * v
         )
     }
 
