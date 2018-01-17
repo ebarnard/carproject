@@ -17,7 +17,6 @@ where
     n_stage_ineq: usize,
     // Objective:
     R: Matrix<Dy, Dy>,
-    P: sparse::CscMatrix,
     q: Vector<Dy>,
     Q_stage: Matrix<NS, NS>,
     R_stage_grad: Vector<NI>,
@@ -173,7 +172,6 @@ where
             N,
             n_stage_ineq,
             R: R.build_csc().to_dense(),
-            P,
             q,
             Q_stage,
             R_stage_grad,
