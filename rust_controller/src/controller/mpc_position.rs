@@ -5,14 +5,14 @@ use nalgebra::{self, U2, VectorN};
 use prelude::*;
 use controller::{Controller, MpcBase};
 use control_model::ControlModel;
-use track::{Centreline, CentrelineLookup, Track};
+use track::{CentrelineLookup, Track};
 
 pub struct MpcPosition<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
     base: MpcBase<M>,
-    centreline: Centreline,
+    track: Track,
     lookup: CentrelineLookup,
 }
 
@@ -21,8 +21,7 @@ where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
     pub fn new(model: &M, N: u32, track: &Track) -> MpcPosition<M> {
-        let centreline = Centreline::from_track(track);
-        let lookup = CentrelineLookup::from_centreline(&centreline);
+        let lookup = CentrelineLookup::from_track(track);
 
         // State penalties
         let mut Q: Vector<M::NS> = nalgebra::zero();
@@ -43,7 +42,7 @@ where
 
         MpcPosition {
             base: MpcBase::new(model, N, Q, R, &[track_bounds_ineq_sparsity]),
-            centreline,
+            track: track.clone(),
             lookup,
         }
     }
@@ -66,12 +65,12 @@ where
         });
 
         let lookup = &self.lookup;
-        let centreline = &self.centreline;
+        let track = &self.track;
         self.base.step(model, dt, x, p, |i, x_i, _u_i, mpc| {
-            // Find centreline point
+            // Find track point
             s_target += v_target;
             let target = flame::span_of("centreline point lookup", || {
-                centreline.nearest_point(s_target)
+                track.nearest_centreline_point(s_target)
             });
             let theta = flame::span_of("theta calculation", || {
                 float::atan2(target.dy_ds, target.dx_ds)
@@ -96,16 +95,16 @@ where
 
             flame::span_of("track bounds ineq calculation", || {
                 let s = lookup.centreline_distance(x_i[0], x_i[1]);
-                let centreline = centreline.nearest_point(s);
-                let a_i = centreline.a(x_i[0], x_i[1]);
-                let J = centreline.jacobian(a_i);
+                let centreline_point = track.nearest_centreline_point(s);
+                let a_i = centreline_point.a(x_i[0], x_i[1]);
+                let J = centreline_point.jacobian(a_i);
 
                 let mut delta_a_ineq: Vector<M::NS> = nalgebra::zero();
                 delta_a_ineq
                     .fixed_rows_mut::<U2>(0)
                     .copy_from(&J.row(1).transpose());
 
-                let a_max = centreline.track_width / 2.0;
+                let a_max = centreline_point.track_width / 2.0;
 
                 mpc.set_stage_inequality(i, 0, &delta_a_ineq, -a_max - a_i, a_max - a_i);
             });

@@ -4,14 +4,14 @@ use nalgebra::{self, U2, VectorN};
 use prelude::*;
 use controller::{Controller, MpcBase};
 use control_model::ControlModel;
-use track::{Centreline, CentrelineLookup, Track};
+use track::{CentrelineLookup, Track};
 
 pub struct MpcTime<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
     base: MpcBase<M>,
-    centreline: Centreline,
+    track: Track,
     lookup: CentrelineLookup,
 }
 
@@ -20,8 +20,7 @@ where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
     pub fn new(model: &M, N: u32, track: &Track) -> MpcTime<M> {
-        let centreline = Centreline::from_track(track);
-        let lookup = CentrelineLookup::from_centreline(&centreline);
+        let lookup = CentrelineLookup::from_track(track);
 
         // State penalties
         let Q: Matrix<M::NS, M::NS> = nalgebra::zero();
@@ -39,7 +38,7 @@ where
 
         MpcTime {
             base: MpcBase::new(model, N, Q, R, &[track_bounds_ineq_sparsity]),
-            centreline,
+            track: track.clone(),
             lookup,
         }
     }
@@ -57,16 +56,16 @@ where
         p: &Vector<M::NP>,
     ) -> (Vector<M::NI>, Vector<M::NS>) {
         let lookup = &self.lookup;
-        let centreline = &self.centreline;
+        let track = &self.track;
         self.base.step(model, dt, x, p, |i, x_i, _u_i, mpc| {
-            // Find centreline point
-            let centreline = flame::span_of("centreline point lookup", || {
+            // Find track point
+            let centreline_point = flame::span_of("centreline point lookup", || {
                 let s = lookup.centreline_distance(x_i[0], x_i[1]);
-                centreline.nearest_point(s)
+                track.nearest_centreline_point(s)
             });
 
-            let a_i = centreline.a(x_i[0], x_i[1]);
-            let J = centreline.jacobian(a_i);
+            let a_i = centreline_point.a(x_i[0], x_i[1]);
+            let J = centreline_point.jacobian(a_i);
 
             // Minimise an approximate time penalty
             // Increasing speed is more important when minimising time if the car is travelling
@@ -85,7 +84,7 @@ where
                 .fixed_rows_mut::<U2>(0)
                 .copy_from(&J.row(1).transpose());
 
-            let a_max = centreline.track_width / 2.0;
+            let a_max = centreline_point.track_width / 2.0;
 
             // Give the values to the builder
             flame::span_of("update mpc inequalities", || {

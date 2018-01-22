@@ -6,31 +6,8 @@ use std::path::Path;
 use prelude::*;
 use cubic_spline::CubicSpline;
 
+#[derive(Clone)]
 pub struct Track {
-    pub x: Vec<float>,
-    pub y: Vec<float>,
-    pub width: Vec<float>,
-}
-
-impl Track {
-    pub fn load<P: AsRef<Path>>(path: P) -> Track {
-        let mut track = Track {
-            x: Vec::new(),
-            y: Vec::new(),
-            width: Vec::new(),
-        };
-        let mut reader = csv::Reader::from_path(path).expect("unable to open track");
-        for row in reader.deserialize() {
-            let (x, y, width): (float, float, float) = row.expect("error reading track");
-            track.x.push(x);
-            track.y.push(y);
-            track.width.push(width);
-        }
-        track
-    }
-}
-
-pub struct Centreline {
     total_distance: float,
     /// Distance to the end of each spline segment
     cumulative_distance: Vec<float>,
@@ -51,15 +28,27 @@ pub struct CentrelinePoint {
     pub track_width: float,
 }
 
-impl Centreline {
+impl Track {
+    pub fn load<P: AsRef<Path>>(path: P) -> Track {
+        let (mut xs, mut ys, mut widths) = (Vec::new(), Vec::new(), Vec::new());
+        let mut reader = csv::Reader::from_path(path).expect("unable to open track");
+        for row in reader.deserialize() {
+            let (x, y, width): (float, float, float) = row.expect("error reading track");
+            xs.push(x);
+            ys.push(y);
+            widths.push(width);
+        }
+        Track::from_track(&xs, &ys, &widths)
+    }
+
     /// Creates a spline track model from a given track.
     ///
     /// Panics if track points are not equally spaced.
-    pub fn from_track(track: &Track) -> Centreline {
-        let n = track.x.len();
+    pub fn from_track(x: &[float], y: &[float], width: &[float]) -> Track {
+        let n = x.len();
 
-        let x_spline = CubicSpline::periodic(&track.x);
-        let y_spline = CubicSpline::periodic(&track.y);
+        let x_spline = CubicSpline::periodic(x);
+        let y_spline = CubicSpline::periodic(y);
 
         let x0 = x_spline.evaluate(0.0).0;
         let y0 = y_spline.evaluate(0.0).0;
@@ -84,18 +73,18 @@ impl Centreline {
 
         let total_distance = cumulative_distance[n - 1];
 
-        let centreline = Centreline {
+        let track = Track {
             total_distance,
             cumulative_distance,
             x_spline,
             y_spline,
-            widths: track.width.clone(),
+            widths: width.to_vec(),
             dt_ds: n as float / ds_dt.iter().sum::<float>(),
         };
 
         // TODO: Combine this check with ds_dt calculation.
-        for &s in &centreline.cumulative_distance {
-            let p = centreline.nearest_point(s);
+        for &s in &track.cumulative_distance {
+            let p = track.nearest_centreline_point(s);
             let d = float::hypot(p.dx_ds, p.dy_ds);
             assert!(
                 (d - 1.0).abs() < 1e05,
@@ -103,14 +92,14 @@ impl Centreline {
             );
         }
 
-        centreline
+        track
     }
 
     pub fn total_distance(&self) -> float {
         self.total_distance
     }
 
-    pub fn nearest_point(&self, s: float) -> CentrelinePoint {
+    pub fn nearest_centreline_point(&self, s: float) -> CentrelinePoint {
         let s = s % self.total_distance;
         let i = self.cumulative_distance
             .binary_search_by(|probe| probe.partial_cmp(&s).unwrap())
@@ -190,10 +179,10 @@ pub struct CentrelineLookup {
 }
 
 impl CentrelineLookup {
-    pub fn from_centreline(centreline: &Centreline) -> CentrelineLookup {
+    pub fn from_track(track: &Track) -> CentrelineLookup {
         let mut points = Vec::new();
-        for &s in &centreline.cumulative_distance {
-            let point = centreline.nearest_point(s);
+        for &s in &track.cumulative_distance {
+            let point = track.nearest_centreline_point(s);
             let spade_point = IndexedPoint(s, [point.x as f64, point.y as f64]);
             points.push(spade_point);
         }

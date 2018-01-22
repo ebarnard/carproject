@@ -4,7 +4,7 @@ use itertools::Itertools;
 use prelude::*;
 use controller::{Control, State as ControllerState};
 use simulation_model::State;
-use track::Centreline;
+use track::Track;
 
 pub struct History {
     x: Vec<float>,
@@ -74,7 +74,7 @@ impl History {
     }
 }
 
-pub fn plot(track: &Centreline, history: &History) {
+pub fn plot(track: &Track, history: &History) {
     // Plot position
     let mut fg = Figure::new();
     fg.set_terminal("qt", "");
@@ -88,7 +88,7 @@ pub fn plot(track: &Centreline, history: &History) {
 
         for i in 0..n {
             let s = total_s * (i as float) / (n as float);
-            let point = track.nearest_point(s);
+            let point = track.nearest_centreline_point(s);
             let half_dx = -point.dy_ds * point.track_width * 0.5;
             let half_dy = point.dx_ds * point.track_width * 0.5;
             x_min.push(point.x - half_dx);

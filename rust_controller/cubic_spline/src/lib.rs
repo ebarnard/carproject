@@ -11,6 +11,7 @@ use nalgebra::Cholesky;
 #[allow(non_camel_case_types)]
 type float = f64;
 
+#[derive(Clone)]
 pub struct CubicSpline {
     coefs: Vec<(float, float, float, float)>,
 }

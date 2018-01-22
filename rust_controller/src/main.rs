@@ -49,7 +49,7 @@ fn main() {
         error!("simulation failed");
     }
 
-    visualisation::plot(&track::Centreline::from_track(&track), &history);
+    visualisation::plot(&track, &history);
 
     flame_merge::write_flame();
 }
@@ -71,8 +71,9 @@ fn run(config: &config::Config, track: &track::Track, history: &mut History) {
 
     let mut state_estimator = JointEKF::<Model>::new(Q_state, Q_params, Q_initial_params, R);
 
+    let initial_position = track.nearest_centreline_point(0.0);
     let mut state = State::default();
-    state.position = (track.x[0], track.y[0]);
+    state.position = (initial_position.x, initial_position.y);
 
     let mut sim_model = simulation_model::model_from_config(&config.simulator);
 
