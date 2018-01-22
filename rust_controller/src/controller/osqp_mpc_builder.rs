@@ -2,7 +2,7 @@ use flame;
 use itertools::{repeat_n, Itertools};
 use log::LogLevel::Debug;
 use nalgebra::{self, Dynamic as Dy, MatrixMN, U1, VectorN};
-use osqp::{Problem, Settings};
+use osqp::{Problem, Settings, Status};
 use std::iter::once;
 
 use prelude::*;
@@ -15,6 +15,7 @@ where
     problem: Problem,
     N: usize,
     n_stage_ineq: usize,
+    stage_ineq_lambda_max: float,
     // Objective:
     R: Matrix<Dy, Dy>,
     q: Vector<Dy>,
@@ -142,22 +143,15 @@ where
             &[None, None, Some(&sparse::eye(N * n_stage_ineq))],
         ]).build_csc();
 
-        let mut q = Vector::zeros_generic(Dy::new(N * (ns + ni + n_stage_ineq)), U1);
+        let q = Vector::zeros_generic(Dy::new(N * (ns + ni + n_stage_ineq)), U1);
         let mut l = Vector::zeros_generic(Dy::new(N * (ns + ni + 3 * n_stage_ineq)), U1);
         let mut u = Vector::zeros_generic(Dy::new(N * (ns + ni + 3 * n_stage_ineq)), U1);
 
-        // Soft stage inequality variable linear penalty
-        // TODO: Calculate penalty using theory of exact penalty functions
-        q.rows_mut(N * (ns + ni), N * n_stage_ineq).fill(20.0);
         // Soft stage inequality default min and max constraints
+        // Soft stage ineqs are disabled by default by forcing the slack variables to zero
         l.rows_mut(N * (ns + ni), N * n_stage_ineq * 2)
             .fill(NEG_INFINITY);
         u.rows_mut(N * (ns + ni), N * n_stage_ineq * 2)
-            .fill(INFINITY);
-        // Soft stage inequality penalty variable is positive constraint
-        l.rows_mut(N * (ns + ni + n_stage_ineq * 2), N * n_stage_ineq)
-            .fill(0.0);
-        u.rows_mut(N * (ns + ni + n_stage_ineq * 2), N * n_stage_ineq)
             .fill(INFINITY);
 
         let settings = Settings::default()
@@ -171,6 +165,7 @@ where
             problem,
             N,
             n_stage_ineq,
+            stage_ineq_lambda_max: 0.0,
             R: R.build_csc().to_dense(),
             q,
             Q_stage,
@@ -262,10 +257,11 @@ where
         self.u[N * (ni + ns + n_stage_ineq) + n_stage_ineq * i + j] = max;
     }
 
-    pub fn solve(&mut self) -> Solution<NS, NI> {
+    pub fn solve(&mut self) -> Result<Solution<NS, NI>, ()> {
         let N = self.N;
         let ns = NS::dim();
         let ni = NI::dim();
+        let n_stage_ineq = self.n_stage_ineq;
 
         // Set the u_0 values for the input constraints
         let guard = flame::start_guard("calculate input gradient penalty");
@@ -287,22 +283,89 @@ where
             .update_bounds(self.l.as_slice(), self.u.as_slice());
         self.problem.update_A(&self.A);
 
-        let solution = self.problem.solve().solution().expect("solver failed");
-
-        // Add the deltas to the solutions
-        fn add_delta((x0, delta_x): (&mut float, &float)) {
-            *x0 += *delta_x
+        // Work around the lack of NLL in Rust
+        // TODO: Remove this workaround once NLL is released (next three blocks)
+        fn add_deltas<NS: DimName, NI: DimName>(
+            x_mpc: &mut Matrix<NS, Dy>,
+            u_mpc: &mut Matrix<NI, Dy>,
+            x: &[float],
+        ) where
+            DefaultAllocator: Dims2<NS, NI>,
+        {
+            // Add the deltas to the solutions
+            fn add_delta((x0, delta_x): (&mut float, &float)) {
+                *x0 += *delta_x
+            };
+            let (ns, N) = x_mpc.shape();
+            let ni = NI::dim();
+            x_mpc.iter_mut().zip(&x[0..N * ns]).for_each(add_delta);
+            u_mpc
+                .iter_mut()
+                .zip(&x[N * ns..N * (ni + ns)])
+                .for_each(add_delta);
         };
-        self.x_mpc
-            .iter_mut()
-            .zip(&solution.x()[0..N * ns])
-            .for_each(add_delta);
-        self.u_mpc
-            .iter_mut()
-            .zip(&solution.x()[N * ns..N * (ni + ns)])
-            .for_each(add_delta);
 
-        // Validate constraints
+        let primal_infeasible = match self.problem.solve() {
+            Status::Solved(solution) | Status::SolvedInaccurate(solution) => {
+                // Update soft constraint multipliers
+                let lambda_max = solution
+                    .y()
+                    .iter()
+                    .skip(N * (ns + ni))
+                    .take(N * (2 * n_stage_ineq))
+                    .fold(0.0, |acc, &v| max(acc, v.abs()));
+                self.stage_ineq_lambda_max = max(lambda_max, self.stage_ineq_lambda_max);
+                debug!(
+                    "updating soft ineq penalty to: {}",
+                    self.stage_ineq_lambda_max
+                );
+
+                // Update u_mpc and x_mpc
+                add_deltas(&mut self.x_mpc, &mut self.u_mpc, solution.x());
+                false
+            }
+            Status::MaxIterationsReached(_) => {
+                println!("max iterations reached, retrying with soft constraints");
+                true
+            }
+            Status::PrimalInfeasible(_) | Status::PrimalInfeasibleInaccurate(_) => {
+                println!("primal problem infeasible!");
+                true
+            }
+            Status::DualInfeasible(_) | Status::DualInfeasibleInaccurate(_) => {
+                println!("dual problem infeasible!");
+                return Err(());
+            }
+            _ => return Err(()),
+        };
+
+        if primal_infeasible {
+            // Enable soft stage inequalities
+            self.u
+                .rows_mut(N * (ns + ni + n_stage_ineq * 2), N * n_stage_ineq)
+                .fill(INFINITY);
+            self.problem.update_upper_bound(self.u.as_slice());
+            // Soft stage inequality variable linear penalty
+            self.q
+                .rows_mut(N * (ns + ni), N * n_stage_ineq)
+                .fill(min(1e3, self.stage_ineq_lambda_max));
+            self.problem.update_lin_cost(self.q.as_slice());
+
+            // And disable them again
+            self.u
+                .rows_mut(N * (ns + ni + n_stage_ineq * 2), N * n_stage_ineq)
+                .fill(0.0);
+            // Soft stage inequality variable linear penalty
+            self.q.rows_mut(N * (ns + ni), N * n_stage_ineq).fill(0.0);
+
+            // Solve the soft constrained problem
+            let solution = self.problem.solve().solution().ok_or(())?;
+
+            // Update u_mpc and x_mpc
+            add_deltas(&mut self.x_mpc, &mut self.u_mpc, solution.x());
+        }
+
+        // Validate input constraints
         for i in 0..N {
             let u = self.u_mpc.column(i);
             let a = u.iter()
@@ -313,7 +376,6 @@ where
                 .all(|(&val, &min)| val >= min - 0.1);
             if !(a && b) {
                 error!("{}", self.u_mpc);
-                error!("delta_u: {:?}", &solution.x()[N * ns..N * (ni + ns)]);
                 error!("u_min: {:?}", &self.l.as_slice()[N * ns..N * (ni + ns)]);
                 error!("u_max: {:?}", &self.u.as_slice()[N * ns..N * (ni + ns)]);
                 assert!(false, "u not within constraints");
@@ -323,14 +385,16 @@ where
         // Save input gradient
         self.u_prev.copy_from(&self.u_mpc.column(0));
 
-        Solution {
+        Ok(Solution {
             x: &self.x_mpc,
             u: &self.u_mpc,
-        }
+            stage_ineq_violated: primal_infeasible,
+        })
     }
 }
 
 pub struct Solution<'a, NS: DimName, NI: DimName> {
     pub x: &'a Matrix<NS, Dy>,
     pub u: &'a Matrix<NI, Dy>,
+    pub stage_ineq_violated: bool,
 }

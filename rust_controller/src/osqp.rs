@@ -39,6 +39,11 @@ impl Problem {
         self.inner.update_bounds(l, u)
     }
 
+    pub fn update_upper_bound(&mut self, u: &[float]) {
+        let _guard = flame::start_guard("osqp update_upper_bound");
+        self.inner.update_upper_bound(u)
+    }
+
     #[allow(non_snake_case)]
     pub fn update_P(&mut self, P: &sparse::CscMatrix) {
         let _guard = flame::start_guard("osqp update_P");

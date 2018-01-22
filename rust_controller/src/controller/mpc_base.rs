@@ -92,7 +92,7 @@ where
         guard.end();
 
         let mpc = &mut self.mpc;
-        let solution = flame::span_of("mpc solve", || mpc.solve());
+        let solution = flame::span_of("mpc solve", || mpc.solve()).expect("solve failed");
 
         self.u_mpc
             .columns_mut(0, N - 1)
