@@ -31,6 +31,7 @@ where
         let mut R: Vector<M::NI> = nalgebra::zero();
         R[0] = 15.0;
         R[1] = 15.0;
+        let R = Matrix::from_diagonal(&R);
 
         let mut track_bounds_ineq_sparsity = VectorN::<bool, M::NS>::from_element(false);
         track_bounds_ineq_sparsity[0] = true;

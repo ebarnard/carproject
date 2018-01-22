@@ -1,4 +1,3 @@
-use flame;
 use itertools::{repeat_n, Itertools};
 use log::LogLevel::Debug;
 use nalgebra::{self, Dynamic as Dy, MatrixMN, U1, VectorN};
@@ -17,10 +16,9 @@ where
     n_stage_ineq: usize,
     stage_ineq_lambda_max: float,
     // Objective:
-    R: Matrix<Dy, Dy>,
     q: Vector<Dy>,
     Q_stage: Matrix<NS, NS>,
-    R_stage_grad: Vector<NI>,
+    R_stage_grad: Matrix<NI, NI>,
     // Inequalities:
     // N * ns state transition rows
     // N * ni input constraints
@@ -47,7 +45,7 @@ where
     pub fn new(
         N: usize,
         Q_stage: Matrix<NS, NS>,
-        R_stage_grad: Vector<NI>,
+        R_stage_grad: Matrix<NI, NI>,
         A_sparsity: &MatrixMN<bool, NS, NS>,
         B_sparsity: &MatrixMN<bool, NS, NI>,
         stage_ineq_sparsity: &[VectorN<bool, NS>],
@@ -62,25 +60,15 @@ where
         let Q = sparse::block_diag(&repeat_n(&Q, N).collect_vec());
 
         // Build input delta quadratic penalty
-        let R_grad = Matrix::from_diagonal(&R_stage_grad);
-        let R_grad = sparse::block(&R_grad);
-        let R_diag = sparse::block_diag(&repeat_n(&R_grad, N - 1).collect_vec());
-        let R_main_diag = sparse::block_diag(&[&(&R_diag + &R_diag), &R_grad]);
-        let R_min_diag = -R_diag;
-        let R_sub_diag = sparse::bmat(&[
-            &[None, Some(&sparse::zeros(ni, ni))],
-            &[Some(&R_min_diag), None],
-        ]);
-        let R_super_diag = sparse::bmat(&[
-            &[None, Some(&R_min_diag)],
-            &[Some(&sparse::zeros(ni, ni)), None],
-        ]);
-        let mut R = R_main_diag + R_sub_diag + R_super_diag;
+        let R_grad = sparse::block(&R_stage_grad);
+        let R_grad = sparse::block_diag(&repeat_n(&R_grad, N).collect_vec());
 
         // Build penalty matrix P
         let P = sparse::block_diag(&[
             &Q,
-            &R,
+            // Absolute inputs have no quadratic cost
+            &sparse::zeros(N * ni, N * ni),
+            &R_grad,
             // Soft stage inequality penalty variable has no quadratic cost
             &sparse::zeros(N * n_stage_ineq, N * n_stage_ineq),
         ]).build_csc();
@@ -97,6 +85,9 @@ where
                 &[Some(sparse::block_diag(&Ax)), None],
             ]);
         let Au = sparse::block_diag(&Au);
+
+        // Build input to input difference equality matrix
+        let A_R_grad = sparse::diags(N * ni, &[&[1.0], &[-1.0]], &[0, -(ni as isize)]);
 
         // Build stage soft inequality matrix
         // Soft inequalities are formulated as:
@@ -132,26 +123,27 @@ where
         // Build constraint matrix A
         let A = sparse::bmat(&[
             // State evolution
-            &[Some(&Ax), Some(&Au), None],
+            &[Some(&Ax), Some(&Au), None, None],
+            // Input gradient equalities
+            &[None, Some(&A_R_grad), Some(&-sparse::eye(N * ni)), None],
             // Input absolute and delta constraints
-            &[None, Some(&sparse::eye(N * ni)), None],
+            &[None, Some(&sparse::eye(N * ni)), None, None],
             // Soft stage inequality min constraints
-            &[Some(&stage_ineqs), None, Some(&stage_ineq_diag)],
+            &[Some(&stage_ineqs), None, None, Some(&stage_ineq_diag)],
             // Soft stage inequality max constraints
-            &[Some(&stage_ineqs), None, Some(&-&stage_ineq_diag)],
+            &[Some(&stage_ineqs), None, None, Some(&-&stage_ineq_diag)],
             // Soft stage inequality penalty variable is positive constraint
-            &[None, None, Some(&sparse::eye(N * n_stage_ineq))],
+            &[None, None, None, Some(&sparse::eye(N * n_stage_ineq))],
         ]).build_csc();
 
-        let q = Vector::zeros_generic(Dy::new(N * (ns + ni + n_stage_ineq)), U1);
-        let mut l = Vector::zeros_generic(Dy::new(N * (ns + ni + 3 * n_stage_ineq)), U1);
-        let mut u = Vector::zeros_generic(Dy::new(N * (ns + ni + 3 * n_stage_ineq)), U1);
+        let q = Vector::zeros_generic(Dy::new(N * (ns + 2 * ni + n_stage_ineq)), U1);
+        let mut l = Vector::zeros_generic(Dy::new(N * (ns + 2 * ni + 3 * n_stage_ineq)), U1);
+        let mut u = Vector::zeros_generic(Dy::new(N * (ns + 2 * ni + 3 * n_stage_ineq)), U1);
 
         // Soft stage inequality default min and max constraints
-        // Soft stage ineqs are disabled by default by forcing the slack variables to zero
-        l.rows_mut(N * (ns + ni), N * n_stage_ineq * 2)
+        l.rows_mut(N * (ns + 2 * ni), N * n_stage_ineq * 2)
             .fill(NEG_INFINITY);
-        u.rows_mut(N * (ns + ni), N * n_stage_ineq * 2)
+        u.rows_mut(N * (ns + 2 * ni), N * n_stage_ineq * 2)
             .fill(INFINITY);
 
         let settings = Settings::default()
@@ -166,7 +158,6 @@ where
             N,
             n_stage_ineq,
             stage_ineq_lambda_max: 0.0,
-            R: R.build_csc().to_dense(),
             q,
             Q_stage,
             R_stage_grad,
@@ -222,15 +213,19 @@ where
 
         // Linear state penalty
         let q = &self.Q_stage * (x0 - x_target) + x_linear_penalty;
-        self.q.rows_mut(i * ns, ns).copy_from(&q);
+        self.q.fixed_rows_mut::<NS>(i * ns).copy_from(&q);
 
         // Calulcate lower and upper bounds
         let u_min = self.u_delta_min.zip_map(&(&self.u_min - u0), max);
         let u_max = self.u_delta_max.zip_map(&(&self.u_max - u0), min);
 
-        let u_bounds_start = self.N * ns + i * ni;
-        self.l.rows_mut(u_bounds_start, ni).copy_from(&u_min);
-        self.u.rows_mut(u_bounds_start, ni).copy_from(&u_max);
+        let u_bounds_start = self.N * (ns + ni) + i * ni;
+        self.l
+            .fixed_rows_mut::<NI>(u_bounds_start)
+            .copy_from(&u_min);
+        self.u
+            .fixed_rows_mut::<NI>(u_bounds_start)
+            .copy_from(&u_max);
 
         // Save x0 and u0
         self.x_mpc.column_mut(i).copy_from(x0);
@@ -253,8 +248,8 @@ where
         let block = &self.stage_ineq_blocks[n_stage_ineq * i + j];
         self.A.set_block(block, &F.transpose());
 
-        self.l[N * (ni + ns) + n_stage_ineq * i + j] = min;
-        self.u[N * (ni + ns + n_stage_ineq) + n_stage_ineq * i + j] = max;
+        self.l[N * (ns + 2 * ni) + n_stage_ineq * i + j] = min;
+        self.u[N * (ns + 2 * ni + n_stage_ineq) + n_stage_ineq * i + j] = max;
     }
 
     pub fn solve(&mut self) -> Result<Solution<NS, NI>, ()> {
@@ -264,18 +259,17 @@ where
         let n_stage_ineq = self.n_stage_ineq;
 
         // Set the u_0 values for the input constraints
-        let guard = flame::start_guard("calculate input gradient penalty");
-        {
-            let u_0 = Matrix::<Dy, U1>::from_column_slice_generic(
-                Dy::new(N * ni),
-                U1,
-                self.u_mpc.as_slice(),
-            );
-            self.R.mul_to(&u_0, &mut self.q.rows_mut(N * ns, N * ni));
-            let mut top_q = self.q.fixed_rows_mut::<NI>(N * ns);
-            top_q -= Matrix::from_diagonal(&self.R_stage_grad) * &self.u_prev;
+        let mut u0_i_minus_1 = self.u_prev.clone();
+        for i in 0..N {
+            let u0_i = self.u_mpc.column(i);
+            let u0_i_grad = u0_i - u0_i_minus_1;
+            u0_i_minus_1 = u0_i.into_owned();
+
+            let idx = N * (ns + ni) + i * ni;
+            self.q
+                .fixed_rows_mut::<NI>(idx)
+                .copy_from(&(&self.R_stage_grad * u0_i_grad));
         }
-        guard.end();
 
         // Set upper and lower bounds for first input difference
         self.problem.update_lin_cost(self.q.as_slice());
@@ -311,7 +305,7 @@ where
                 let lambda_max = solution
                     .y()
                     .iter()
-                    .skip(N * (ns + ni))
+                    .skip(N * (ns + 2 * ni))
                     .take(N * (2 * n_stage_ineq))
                     .fold(0.0, |acc, &v| max(acc, v.abs()));
                 self.stage_ineq_lambda_max = max(lambda_max, self.stage_ineq_lambda_max);
@@ -342,21 +336,23 @@ where
         if primal_infeasible {
             // Enable soft stage inequalities
             self.u
-                .rows_mut(N * (ns + ni + n_stage_ineq * 2), N * n_stage_ineq)
+                .rows_mut(N * (ns + 2 * ni + 2 * n_stage_ineq), N * n_stage_ineq)
                 .fill(INFINITY);
             self.problem.update_upper_bound(self.u.as_slice());
             // Soft stage inequality variable linear penalty
             self.q
-                .rows_mut(N * (ns + ni), N * n_stage_ineq)
+                .rows_mut(N * (ns + 2 * ni), N * n_stage_ineq)
                 .fill(min(1e3, self.stage_ineq_lambda_max));
             self.problem.update_lin_cost(self.q.as_slice());
 
             // And disable them again
             self.u
-                .rows_mut(N * (ns + ni + n_stage_ineq * 2), N * n_stage_ineq)
+                .rows_mut(N * (ns + 2 * ni + 2 * n_stage_ineq), N * n_stage_ineq)
                 .fill(0.0);
             // Soft stage inequality variable linear penalty
-            self.q.rows_mut(N * (ns + ni), N * n_stage_ineq).fill(0.0);
+            self.q
+                .rows_mut(N * (ns + 2 * ni), N * n_stage_ineq)
+                .fill(0.0);
 
             // Solve the soft constrained problem
             let solution = self.problem.solve().solution().ok_or(())?;

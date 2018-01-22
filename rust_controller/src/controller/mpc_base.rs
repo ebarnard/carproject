@@ -22,7 +22,7 @@ where
         model: &M,
         N: u32,
         Q: Matrix<M::NS, M::NS>,
-        R: Vector<M::NI>,
+        R: Matrix<M::NI, M::NI>,
         stage_ineq_sparsity: &[VectorN<bool, M::NS>],
     ) -> MpcBase<M> {
         // Some components of A and B will always be zero and can be excluded from the sparse
