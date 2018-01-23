@@ -43,7 +43,8 @@ fn main() {
 
     let config = config::load();
     let track = track::Track::load(&*config.track);
-    let mut history = History::new(0);
+    let n_steps = (config.t / config.dt) as usize;
+    let mut history = History::new(n_steps);
 
     if panic::catch_unwind(AssertUnwindSafe(|| run(&config, &track, &mut history))).is_err() {
         error!("simulation failed");
