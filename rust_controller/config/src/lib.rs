@@ -22,6 +22,7 @@ pub struct Config {
 
 #[derive(Deserialize)]
 pub struct Controller {
+    pub N: u32,
     pub model: String,
     pub R: Vec<f64>,
     pub Q_state: Vec<f64>,
