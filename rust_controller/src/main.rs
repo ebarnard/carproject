@@ -30,6 +30,7 @@ mod osqp;
 use nalgebra::{Vector3, Vector4, Vector6};
 use std::panic::{self, AssertUnwindSafe};
 use std::time::{Duration, Instant};
+use std::thread;
 
 use prelude::*;
 use controller::Controller;
