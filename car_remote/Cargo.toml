@@ -1,0 +1,8 @@
+[package]
+name = "car_remote"
+version = "0.1.0"
+authors = ["Edward Barnard <eabarnard@gmail.com>"]
+
+[dependencies]
+serialport = "2.0.0"
+winit = "0.10.0"
