@@ -16,6 +16,8 @@ Q_initial_params = [0.05, 2.0, 0.5, 0.4, 0.3, 0.0]
 Q_params_multiplier = 0.0000000001
 
 [simulator]
+# Run the simulator in real time instead of as fast as possible
+real_time = false
 model = "spengler_gammeter_bicycle"
 # C1: Steering slip - negative for oversteer, positive for understeer
 # C2: Steering angle coupling - radians turned / meter travelled

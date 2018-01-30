@@ -33,6 +33,7 @@ pub struct Controller {
 
 #[derive(Deserialize)]
 pub struct Simulator {
+    pub real_time: bool,
     pub model: String,
     pub params: Vec<f64>,
 }

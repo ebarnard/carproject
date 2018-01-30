@@ -28,8 +28,8 @@ mod visualisation;
 mod osqp;
 
 use nalgebra::{Vector3, Vector4, Vector6};
-use std::time::Instant;
 use std::panic::{self, AssertUnwindSafe};
+use std::time::{Duration, Instant};
 
 use prelude::*;
 use controller::Controller;
@@ -81,6 +81,7 @@ fn run(config: &config::Config, track: &track::Track, history: &mut History) {
     run_simulation(
         config.t,
         config.dt,
+        config.simulator.real_time,
         state,
         &mut *sim_model,
         &model,
@@ -94,6 +95,7 @@ fn run(config: &config::Config, track: &track::Track, history: &mut History) {
 fn run_simulation<M: ControlModel>(
     t: float,
     dt: float,
+    real_time: bool,
     mut prev_state: State,
     sim_model: &mut SimulationModel,
     model: &M,
@@ -105,11 +107,14 @@ fn run_simulation<M: ControlModel>(
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
     let n_steps = (t / dt) as usize;
+    let dt_duration = Duration::new(dt.floor() as u64, (dt.fract() * 1e9) as u32);
     let mut stats = stats::OnlineStats::new();
 
     let mut control: Vector<M::NI> = nalgebra::zero();
 
     for i in 0..n_steps {
+        let step_start = Instant::now();
+
         // Run simulation
         let ctrl = model.u_to_control(&control);
         let state = sim_model.step(dt, &prev_state, &ctrl);
@@ -150,6 +155,16 @@ fn run_simulation<M: ControlModel>(
         );
 
         prev_state = state;
+
+        let step_elapsed = Instant::now() - step_start;
+        if let Some(step_remaining) = dt_duration.checked_sub(step_elapsed) {
+            if real_time {
+                thread::sleep(step_remaining);
+            }
+        } else {
+            let millis = step_elapsed.as_secs() as f64 * 1e3 + step_elapsed.subsec_nanos() as f64 / 1e6;
+            println!("step missed deadline. took {:.1}ms.", millis);
+        }
     }
 
     println!("Running stats (mean/ms, stdev/ms): {:?}", stats);
