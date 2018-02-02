@@ -99,7 +99,7 @@ where
             .copy_from(&solution.u.columns(1, N - 1));
         self.u_mpc
             .column_mut(N - 1)
-            .copy_from(&solution.u.column(N - 1));
+            .copy_from(&Vector::<M::NI>::zeros());
 
         (
             solution.u.column(0).into_owned(),
