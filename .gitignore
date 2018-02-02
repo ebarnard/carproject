@@ -113,3 +113,10 @@ ENV/
 
 # Don't ignore debugger launch profiles by default
 !**/.vscode/launch.json
+
+#
+# IntelliJ
+#
+
+# User workspace settings
+.idea
