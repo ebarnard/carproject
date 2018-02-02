@@ -54,7 +54,7 @@ where
         dt: float,
         x: &Vector<M::NS>,
         p: &Vector<M::NP>,
-    ) -> (Vector<M::NI>, Vector<M::NS>) {
+    ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>) {
         let lookup = &self.lookup;
         let track = &self.track;
         self.base.step(model, dt, x, p, |i, x_i, _u_i, mpc| {

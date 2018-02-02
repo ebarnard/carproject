@@ -60,7 +60,7 @@ where
         x: &Vector<M::NS>,
         p: &Vector<M::NP>,
         mut f: F,
-    ) -> (Vector<M::NI>, Vector<M::NS>)
+    ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>)
     where
         F: FnMut(usize, &Vector<M::NS>, &Vector<M::NI>, &mut OsqpMpc<M::NS, M::NI>)
             -> (Vector<M::NS>, Vector<M::NS>),
@@ -91,8 +91,9 @@ where
         }
         guard.end();
 
-        let mpc = &mut self.mpc;
-        let solution = flame::span_of("mpc solve", || mpc.solve()).expect("solve failed");
+        let guard = flame::start_guard("mpc solve");
+        let solution = self.mpc.solve().expect("solve failed");
+        guard.end();
 
         self.u_mpc
             .columns_mut(0, N - 1)
@@ -101,9 +102,6 @@ where
             .column_mut(N - 1)
             .copy_from(&Vector::<M::NI>::zeros());
 
-        (
-            solution.u.column(0).into_owned(),
-            solution.x.column(0).into_owned(),
-        )
+        (&solution.u, &solution.x)
     }
 }

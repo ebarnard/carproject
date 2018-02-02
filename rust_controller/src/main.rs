@@ -6,7 +6,6 @@ extern crate csv;
 extern crate cubic_spline;
 extern crate env_logger;
 extern crate flame;
-extern crate gnuplot;
 extern crate itertools;
 extern crate kdtree;
 #[macro_use]
@@ -15,6 +14,7 @@ extern crate nalgebra;
 extern crate rand;
 extern crate sparse;
 extern crate stats;
+extern crate ui;
 
 mod prelude;
 mod control_model;
@@ -28,37 +28,39 @@ mod visualisation;
 mod osqp;
 
 use nalgebra::{Vector3, Vector4, Vector6};
-use std::panic::{self, AssertUnwindSafe};
 use std::time::{Duration, Instant};
 use std::thread;
+use std::sync::Arc;
 
 use prelude::*;
 use controller::Controller;
 use control_model::ControlModel;
 use simulation_model::{SimulationModel, State};
+use track::Track;
 use estimator::{Estimator, JointEKF, Measurement};
-use visualisation::History;
+use ui::EventSender;
+use visualisation::{Event, Record};
 
 fn main() {
     env_logger::init().expect("logger init failed");
 
     let config = config::load();
-    let track = track::Track::load(&*config.track);
-    let n_steps = (config.t / config.dt) as usize;
-    let mut history = History::new(n_steps);
+    let track = Arc::new(track::Track::load(&*config.track));
 
-    if panic::catch_unwind(AssertUnwindSafe(|| run(&config, &track, &mut history))).is_err() {
+    let (mut window, record_tx) = visualisation::new(250, track.clone());
+    let sim_handle = thread::spawn(move || run(&config, track, record_tx));
+    window.run_on_main_thread();
+
+    if sim_handle.join().is_err() {
         error!("simulation failed");
     }
-
-    visualisation::plot(&track, &history);
 
     flame_merge::write_flame();
 }
 
 type Model = control_model::SpenglerGammeterBicycle;
 
-fn run(config: &config::Config, track: &track::Track, history: &mut History) {
+fn run(config: &config::Config, track: Arc<Track>, mut record_tx: EventSender<Event>) {
     let model = control_model::SpenglerGammeterBicycle;
 
     let mut controller = controller::MpcTime::<Model>::new(&model, config.controller.N, &track);
@@ -79,6 +81,13 @@ fn run(config: &config::Config, track: &track::Track, history: &mut History) {
 
     let mut sim_model = simulation_model::model_from_config(&config.simulator);
 
+    record_tx
+        .send(Event::Reset {
+            horizon_len: config.controller.N as usize,
+            np: Q_params.shape().0,
+        })
+        .expect("visualisation window closed");
+
     run_simulation(
         config.t,
         config.dt,
@@ -89,7 +98,7 @@ fn run(config: &config::Config, track: &track::Track, history: &mut History) {
         &mut controller,
         initial_params,
         &mut state_estimator,
-        history,
+        &mut record_tx,
     );
 }
 
@@ -103,7 +112,7 @@ fn run_simulation<M: ControlModel>(
     controller: &mut Controller<M>,
     mut params: Vector<M::NP>,
     estimator: &mut Estimator<M>,
-    history: &mut History,
+    record_tx: &mut EventSender<Event>,
 ) where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
@@ -134,8 +143,8 @@ fn run_simulation<M: ControlModel>(
         params = p;
 
         // Run controller
-        let (ctrl, _) = controller.step(model, dt, &predicted_state, &params);
-        control = ctrl;
+        let (horizon_ctrl, horizon_state) = controller.step(model, dt, &predicted_state, &params);
+        control = horizon_ctrl.column(0).into_owned();
 
         // Stop timer
         let dur = Instant::now().duration_since(start);
@@ -146,14 +155,23 @@ fn run_simulation<M: ControlModel>(
         info!("State {:?}", state);
         info!("Control {:?}", model.u_to_control(&control));
 
-        history.record(
-            i as float * dt,
-            &state,
-            &model.x_to_state(&predicted_state),
-            model.u_to_control(&control),
-            &params,
-            &estimator.param_covariance(),
-        );
+        let mut horizon = Vec::with_capacity(horizon_state.shape().1);
+        for i in 0..horizon.capacity() {
+            let col = horizon_state.column(i);
+            horizon.push((col[0], col[1]));
+        }
+
+        record_tx
+            .send(Event::Record(Record {
+                t: i as float * dt,
+                state: state.clone(),
+                predicted_state: model.x_to_state(&predicted_state),
+                control: model.u_to_control(&control),
+                params: params.as_slice().to_vec(),
+                param_var: estimator.param_covariance().diagonal().as_slice().to_vec(),
+                predicted_horizon: horizon,
+            }))
+            .expect("visualisation window closed");
 
         prev_state = state;
 
@@ -163,7 +181,8 @@ fn run_simulation<M: ControlModel>(
                 thread::sleep(step_remaining);
             }
         } else {
-            let millis = step_elapsed.as_secs() as f64 * 1e3 + step_elapsed.subsec_nanos() as f64 / 1e6;
+            let millis =
+                step_elapsed.as_secs() as f64 * 1e3 + step_elapsed.subsec_nanos() as f64 / 1e6;
             println!("step missed deadline. took {:.1}ms.", millis);
         }
     }

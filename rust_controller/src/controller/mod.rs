@@ -36,5 +36,5 @@ where
         dt: float,
         x: &Vector<M::NS>,
         p: &Vector<M::NP>,
-    ) -> (Vector<M::NI>, Vector<M::NS>);
+    ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>);
 }
