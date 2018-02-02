@@ -296,13 +296,11 @@ where
 pub fn add<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     fn op(acc: &mut Builder, nrows: &mut usize, ncols: &mut usize, block: &Builder) {
         assert_eq!(
-            *nrows,
-            block.nrows,
+            *nrows, block.nrows,
             "matrices being added must have the same number of rows"
         );
         assert_eq!(
-            *ncols,
-            block.ncols,
+            *ncols, block.ncols,
             "matrices being added must have the same number of columns"
         );
         block_merge(acc, block, 0, 0);
@@ -319,8 +317,7 @@ pub fn add<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
 pub fn hstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     fn op(acc: &mut Builder, nrows: &mut usize, ncols: &mut usize, block: &Builder) {
         assert_eq!(
-            *nrows,
-            block.nrows,
+            *nrows, block.nrows,
             "vstack requires matrices to have the same number of rows"
         );
         block_merge(acc, block, 0, *ncols);
@@ -334,8 +331,7 @@ pub fn hstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
 pub fn vstack<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     fn op(acc: &mut Builder, nrows: &mut usize, ncols: &mut usize, block: &Builder) {
         assert_eq!(
-            *ncols,
-            block.ncols,
+            *ncols, block.ncols,
             "vstack requires matrices to have the same number of columns"
         );
         block_merge(acc, block, *nrows, 0);
@@ -376,8 +372,7 @@ pub fn bmat<B: AsRef<Builder>>(blocks: &[&[Option<B>]]) -> Builder {
             *left = right;
         } else {
             assert_eq!(
-                *left,
-                right,
+                *left, right,
                 "bmat requires all blocks in a {0} to have the same number of {0}s",
                 name,
             );
@@ -552,8 +547,7 @@ impl CscMatrix {
                     self.data[index] = val;
                 } else {
                     assert_eq!(
-                        0.0,
-                        val,
+                        0.0, val,
                         "unexpected non-zero element in sparse tracked block"
                     );
                 }
