@@ -91,7 +91,9 @@ where
 
             let x_update = x_predict + &K * y;
             let I = Matrix::<M::NS, M::NS>::identity();
-            let P_update = (I - &K * H) * P_predict;
+            let IKH = I - &K * H;
+            // Use the numerically stable Joseph form to preserve positive-semi-definiteness of P
+            let P_update = &IKH * P_predict * IKH.transpose() + &K * self.R * K.transpose();
 
             self.x_hat = x_update;
             self.P = P_update;
