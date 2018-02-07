@@ -12,12 +12,11 @@ itertools = "0.7.2"
 flame = { git = "https://github.com/TyOverby/flame", rev = "983199a2af26ca1f8c5bdd31115933fef16628fa" }
 osqp = "0.0.1-pre.3"
 fux_kdtree = "0.2.0"
-gnuplot = "0.0.23"
 log = "0.3.8"
 env_logger = "0.4.3"
 streaming-stats = "0.1.28"
 cubic_spline = { path = "cubic_spline" }
 sparse = { path = "sparse" }
 config = { path = "config" }
+ui = { path = "ui" }
 rand = "0.3.18"
-

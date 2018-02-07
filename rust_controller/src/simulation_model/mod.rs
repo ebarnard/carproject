@@ -4,7 +4,7 @@ use prelude::*;
 use controller::{Control, State as ControllerState};
 use control_model::{self, ControlModel};
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct State {
     pub position: (float, float),
     pub velocity: (float, float),
