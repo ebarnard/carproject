@@ -53,6 +53,10 @@ where
         }
     }
 
+    pub fn horizon_len(&self) -> u32 {
+        self.horizon
+    }
+
     pub fn step<F>(
         &mut self,
         model: &M,

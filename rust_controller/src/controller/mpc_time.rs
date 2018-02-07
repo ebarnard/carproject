@@ -28,8 +28,8 @@ where
         // Input difference penalties
         // TODO: Support a configurable penalty multiplier
         let mut R: Vector<M::NI> = nalgebra::zero();
-        R[0] = 15.0;
-        R[1] = 15.0;
+        R[0] = 30.0;
+        R[1] = 30.0;
         let R = Matrix::from_diagonal(&R);
 
         let mut track_bounds_ineq_sparsity = VectorN::<bool, M::NS>::from_element(false);
@@ -57,6 +57,7 @@ where
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>) {
         let lookup = &self.lookup;
         let track = &self.track;
+        let N = self.base.horizon_len();
         self.base.step(model, dt, x, p, |i, x_i, _u_i, mpc| {
             // Find track point
             let centreline_point = flame::span_of("centreline point lookup", || {
@@ -84,7 +85,12 @@ where
                 .fixed_rows_mut::<U2>(0)
                 .copy_from(&J.row(1).transpose());
 
-            let a_max = centreline_point.track_width / 2.0;
+            // Terminal constraint to stay in the middle of the track
+            let a_max = if i == (N - 1) as usize {
+                0.0
+            } else {
+                centreline_point.track_width / 2.0
+            };
 
             // Give the values to the builder
             flame::span_of("update mpc inequalities", || {
