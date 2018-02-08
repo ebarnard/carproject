@@ -5,4 +5,4 @@ authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
 itertools = "0.7.2"
-nalgebra = "0.13.1"
+nalgebra = "0.14.0"

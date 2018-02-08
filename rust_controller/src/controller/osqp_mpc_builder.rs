@@ -1,5 +1,5 @@
 use itertools::{repeat_n, Itertools};
-use log::LogLevel::Debug;
+use log::Level::Debug;
 use nalgebra::{self, Dynamic as Dy, MatrixMN, U1, VectorN};
 use osqp::{Problem, Settings, Status};
 use std::iter::once;
