@@ -175,6 +175,10 @@ while True:
     cv2.addWeighted(image_average, 0.95, image_use, 0.05, -1, image_average)
     ret, track = cv2.threshold(image_average, 240, 255, 0)
 
+    # show the image
+    cv2.imshow("Track", track)
+    cv2.waitKey(1)
+
     image_use = image_use*(track < 240)
 
     im2, contours, hierarchy = cv2.findContours(image_use, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)

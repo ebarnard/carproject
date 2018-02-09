@@ -52,14 +52,14 @@ from PyCapture2 import Camera, BusManager
 #     avi.close()
 #
 #
-# def enableEmbeddedTimeStamp(cam, enableTimeStamp):
-#     embeddedInfo = cam.getEmbeddedImageInfo()
-#     if embeddedInfo.available.timestamp:
-#         cam.setEmbeddedImageInfo(timestamp=enableTimeStamp)
-#         if (enableTimeStamp):
-#             print("\nTimeStamp is enabled.\n")
-#         else:
-#             print("\nTimeStamp is disabled.\n")
+def enableEmbeddedTimeStamp(cam, enableTimeStamp):
+    embeddedInfo = cam.getEmbeddedImageInfo()
+    if embeddedInfo.available.timestamp:
+        cam.setEmbeddedImageInfo(timestamp=enableTimeStamp)
+        if (enableTimeStamp):
+            print("\nTimeStamp is enabled.\n")
+        else:
+            print("\nTimeStamp is disabled.\n")
 #
 #
 # def grabImages(cam, numImagesToGrab):
@@ -87,46 +87,44 @@ from PyCapture2 import Camera, BusManager
 #     cv2.waitKey(0)
 #
 #
-# # create instances of the object BusManager and check number of cameras
-# bus = PyCapture2.BusManager()
-# numCams = bus.getNumOfCameras()
-# print("Number of cameras detected: ", numCams)
-# if not numCams:
-#     print("Insufficient number of cameras. Exiting...")
-#     exit()
-#
+# create instances of the object BusManager and check number of cameras
+bus = PyCapture2.BusManager()
+numCams = bus.getNumOfCameras()
+print("Number of cameras detected: ", numCams)
+if not numCams:
+    print("Insufficient number of cameras. Exiting...")
+    exit()
 # # Select camera on 0th index
-# camera_serial_number = 17115008
-# camera_guit = bus.getCameraFromSerialNumber(camera_serial_number)
-# cam = PyCapture2.Camera()
-# cam.connect(bus.getCameraFromIndex(0))
+camera_serial_number = 17115008
+camera_guit = bus.getCameraFromSerialNumber(camera_serial_number)
+cam = PyCapture2.Camera()
+cam.connect(bus.getCameraFromIndex(0))
 #
-# # Print camera details
-# printCameraInfo(cam)
+# Print camera details
+printCameraInfo(cam)
 #
 # # Set format to mono 8
-# fmt7info, supported = cam.getFormat7Info(0)
+fmt7info, supported = cam.getFormat7Info(0)
 #
 # # Check whether pixel format mono8 is supported
-# if PyCapture2.PIXEL_FORMAT.MONO8 & fmt7info.pixelFormatBitField == 0:
-#     print("Pixel format is not supported\n")
-#     exit()
+if PyCapture2.PIXEL_FORMAT.MONO8 & fmt7info.pixelFormatBitField == 0:
+    print("Pixel format is not supported\n")
+    exit()
 #
 # # Configure camera format7 settings
-# fmt7imgSet = PyCapture2.Format7ImageSettings(0, 0, 0, fmt7info.maxWidth, fmt7info.maxHeight, PyCapture2.PIXEL_FORMAT.MONO8)
-# fmt7pktInf, isValid = cam.validateFormat7Settings(fmt7imgSet)
-# if not isValid:
-#     print("Format7 settings are not valid!")
-#     exit()
-# cam.setFormat7ConfigurationPacket(fmt7pktInf.recommendedBytesPerPacket, fmt7imgSet)
+fmt7imgSet = PyCapture2.Format7ImageSettings(0, 0, 0, fmt7info.maxWidth, fmt7info.maxHeight, PyCapture2.PIXEL_FORMAT.MONO8)
+fmt7pktInf, isValid = cam.validateFormat7Settings(fmt7imgSet)
+if not isValid:
+    print("Format7 settings are not valid!")
+    exit()
+cam.setFormat7ConfigurationPacket(fmt7pktInf.recommendedBytesPerPacket, fmt7imgSet)
+
+# Enable camera embedded timestamp
+enableEmbeddedTimeStamp(cam, True)
 #
-# # Enable camera embedded timestamp
-# enableEmbeddedTimeStamp(cam, True)
-#
-# print("Starting image capture...")
-# cam.startCapture()
-# grabImages(cam, 100)
-# cam.stopCapture()
+print("Starting image capture...")
+cam.startCapture()
+
 #
 # # Disable camera embedded timestamp
 # enableEmbeddedTimeStamp(cam, False)
@@ -149,9 +147,15 @@ bbox = cv2.selectROI(frame, False)
 i = 0
 while True:
     # Read a new frame
-    ok, frame = video.read()
-    if not ok:
-        break
+
+    try:
+        image = cam.retrieveBuffer()
+    except PyCapture2.Fc2error as fc2Err:
+        print("Error retrieving buffer : ", fc2Err)
+        continue
+
+    frame = image
+
     time_start = timer()
     imgray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     ret, thresh = cv2.threshold(imgray, 35, 255, 0)
@@ -229,6 +233,8 @@ while True:
 
     time_delay = timer() - time_start
     print(time_delay)
+
+cam.stopCapture()
 
 # new_image = cv2.imread('single_square_test_result_48.png')
 # imgray = cv2.cvtColor(new_image, cv2.COLOR_BGR2GRAY)
