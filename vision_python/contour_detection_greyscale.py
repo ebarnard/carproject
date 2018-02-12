@@ -101,7 +101,7 @@ cam = PyCapture2.Camera()
 cam.connect(bus.getCameraFromIndex(0))
 #
 # Print camera details
-printCameraInfo(cam)
+# printCameraInfo(cam)
 #
 # # Set format to mono 8
 fmt7info, supported = cam.getFormat7Info(0)
