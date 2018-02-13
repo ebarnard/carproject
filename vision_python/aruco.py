@@ -83,13 +83,14 @@ while True:
     ret, rvec, tvec = aruco.estimatePoseBoard(corners, ids, board, cameraMatrix, distCoeffs)
     R, _ = cv2.Rodrigues(rvec)
 
-    P = np.zeros((4, 4))
-    P[0:3, 0:3] = R
-    P[0:3, 3] = tvec[0:3, 0]
-    P[3, 3] = 1
+    P = np.zeros((3, 3))
+    P[:, 0:2] = R[:, 0:2]
+    P[:, 2] = tvec[:, 0]
+    P /= P[2, 2]
+    H = cameraMatrix.dot(P)
 
-    one = np.array([0, 0, 0, 1])
-    v = cameraMatrix.dot(P.dot(one)[0:3])
+    one = np.array([0, 0, 1])
+    v = H.dot(one)
     print("world origin", v / v[2])
 
     print("camera matrix", cameraMatrix)
