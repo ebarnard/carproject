@@ -18,7 +18,7 @@ import numpy as np
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
 
-cap = cv2.VideoCapture("../video/aruco_sheet_4x4_50_2.avi")
+cap = cv2.VideoCapture("../video/aruco_sheet_4x4_50_small.avi")
 
 # for i in range(0, 1000):
 #     cap.read()
@@ -31,7 +31,7 @@ while True:
     # frame = frame[400:880, 300:940] #480x640
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray_thresh = gray.copy()
-    cv2.adaptiveThreshold(gray, maxValue=255, adaptiveMethod=0, thresholdType=0, blockSize=25, C=16,
+    cv2.adaptiveThreshold(gray, maxValue=255, adaptiveMethod=cv2.ADAPTIVE_THRESH_MEAN_C, thresholdType=cv2.THRESH_BINARY, blockSize=5, C=0,
                           dst=gray_thresh)
     # MDetector.setDictionary("ARUCO_MIP_36h12")
     aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
@@ -45,11 +45,15 @@ while True:
     # my problem was that the cellphone put black all around it. The algorithm
     # depends very much upon finding rectangular black blobs
 
-    gray_thresh = aruco.drawDetectedMarkers(gray_thresh, corners)
+
+
+
+    # aruco.calibrateCameraAruco()
+    gray = aruco.drawDetectedMarkers(gray, corners, borderColor=127)
 
     # print(rejectedImgPoints)
     # Display the resulting frame
-    cv2.imshow('frame', gray_thresh)
+    cv2.imshow('frame', gray)
     if cv2.waitKey(0) & 0xFF == ord('q'):
         break
 
