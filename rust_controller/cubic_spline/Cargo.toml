@@ -4,9 +4,9 @@ version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
-nalgebra = "0.13.1"
+nalgebra = "0.14.0"
 
 [target.'cfg(target_os = "macos")'.dependencies.nalgebra-lapack]
-version = "0.5"
+version = "0.6.0"
 default-features = false
 features = [ "accelerate" ]

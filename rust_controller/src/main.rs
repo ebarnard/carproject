@@ -42,7 +42,7 @@ use ui::EventSender;
 use visualisation::{Event, Record};
 
 fn main() {
-    env_logger::init().expect("logger init failed");
+    env_logger::init();
 
     let config = config::load();
     let track = Arc::new(track::Track::load(&*config.track));
