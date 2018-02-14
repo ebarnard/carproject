@@ -1,5 +1,5 @@
 use flame;
-use log::LogLevel::Debug;
+use log::Level::Debug;
 use nalgebra::{self, U2, VectorN};
 
 use prelude::*;

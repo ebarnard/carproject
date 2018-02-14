@@ -1,8 +1,7 @@
 [package]
-name = "sparse"
+name = "track"
 version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
-itertools = "0.7.2"
-nalgebra = "0.14.0"
+piston_window = "0.74.0"

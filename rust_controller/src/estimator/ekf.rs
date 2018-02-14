@@ -1,5 +1,4 @@
 use nalgebra::{self, DimAdd, DimSum, U0, U3, Vector3};
-use nalgebra::linalg::Cholesky;
 
 use prelude::*;
 use control_model::{discretise, CombineState, ControlModel};
@@ -82,16 +81,16 @@ where
 
             // Innovation covariance
             let S = &H * &P_predict * H.transpose() + self.R;
-            let S_inv = Cholesky::new(S)
-                .expect("S must be symmetric positive-definite")
-                .inverse();
+            let S_inv = S.try_inverse().expect("S must be invertible");
 
             // Kalman gain
             let K = &P_predict * H.transpose() * S_inv;
 
             let x_update = x_predict + &K * y;
             let I = Matrix::<M::NS, M::NS>::identity();
-            let P_update = (I - &K * H) * P_predict;
+            let IKH = I - &K * H;
+            // Use the numerically stable Joseph form to preserve positive-semi-definiteness of P
+            let P_update = &IKH * P_predict * IKH.transpose() + &K * self.R * K.transpose();
 
             self.x_hat = x_update;
             self.P = P_update;

@@ -1,4 +1,4 @@
-use log::LogLevel::Debug;
+use log::Level::Debug;
 use nalgebra::{self, MatrixMN};
 use osqp::{Problem, Settings};
 use sparse;
