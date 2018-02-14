@@ -3,6 +3,8 @@ import cv2.aruco as aruco
 import numpy as np
 import numpy.linalg as linalg
 import matplotlib.pyplot as plt
+import csv
+
 
 # '''
 #     drawMarker(...)
@@ -23,39 +25,44 @@ import matplotlib.pyplot as plt
 cap = cv2.VideoCapture("../video/car_drive_demo.avi")
 
 ok, frame = cap.read()
+frame = cv2.imread("../video/aruco_4x4_50_test_board.png", cv2.IMREAD_GRAYSCALE)
 
 # for i in range(0, 1000):
 #     cap.read()
 
-# Uncomment the line below to select a different bounding box
-bbox = cv2.selectROI(frame, False)
 first_run = True
 
 while True:
     # Capture frame-by-frame
     ret, frame = cap.read()
 
-    gray = cv2.imread("../video/aruco_4x4_50_test_board.png", cv2.IMREAD_GRAYSCALE)
+    frame = cv2.imread("../video/aruco_4x4_50_test_board.png", cv2.IMREAD_GRAYSCALE)
     # print(frame.shape) #480x640
     # Our operations on the frame come here
     # frame = frame[400:880, 300:940] #480x640
     #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    gray_thresh = gray.copy()
-    cv2.adaptiveThreshold(gray, maxValue=255, adaptiveMethod=cv2.ADAPTIVE_THRESH_MEAN_C, thresholdType=cv2.THRESH_BINARY, blockSize=5, C=0,
+    gray_thresh = frame.copy()
+    cv2.adaptiveThreshold(frame, maxValue=255, adaptiveMethod=cv2.ADAPTIVE_THRESH_MEAN_C, thresholdType=cv2.THRESH_BINARY, blockSize=5, C=0,
                           dst=gray_thresh)
     # MDetector.setDictionary("ARUCO_MIP_36h12")
     aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
 
-    markerBottomLeftCorners = [[0, 0], [0.6, 0], [0, 0.3], [0.6, 0.6], [0.6, 0.9], [-0.3, 0.6]]
+    markerBottomLeftCorners = [[0, -0.6], [0.6, -0.6], [0, -0.3], [0.6, 0], [0.6, 0.3], [-0.3, 0]]
     markerWidth = 0.035
     objPoints = []
     for i in range(0, len(markerBottomLeftCorners)):
         [x, y] = markerBottomLeftCorners[i]
+        #corners = np.array([
+        #    x, y, 0,
+        #    x, y + markerWidth, 0,
+        #    x + markerWidth, y + markerWidth, 0,
+        #    x + markerWidth, y, 0,
+        #])
         corners = np.array([
-            x, y, 0,
-            x, y + markerWidth, 0,
-            x + markerWidth, y + markerWidth, 0,
-            x + markerWidth, y, 0,
+            x - markerWidth / 2, y - markerWidth / 2, 0,
+            x - markerWidth / 2, y + markerWidth / 2, 0,
+            x + markerWidth / 2, y + markerWidth / 2, 0,
+            x + markerWidth / 2, y - markerWidth / 2, 0,
         ])
         objPoints.append(corners)
 
@@ -66,106 +73,65 @@ while True:
     parameters = aruco.DetectorParameters_create()
     # lists of ids and the corners belonging to each id
     corners, ids, rejectedCorners = aruco.detectMarkers(gray_thresh, aruco_dict, parameters=parameters)
-    print("corners: ", corners)
+    # print("corners: ", corners)
 
     corners, ids, rejectedCorners, _ = aruco.refineDetectedMarkers(gray_thresh, board, corners, ids, rejectedCorners)
-    print("refined corners: ", corners)
+    # print("refined corners: ", corners)
 
-    # Calibration requires a weird input format
-    cornersConcatenated = []
-    idsConcatenated = []
-    markerCounterPerFrame = []
-
-    for i in range(0, len(ids)):
-        markerCounterPerFrame.append(len(corners[i]))
-        for j in range(0, len(corners[i])):
-            cornersConcatenated.append(corners[i][j])
-            idsConcatenated.append(ids[i][j])
-
-    cornersConcatenated = np.array(cornersConcatenated)
-    idsConcatenated = np.array(idsConcatenated)
-    markerCounterPerFrame = np.array(markerCounterPerFrame)
-
-    retval, cameraMatrix, distCoeffs, _, _ = aruco.calibrateCameraAruco(cornersConcatenated, idsConcatenated, markerCounterPerFrame, board, gray.shape, None, None)
-
-    ret, rvec, tvec = aruco.estimatePoseBoard(corners, ids, board, cameraMatrix, distCoeffs)
-    R, _ = cv2.Rodrigues(rvec)
-
-    P = np.zeros((3, 3))
-    P[:, 0:2] = R[:, 0:2]
-    P[:, 2] = tvec[:, 0]
-    P /= P[2, 2]
-    # homography = cv2.findHomography(cornersConcatenated, board)
-    H = cameraMatrix.dot(P)
+    boardPoints, imgPoints = aruco.getBoardObjectAndImagePoints(board, corners, ids)
+    H, _ = cv2.findHomography(boardPoints, imgPoints, cv2.LMEDS)
     H_inv = linalg.inv(H)
+    H_inv = H_inv / H_inv[2, 2]
 
-    imgray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    ret, thresh = cv2.threshold(imgray, 35, 255, 0)
+    one = np.array([0, 0.3, 1])
+    track_centreline = np.genfromtxt('../track_model_generator/office_desk_track_2500.csv', dtype=None, delimiter=',', skip_header=1)
+    gradient = (np.roll(track_centreline, -3) - np.roll(track_centreline, 3)) / 2
+    leng = np.hypot(gradient[:, 0], gradient[:, 1])
+    gradient[:, 0] /= leng
+    gradient[:, 1] /= leng
+    normal = np.array([-gradient[:, 1], gradient[:, 0]])
+    track_inner = np.array([track_centreline[:, 0] + normal[0, :] * (track_centreline[:, 2]/2),
+                            track_centreline[:, 1] + normal[1, :] * (track_centreline[:, 2]/2)])
+    track_outer = np.array([track_centreline[:, 0] - normal[0, :] * (track_centreline[:, 2]/2),
+                            track_centreline[:, 1] - normal[1, :] * (track_centreline[:, 2]/2)])
 
-    kernel = np.ones((5, 5), np.uint8)
+    track_inner = H.dot(np.r_[track_inner, [np.ones(2500)]])
+    track_outer = H.dot(np.r_[track_outer, [np.ones(2500)]])
 
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+    plt.plot(track_centreline[:, 0], track_centreline[:, 1], "r")
+    plt.plot(track_inner[0, :], track_inner[1, :], "g")
+    plt.plot(track_outer[0, :], track_outer[1, :], "b")
+    plt.axis("equal")
 
-    mask = np.zeros((thresh.shape[0] + 2, thresh.shape[1] + 2), np.uint8)
-    flooded = thresh.copy()
-    cv2.floodFill(flooded, mask, (bbox[0], bbox[1]), 255)
+    img = np.zeros((1024, 1280), np.uint8)
+    track_outer_reshape = track_outer.transpose()
 
-    image_use = 255 - (flooded - thresh)
-    kernel = np.ones((10, 10), np.uint8)
-    image_use = cv2.morphologyEx(image_use, cv2.MORPH_CLOSE, kernel)
+    cv2.fillPoly(img, np.array([track_outer[0:2, :].transpose(), track_inner[0:2, :].transpose()], np.int32), 255)
 
-    if first_run:
-        image_average = image_use
-        first_run = False
-
-    cv2.addWeighted(image_average, 0.95, image_use, 0.05, -1, image_average)
-    ret, track = cv2.threshold(image_average, 240, 255, 0)
-
-    track_gradient = cv2.Laplacian(track, cv2.CV_64F)
-
-    # show the image
-    cv2.imshow("Track gradient", track_gradient)
-    cv2.waitKey(1)
-
-    # row_coord = 0
-    # column_coord = 0
-    # for row in track_gradient:
-    #     row_coord += 1
-    #     column_coord = 0
-    #     for pixel in row:
-    #         column_coord += 1
-    #         if pixel != 0:
-    #             track_border_pixel_coord = H_inv.dot((row_coord, column_coord, 1))
-    #             track_border_pixel_coord = track_border_pixel_coord/track_border_pixel_coord[2]
-    #             # plt.plot(track_border_pixel_coord[0], track_border_pixel_coord[1], 'ro')
-    #             # print(row_coord, column_coord)
-    #             # print(track_border_pixel_coord)
-    # # plt.show()
-
-    one = np.array([0, 0, 1])
     v = H.dot(one)
     print("world origin", v / v[2])
 
     v_world = H_inv.dot(v/v[2])
     print("world origin in meters", v_world/v_world[2])
 
-    print("camera matrix", cameraMatrix)
-    print("rot", R)
-    print("tr", tvec)
-
     # It's working.
     # my problem was that the cellphone put black all around it. The algorithm
     # depends very much upon finding rectangular black blobs
 
 
-
-
     # aruco.calibrateCameraAruco()
-    gray = aruco.drawDetectedMarkers(gray, corners, borderColor=127)
+
+    frame = aruco.drawDetectedMarkers(frame, corners, borderColor=127)
 
     # print(rejectedImgPoints)
     # Display the resulting frame
-    cv2.imshow('frame', gray)
+    frame = cv2.add(frame, img)
+
+    cv2.imshow('frame', cv2.resize(frame, (int(1280 * 0.5), int(1024 * 0.5))))
+
+
+    plt.show()
+
     if cv2.waitKey(0) & 0xFF == ord('q'):
         break
 
