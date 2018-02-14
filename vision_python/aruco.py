@@ -63,39 +63,14 @@ while True:
     corners, ids, rejectedCorners, _ = aruco.refineDetectedMarkers(gray_thresh, board, corners, ids, rejectedCorners)
     print("refined corners: ", corners)
 
-    # Calibration requires a weird input format
-    cornersConcatenated = []
-    idsConcatenated = []
-    markerCounterPerFrame = []
+    boardPoints, imgPoints = aruco.getBoardObjectAndImagePoints(board, corners, ids)
+    H, _ = cv2.findHomography(boardPoints, imgPoints, cv2.LMEDS)
+    print("H", H)
 
-    for i in range(0, len(ids)):
-        markerCounterPerFrame.append(len(corners[i]))
-        for j in range(0, len(corners[i])):
-            cornersConcatenated.append(corners[i][j])
-            idsConcatenated.append(ids[i][j])
-
-    cornersConcatenated = np.array(cornersConcatenated)
-    idsConcatenated = np.array(idsConcatenated)
-    markerCounterPerFrame = np.array(markerCounterPerFrame)
-
-    retval, cameraMatrix, distCoeffs, _, _ = aruco.calibrateCameraAruco(cornersConcatenated, idsConcatenated, markerCounterPerFrame, board, gray.shape, None, None)
-
-    ret, rvec, tvec = aruco.estimatePoseBoard(corners, ids, board, cameraMatrix, distCoeffs)
-    R, _ = cv2.Rodrigues(rvec)
-
-    P = np.zeros((3, 3))
-    P[:, 0:2] = R[:, 0:2]
-    P[:, 2] = tvec[:, 0]
-    P /= P[2, 2]
-    H = cameraMatrix.dot(P)
-
-    one = np.array([0, 0, 1])
+    one = np.array([0.3, 0, 1])
     v = H.dot(one)
     print("world origin", v / v[2])
 
-    print("camera matrix", cameraMatrix)
-    print("rot", R)
-    print("tr", tvec)
 
     # It's working.
     # my problem was that the cellphone put black all around it. The algorithm
