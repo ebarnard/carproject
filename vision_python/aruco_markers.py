@@ -4,25 +4,20 @@ import cv2.aruco as aruco
 import numpy as np
 
 def find_homography(frame):    
-    markerBottomLeftCorners = [[0, -0.6], [0.6, -0.6], [0, -0.3], [0.6, 0], [0.6, 0.3], [-0.3, 0]]
-    markerIds = np.array([27, 18, 5, 12, 43, 42])
-    markerWidth = 0.035
+    markerBottomLeftCorners = [[-0.305, -0.490], [-0.902, 0.450], [0.848, 0.440], [0.848, -0.498], [0.298, -0.178],
+                               [-0.162, 0.246]]
+    markerIds = np.array([8, 10, 11, 13, 16, 14])
+    markerWidth = 0.060
 
     # create the aruco board given marker positions and ids
     objPoints = []
     for i in range(0, len(markerBottomLeftCorners)):
         [x, y] = markerBottomLeftCorners[i]
-        #corners = np.array([
-        #    x, y, 0,
-        #    x, y + markerWidth, 0,
-        #    x + markerWidth, y + markerWidth, 0,
-        #    x + markerWidth, y, 0,
-        #])
         corners = np.array([
-            x - markerWidth / 2, y - markerWidth / 2, 0,
-            x - markerWidth / 2, y + markerWidth / 2, 0,
-            x + markerWidth / 2, y + markerWidth / 2, 0,
-            x + markerWidth / 2, y - markerWidth / 2, 0,
+            x, y, 0,
+            x, y + markerWidth, 0,
+            x + markerWidth, y + markerWidth, 0,
+            x + markerWidth, y, 0,
         ])
         objPoints.append(corners)
     objPoints = np.array(objPoints, ('float32'))
@@ -38,7 +33,7 @@ def find_homography(frame):
     # threshold the image
     gray_thresh = frame.copy()
     cv2.adaptiveThreshold(frame, maxValue=255, adaptiveMethod=cv2.ADAPTIVE_THRESH_MEAN_C,
-                          thresholdType=cv2.THRESH_BINARY, blockSize=5, C=0, dst=gray_thresh)
+                          thresholdType=cv2.THRESH_BINARY, blockSize=9, C=0, dst=gray_thresh)
 
     # detect markers and then refine based on the known board positions
     corners, ids, rejectedCorners = aruco.detectMarkers(gray_thresh, aruco_dict, parameters=parameters)

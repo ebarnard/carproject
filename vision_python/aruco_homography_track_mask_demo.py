@@ -5,7 +5,7 @@ import numpy as np
 import aruco_markers
 import track
 
-frame = cv2.imread("../video/aruco_4x4_50_test_board.png", cv2.IMREAD_GRAYSCALE)
+frame = cv2.imread("../video/aruco_4x4_50_new_board.png", cv2.IMREAD_GRAYSCALE)
 [h, w] = frame.shape
 
 H, corners = aruco_markers.find_homography(frame)
