@@ -1,0 +1,12 @@
+- Initialise mulitpliers for softening to be same as cost funciton mulitpliers
+- Recursive feasibility
+  - Approximate
+    - Constrain final N horizon points to lie on the line of least curvature (as a good guess for the racing line)
+  - Almost Exact
+    - Constrain final point to lie on a recursively feasible trajectory
+    - Ideally this is the largest hyper-cube in state space that is recursively feasible
+    - Initially constrain 'a' (deviation from race line), deviation from race line angle, and maximum speed
+- Estimator outlier reduction
+  - Chi-squared percentile test
+- Estimator performance improvement
+  - Historical batch estiamtion
