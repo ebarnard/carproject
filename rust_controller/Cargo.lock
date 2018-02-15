@@ -171,6 +171,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "config"
 version = "0.1.0"
 dependencies = [
+ "prelude 0.1.0",
  "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -248,8 +249,8 @@ dependencies = [
 name = "cubic_spline"
 version = "0.1.0"
 dependencies = [
- "nalgebra 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra-lapack 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prelude 0.1.0",
 ]
 
 [[package]]

@@ -2,9 +2,9 @@
 
 extern crate csv;
 extern crate cubic_spline;
+extern crate kdtree;
 #[macro_use]
 extern crate log;
-extern crate kdtree;
 extern crate prelude;
 
 use cubic_spline::CubicSpline;

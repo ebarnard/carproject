@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
-nalgebra = "0.14.0"
+prelude = { path = "../prelude" }
 
 [target.'cfg(target_os = "macos")'.dependencies.nalgebra-lapack]
 version = "0.6.0"
