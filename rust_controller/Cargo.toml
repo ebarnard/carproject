@@ -6,7 +6,6 @@ authors = ["Edward Barnard <eabarnard@gmail.com>"]
 [workspace]
 
 [dependencies]
-nalgebra = "0.14.0"
 itertools = "0.7.2"
 flame = { git = "https://github.com/TyOverby/flame", rev = "983199a2af26ca1f8c5bdd31115933fef16628fa" }
 osqp = "0.0.1-pre.3"
@@ -16,5 +15,6 @@ streaming-stats = "0.1.28"
 sparse = { path = "sparse" }
 config = { path = "config" }
 ui = { path = "ui" }
+prelude = { path = "prelude" }
 rand = "0.4.2"
 track = { path = "track" }

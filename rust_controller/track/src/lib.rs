@@ -5,15 +5,14 @@ extern crate cubic_spline;
 #[macro_use]
 extern crate log;
 extern crate kdtree;
-extern crate nalgebra;
+extern crate prelude;
 
 use cubic_spline::CubicSpline;
 use kdtree::kdtree::{Kdtree, KdtreePointTrait};
 use nalgebra::{Matrix2, LU};
 use std::path::Path;
 
-#[allow(non_camel_case_types)]
-type float = f64;
+use prelude::*;
 
 #[derive(Clone)]
 pub struct Track {

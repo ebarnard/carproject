@@ -933,6 +933,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "prelude"
+version = "0.1.0"
+dependencies = [
+ "nalgebra 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "quote"
 version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1026,8 +1034,8 @@ dependencies = [
  "flame 0.2.1-pre (git+https://github.com/TyOverby/flame?rev=983199a2af26ca1f8c5bdd31115933fef16628fa)",
  "itertools 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "nalgebra 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "osqp 0.0.1-pre.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prelude 0.1.0",
  "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "sparse 0.1.0",
  "streaming-stats 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1281,7 +1289,7 @@ dependencies = [
  "cubic_spline 0.1.0",
  "fux_kdtree 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "nalgebra 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prelude 0.1.0",
 ]
 
 [[package]]

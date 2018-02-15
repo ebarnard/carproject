@@ -1,4 +1,5 @@
-use nalgebra;
+pub extern crate nalgebra;
+extern crate rand;
 
 #[allow(non_camel_case_types)]
 pub type float = f64;
@@ -27,9 +28,7 @@ pub fn phase_unwrap(a: float, mut b: float) -> float {
 }
 
 pub fn randn() -> float {
-    use rand;
-    use rand::distributions::normal::StandardNormal;
-    let StandardNormal(n) = rand::random();
+    let rand::distributions::normal::StandardNormal(n) = rand::random();
     n
 }
 

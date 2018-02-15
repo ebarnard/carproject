@@ -7,14 +7,13 @@ extern crate flame;
 extern crate itertools;
 #[macro_use]
 extern crate log;
-extern crate nalgebra;
+extern crate prelude;
 extern crate rand;
 extern crate sparse;
 extern crate stats;
 extern crate track;
 extern crate ui;
 
-mod prelude;
 mod control_model;
 mod controller;
 mod estimator;
