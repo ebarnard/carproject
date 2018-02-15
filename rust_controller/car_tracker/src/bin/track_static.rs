@@ -6,22 +6,22 @@ use std::f64::consts::PI;
 use std::time::Instant;
 
 fn main() {
-    let bmp = image::open("car_noise.bmp").unwrap().to_luma();
+    let frame = image::open("static_test_frame.tiff").unwrap().to_luma();
 
-    let frame_width = bmp.width();
-    let frame_height = bmp.height();
-    let frame_bytes = frame_width as usize * frame_height as usize;
-    let mut frame = vec![0; frame_bytes];
+    let width = frame.width();
+    let height = frame.height();
 
-    for y in 0..frame_height {
-        for x in 0..frame_width {
-            frame[(y * frame_width + x) as usize] = bmp.get_pixel(x, y)[0];
-        }
-    }
+    let track_mask = image::open("static_test_track_mask.tiff")
+        .unwrap()
+        .to_luma()
+        .into_raw();
+    let bg = image::open("static_test_bg.tiff")
+        .unwrap()
+        .to_luma()
+        .into_raw();
+    let frame = frame.into_raw();
 
-    let bg = vec![0; frame_bytes];
-
-    let mut tracker = car_tracker::Tracker::new(frame_width, frame_height, bg);
+    let mut tracker = car_tracker::Tracker::new(width, height, &track_mask, &bg);
 
     // process the same frame a few times
     tracker.track_frame(&frame);
@@ -37,7 +37,7 @@ fn main() {
 
     println!("med {} {} {}", x_median, y_median, theta * 180.0 / PI);
 
-    let fg = cv::Mat::from_buffer(frame_height as i32, frame_width as i32, 0, &frame);
+    let fg = cv::Mat::from_buffer(height as i32, width as i32, 0, &frame);
     fg.rectangle_custom(
         cv::Rect::new(x_median as i32 - 5, y_median as i32 - 5, 10, 10),
         cv::Scalar::all(127),

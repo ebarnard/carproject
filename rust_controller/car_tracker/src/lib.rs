@@ -20,13 +20,26 @@ pub struct Tracker {
 }
 
 impl Tracker {
-    pub fn new(width: u32, height: u32, bg: Vec<u8>) -> Tracker {
+    pub fn new(width: u32, height: u32, track_mask: &[u8], bg: &[u8]) -> Tracker {
+        let pixels = width as usize * height as usize;
+        assert_eq!(pixels, track_mask.len());
+        assert_eq!(pixels, bg.len());
+
+        // Everywhere the mask is zero is not track and should be excluded from the frame.
+        // This is done by setting the background value to 255.
+        let mut bg = bg.to_vec();
+        for (bg, &mask) in bg.iter_mut().zip(track_mask) {
+            if mask == 0 {
+                *bg = 255;
+            }
+        }
+
         Tracker {
             width,
             height,
             bg,
-            fg_thresh: vec![0; width as usize * height as usize],
-            fg: vec![(0, 0); width as usize * height as usize],
+            fg_thresh: vec![0; pixels],
+            fg: vec![(0, 0); pixels],
             x_bins: vec![0; width as usize],
             y_bins: vec![0; height as usize],
             theta_vector_prev: Vector2::zeros(),
@@ -34,6 +47,8 @@ impl Tracker {
     }
 
     pub fn track_frame(&mut self, frame: &[u8]) -> (float, float, float) {
+        assert_eq!(self.bg.len(), frame.len());
+
         let delta_norm_max = 200.0;
 
         // Subtract background and threshold at 50. Fill fg with the coordinates of foreground
