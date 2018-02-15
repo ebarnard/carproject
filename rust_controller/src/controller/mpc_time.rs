@@ -1,27 +1,25 @@
 use flame;
 use nalgebra::{self, U2, VectorN};
+use std::sync::Arc;
 
 use prelude::*;
 use controller::{Controller, MpcBase};
 use control_model::ControlModel;
-use track::{CentrelineLookup, Track};
+use track::Track;
 
 pub struct MpcTime<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
     base: MpcBase<M>,
-    track: Track,
-    lookup: CentrelineLookup,
+    track: Arc<Track>,
 }
 
 impl<M: ControlModel> MpcTime<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    pub fn new(model: &M, N: u32, track: &Track) -> MpcTime<M> {
-        let lookup = CentrelineLookup::from_track(track);
-
+    pub fn new(model: &M, N: u32, track: Arc<Track>) -> MpcTime<M> {
         // State penalties
         let Q: Matrix<M::NS, M::NS> = nalgebra::zero();
 
@@ -38,8 +36,7 @@ where
 
         MpcTime {
             base: MpcBase::new(model, N, Q, R, &[track_bounds_ineq_sparsity]),
-            track: track.clone(),
-            lookup,
+            track,
         }
     }
 }
@@ -55,13 +52,12 @@ where
         x: &Vector<M::NS>,
         p: &Vector<M::NP>,
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>) {
-        let lookup = &self.lookup;
         let track = &self.track;
         let N = self.base.horizon_len();
         self.base.step(model, dt, x, p, |i, x_i, _u_i, mpc| {
             // Find track point
             let centreline_point = flame::span_of("centreline point lookup", || {
-                let s = lookup.centreline_distance(x_i[0], x_i[1]);
+                let s = track.centreline_distance(x_i[0], x_i[1]);
                 track.nearest_centreline_point(s)
             });
 

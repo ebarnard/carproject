@@ -58,7 +58,8 @@ type Model = control_model::SpenglerGammeterBicycle;
 fn run(config: &config::Config, track: Arc<Track>, mut record_tx: EventSender<Event>) {
     let model = control_model::SpenglerGammeterBicycle;
 
-    let mut controller = controller::MpcTime::<Model>::new(&model, config.controller.N, &track);
+    let mut controller =
+        controller::MpcTime::<Model>::new(&model, config.controller.N, track.clone());
 
     let initial_params = Vector6::from_column_slice(&config.controller.initial_params);
     let Q_state = Matrix::from_diagonal(&Vector4::from_column_slice(&config.controller.Q_state));

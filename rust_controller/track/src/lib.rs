@@ -10,11 +10,11 @@ extern crate prelude;
 use cubic_spline::CubicSpline;
 use kdtree::kdtree::{Kdtree, KdtreePointTrait};
 use nalgebra::{Matrix2, LU};
+use std::iter::once;
 use std::path::Path;
 
 use prelude::*;
 
-#[derive(Clone)]
 pub struct Track {
     total_distance: float,
     /// Distance to the end of each spline segment
@@ -23,6 +23,7 @@ pub struct Track {
     y_spline: CubicSpline,
     widths: Vec<float>,
     dt_ds: float,
+    kd: Kdtree<IndexedPoint>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -81,6 +82,14 @@ impl Track {
 
         let total_distance = cumulative_distance[n - 1];
 
+        // Build KD tree for nearest centreline point lookup
+        let mut kd_points = x.iter()
+            .zip(y)
+            .zip(once(&0.0).chain(&cumulative_distance))
+            .map(|((&x, &y), &s)| IndexedPoint(s, [x, y]))
+            .collect::<Vec<_>>();
+        let kd = Kdtree::new(&mut kd_points);
+
         let track = Track {
             total_distance,
             cumulative_distance,
@@ -88,6 +97,7 @@ impl Track {
             y_spline,
             widths: width.to_vec(),
             dt_ds: n as float / ds_dt.iter().sum::<float>(),
+            kd,
         };
 
         // TODO: Combine this check with ds_dt calculation.
@@ -139,6 +149,16 @@ impl Track {
 
         point
     }
+
+    pub fn centreline_distance(&self, x: float, y: float) -> float {
+        let nn = self.kd
+            .nearest_search(&IndexedPoint(0.0, [x as f64, y as f64]));
+        debug!(
+            "closest centreline point to ({}, {}) is ({}, {}) with s {}",
+            x, y, nn.1[0], nn.1[1], nn.0
+        );
+        nn.0
+    }
 }
 
 impl CentrelinePoint {
@@ -179,34 +199,5 @@ pub struct IndexedPoint(float, [f64; 2]);
 impl KdtreePointTrait for IndexedPoint {
     fn dims(&self) -> &[f64] {
         &self.1[..]
-    }
-}
-
-pub struct CentrelineLookup {
-    kd: Kdtree<IndexedPoint>,
-}
-
-impl CentrelineLookup {
-    pub fn from_track(track: &Track) -> CentrelineLookup {
-        let mut points = Vec::new();
-        for &s in &track.cumulative_distance {
-            let point = track.nearest_centreline_point(s);
-            let spade_point = IndexedPoint(s, [point.x as f64, point.y as f64]);
-            points.push(spade_point);
-        }
-
-        let kd = Kdtree::new(&mut points);
-
-        CentrelineLookup { kd }
-    }
-
-    pub fn centreline_distance(&self, x: float, y: float) -> float {
-        let nn = self.kd
-            .nearest_search(&IndexedPoint(0.0, [x as f64, y as f64]));
-        debug!(
-            "closest centreline point to ({}, {}) is ({}, {}) with s {}",
-            x, y, nn.1[0], nn.1[1], nn.0
-        );
-        nn.0
     }
 }
