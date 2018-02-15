@@ -1,0 +1,156 @@
+extern crate libdc1394_sys;
+pub use libdc1394_sys::*;
+
+extern crate cv;
+extern crate faster;
+extern crate nalgebra;
+extern crate image;
+
+use std::mem;
+use std::fs::File;
+use std::io::Write;
+use std::slice;
+
+use std::time::{Duration, Instant};
+
+use std::f64::consts::PI;
+
+mod camera;
+pub use camera::Camera;
+
+fn main() {
+    /*let mut camera = Camera::new();
+    let mut cap = camera.start_capture();
+    let frame_bytes = cap.bytes();
+    let frame_width = cap.width();
+    let frame_height = cap.height();*/
+
+    let bmp = image::open("car_noise.bmp").unwrap().to_luma();
+
+    let frame_width = bmp.width();
+    let frame_height = bmp.height();
+    let frame_bytes = frame_width as usize * frame_height as usize;
+
+    let mut frame = vec![0; frame_bytes];
+    for y in 0..frame_height {
+        for x in 0..frame_width {
+            frame[(y * frame_width + x) as usize] = bmp.get_pixel(x, y)[0];
+        }
+    }
+
+
+    let mut bg = vec![0; frame_bytes];
+    //cap.next_frame(&mut bg[..]);
+    //cap.next_frame(&mut bg[..]);
+    //cap.next_frame(&mut bg[..]);
+    let bg_mat = cv::Mat::from_buffer(frame_height as i32, frame_width as i32, 0, &bg);
+
+    let mut fg = vec![0; frame_bytes];
+    let mut fg_thresh = vec![0; frame_bytes];
+
+    let mut x_bins = vec![0; frame_width as usize];
+    let mut y_bins = vec![0; frame_height as usize];
+
+    let mut i = 0;
+    loop {
+        //cap.next_frame(&mut frame[..]);
+
+        let start = Instant::now();
+
+        //image_saturating_sub_and_thresh_simd(&frame, &bg, 50, &mut fg);
+        //let frame = &mut fg;
+        image_saturating_sub_and_thresh(&mut frame[..], &bg[..], 50);
+
+        // Find the median white pixel coordinate
+        // Zero x and y bins
+        x_bins.iter_mut().for_each(|v| *v = 0);
+        y_bins.iter_mut().for_each(|v| *v = 0);
+        let mut fg_pixel_count = 0;
+        for (row, y_bucket) in frame.chunks(frame_width as usize).zip(&mut y_bins) {
+            for (&val, x_bucket) in row.iter().zip(&mut x_bins) {
+                if val == 255 {
+                    *x_bucket += 1;
+                    *y_bucket += 1;
+                    fg_pixel_count += 1;
+                }
+            }
+        }
+
+        let x_median = x_bins.iter().scan(0, |acc, &n| {
+            *acc += n;
+            Some(*acc)
+        }).enumerate().filter(|&(_, acc)| acc >= fg_pixel_count / 2).next().unwrap().0;
+        
+        let y_median = y_bins.iter().scan(0, |acc, &n| {
+            *acc += n;
+            Some(*acc)
+        }).enumerate().filter(|&(_, acc)| acc >= fg_pixel_count / 2).next().unwrap().0;
+
+        // Find the mean theta
+        let mut position_cov = nalgebra::Matrix2::zeros();
+        let mut n = 0;
+
+        for (y, row) in frame.chunks(frame_width as usize).enumerate() {
+            for (x, &val) in row.iter().enumerate() {
+                if val == 255 {
+                    n += 1;
+                    let delta_x = x as f64 - x_median as f64;
+                    let delta_y = y as f64 - y_median as f64;
+                    // Normalise to reduce the influence of outliers
+                    // This is somewhat equivalent to finding the mean angle
+                    // Add eps to avoid dividing zero by zero
+                    let len = f64::hypot(delta_x, delta_y) + ::std::f64::EPSILON;
+                    let val = nalgebra::Vector2::new(delta_x / len, delta_y / len);
+                    position_cov += &val * val.transpose();
+                }
+            }
+        }
+
+        let position_cov = position_cov / n as f64;
+        let eigen = position_cov.symmetric_eigen();
+
+        let max_eigenvalue_idx = eigen.eigenvalues.iamax();
+        let pca_max = eigen.eigenvectors.column(max_eigenvalue_idx);
+
+        let theta_mean = f64::atan2(pca_max[1], pca_max[0]);
+        let theta_mean_deg = theta_mean * 180.0 / PI;
+
+        let dur = Instant::now() - start;
+        println!("took {}ms", dur.as_secs() as f64 * 1e3 + dur.subsec_nanos() as f64 * 1e-6);
+        println!("med {} {} {}", x_median, y_median, theta_mean_deg);
+
+        let fg = cv::Mat::from_buffer(frame_height as i32, frame_width as i32, 0, &frame);
+        fg.rectangle_custom(cv::Rect::new(x_median as i32 - 5, y_median as i32 - 5, 10, 10), cv::Scalar::all(127), 5, cv::LineTypes::Filled);
+        
+        let x = (theta_mean.cos() * 55.0 + x_median as f64) as i32;
+        let y = (theta_mean.sin() * 55.0 + y_median as f64) as i32;
+        fg.line_custom(cv::Point2i::new(x_median as i32, y_median as i32), cv::Point2i::new(x, y), cv::Scalar::all(127), 3, cv::LineTypes::Filled, 0);
+
+        // Show only every 10th frame
+        /*if i != 10 {
+            i += 1;
+            continue;
+        }
+        i = 0;*/
+
+        fg.show("win", 1).unwrap();
+    }
+}
+
+fn image_saturating_sub_and_thresh_simd(a: &[u8], b: &[u8], thresh: u8, out: &mut [u8]) {
+    use faster::*;
+    (a.simd_iter(u8s(0)), b.simd_iter(u8s(0))).zip().simd_map(|(a, b)| {
+        let v = a.saturating_sub(b);
+        v.gt(u8s(thresh)).as_u8s() * u8s(255)
+    }).scalar_fill(out);
+}
+
+fn image_saturating_sub_and_thresh(a: &mut [u8], b: &[u8], thresh: u8) {
+    for (a, &b) in a.iter_mut().zip(b) {
+        if *a > b && *a - b > thresh {
+            *a = 255;
+        } else {
+            *a = 0;
+        }
+    }
+}

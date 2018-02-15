@@ -1,0 +1,11 @@
+[package]
+name = "car_tracker"
+version = "0.1.0"
+authors = ["Edward Barnard <eabarnard@gmail.com>"]
+
+[dependencies]
+cv = { git = "https://github.com/nebgnahz/cv-rs.git" }
+faster = { git = "https://github.com/AdamNiederer/faster.git" }
+image = { version = "0.18.0", default-features = false, features = ["bmp"] }
+libdc1394-sys = { version = "0.2.0", path = "libdc1394-sys" }
+prelude = { path = "../prelude" }
