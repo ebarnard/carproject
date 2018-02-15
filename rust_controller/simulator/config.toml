@@ -1,6 +1,6 @@
 t = 20
 dt = 0.01
-track = "data/tracks/3yp_track2500.csv"
+track = "../data/tracks/3yp_track2500.csv"
 
 [controller]
 N = 50

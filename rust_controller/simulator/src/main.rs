@@ -6,12 +6,9 @@ extern crate control_model;
 extern crate controller;
 extern crate env_logger;
 extern crate estimator;
-extern crate itertools;
 #[macro_use]
 extern crate log;
 extern crate prelude;
-extern crate rand;
-extern crate sparse;
 extern crate stats;
 extern crate track;
 extern crate ui;

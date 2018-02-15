@@ -1,0 +1,18 @@
+[package]
+name = "simulator"
+version = "0.1.0"
+authors = ["Edward Barnard <eabarnard@gmail.com>"]
+
+[dependencies]
+car_remote = { path = "../car_remote" }
+car_tracker = { path = "../car_tracker" }
+config = { path = "../config" }
+controller = { path = "../controller" }
+control_model = { path = "../control_model" }
+env_logger = "0.5.3"
+estimator = { path = "../estimator" }
+log = "0.4.1"
+prelude = { path = "../prelude" }
+ui = { path = "../ui" }
+streaming-stats = "0.1.28"
+track = { path = "../track" }

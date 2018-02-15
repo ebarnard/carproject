@@ -1,24 +1,2 @@
-[package]
-name = "rust_controller"
-version = "0.1.0"
-authors = ["Edward Barnard <eabarnard@gmail.com>"]
-
 [workspace]
-
-[dependencies]
-itertools = "0.7.2"
-log = "0.4.1"
-env_logger = "0.5.3"
-streaming-stats = "0.1.28"
-sparse = { path = "sparse" }
-car_remote = { path = "car_remote" }
-car_tracker = { path = "car_tracker" }
-config = { path = "config" }
-controller = { path = "controller" }
-control_model = { path = "control_model" }
-estimator = { path = "estimator" }
-osqp = { path = "osqp" }
-ui = { path = "ui" }
-prelude = { path = "prelude" }
-rand = "0.4.2"
-track = { path = "track" }
+members = ["simulator"]
