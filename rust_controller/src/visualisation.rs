@@ -4,7 +4,7 @@ use ui::colors::*;
 use ui::plot::{Axes, AxesRange, AxesScale, Line, SingleLineAxes};
 
 use prelude::*;
-use controller::{Control, State as ControllerState};
+use control_model::{Control, State as ControllerState};
 use simulation_model::State;
 use track::Track;
 

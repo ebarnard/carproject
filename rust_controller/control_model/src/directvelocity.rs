@@ -2,8 +2,7 @@ use nalgebra::{self, Matrix3, Matrix3x2, Vector2, Vector3};
 use nalgebra::dimension::{U0, U2, U3};
 
 use prelude::*;
-use controller::State;
-use control_model::ControlModel;
+use {ControlModel, State};
 
 pub struct DirectVelocity;
 

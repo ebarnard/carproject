@@ -2,6 +2,7 @@
 #![allow(non_snake_case)]
 
 extern crate config;
+extern crate control_model;
 extern crate env_logger;
 extern crate flame;
 extern crate itertools;
@@ -14,11 +15,9 @@ extern crate stats;
 extern crate track;
 extern crate ui;
 
-mod control_model;
 mod controller;
 mod estimator;
 mod flame_merge;
-mod odeint;
 mod simulation_model;
 mod visualisation;
 mod osqp;

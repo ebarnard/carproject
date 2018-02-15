@@ -1,8 +1,7 @@
 use config;
 
 use prelude::*;
-use controller::{Control, State as ControllerState};
-use control_model::{self, ControlModel};
+use control_model::{self, Control, ControlModel, State as ControllerState};
 
 #[derive(Clone, Debug, Default)]
 pub struct State {

@@ -2,8 +2,7 @@ use nalgebra::{Matrix4, Matrix4x2, Matrix4x6, Vector2, Vector4};
 use nalgebra::dimension::{U2, U4, U6};
 
 use prelude::*;
-use controller::State;
-use control_model::ControlModel;
+use {ControlModel, State};
 
 pub struct SpenglerGammeterBicycle;
 

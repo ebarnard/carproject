@@ -1,17 +1,31 @@
-use nalgebra::{self, MatrixMN};
+#![allow(non_snake_case)]
 
+extern crate prelude;
+
+use nalgebra::MatrixMN;
 use prelude::*;
-use controller::{Control, State};
-use odeint::rk4;
 
 mod directvelocity;
-pub use self::directvelocity::DirectVelocity;
+pub use directvelocity::DirectVelocity;
 
 mod spenglergammeterbicycle;
-pub use self::spenglergammeterbicycle::SpenglerGammeterBicycle;
+pub use spenglergammeterbicycle::SpenglerGammeterBicycle;
 
 mod combine_state;
-pub use self::combine_state::CombineState;
+pub use combine_state::CombineState;
+
+#[derive(Debug, Default)]
+pub struct State {
+    pub position: (float, float),
+    pub velocity: (float, float),
+    pub heading: float,
+}
+
+#[derive(Debug, Default)]
+pub struct Control {
+    pub throttle_position: float,
+    pub steering_angle: float,
+}
 
 pub trait ControlModel
 where
@@ -131,4 +145,21 @@ where
     let (A_d, B_d) = discretise(1.0, &A, &B);
 
     (A_d.map(|v| v != 0.0), B_d.map(|v| v != 0.0))
+}
+
+fn rk4<N: DimName, F>(dt: float, num_steps: u32, y_0: &Vector<N>, mut f: F) -> Vector<N>
+where
+    F: FnMut(&Vector<N>) -> Vector<N>,
+    DefaultAllocator: Allocator<float, N>,
+{
+    let h = dt / float::from(num_steps);
+    let mut y = y_0.clone();
+    for _ in 0..num_steps {
+        let k1 = f(&y) * h;
+        let k2 = f(&(&y + 0.5 * &k1)) * h;
+        let k3 = f(&(&y + 0.5 * &k2)) * h;
+        let k4 = f(&(&y + &k3)) * h;
+        y += (k1 + 2.0 * (k2 + k3) + k4) / 6.0;
+    }
+    y
 }

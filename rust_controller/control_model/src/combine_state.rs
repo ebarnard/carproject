@@ -1,8 +1,7 @@
 use nalgebra::{self, DimAdd, DimSum, MatrixMN, U0};
 
 use prelude::*;
-use control_model::ControlModel;
-use controller::State;
+use {ControlModel, State};
 
 pub struct CombineState<M>(pub M);
 

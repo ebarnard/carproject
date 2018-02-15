@@ -13,19 +13,6 @@ pub use self::mpc_time::MpcTime;
 mod osqp_mpc_builder;
 pub use self::osqp_mpc_builder::OsqpMpc;
 
-#[derive(Debug, Default)]
-pub struct State {
-    pub position: (float, float),
-    pub velocity: (float, float),
-    pub heading: float,
-}
-
-#[derive(Debug, Default)]
-pub struct Control {
-    pub throttle_position: float,
-    pub steering_angle: float,
-}
-
 pub trait Controller<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
