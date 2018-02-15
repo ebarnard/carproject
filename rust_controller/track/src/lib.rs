@@ -9,7 +9,7 @@ extern crate prelude;
 
 use cubic_spline::CubicSpline;
 use kdtree::kdtree::{Kdtree, KdtreePointTrait};
-use nalgebra::{Matrix2, LU};
+use nalgebra::{Matrix2, Matrix3, Vector3, LU};
 use std::iter::once;
 use std::path::Path;
 
@@ -159,6 +159,53 @@ impl Track {
         );
         nn.0
     }
+
+    /// Returns a bitmap mask of the track projected onto a camera frame.
+    /// H is a homography mapping world into pixel coordinates.
+    pub fn bitmap_mask(&self, H: &Matrix3<float>, width: u32, height: u32) -> Vec<u8> {
+        let width = width as usize;
+        let mut mask = vec![0; width * height as usize];
+
+        let world_to_pixels = |(world_x, world_y)| {
+            let world_pos = Vector3::new(world_x, world_y, 1.0);
+            let image_pos = H * world_pos;
+            let image_pos = image_pos / image_pos[2];
+            (image_pos[0], image_pos[1])
+        };
+
+        let point = self.nearest_centreline_point(0.0);
+        let mut prev_track_outer_pixels = world_to_pixels(point.at_a(point.track_width / 2.0));
+        let mut prev_track_inner_pixels = world_to_pixels(point.at_a(-point.track_width / 2.0));
+
+        for &s in &self.cumulative_distance {
+            let point = self.nearest_centreline_point(s);
+
+            // Transform world coordinates into pixel positions
+            // Inner and outer may be swapped
+            let track_outer_pixels = world_to_pixels(point.at_a(point.track_width / 2.0));
+            let track_inner_pixels = world_to_pixels(point.at_a(-point.track_width / 2.0));
+
+            draw_tri(
+                &mut mask,
+                width,
+                track_outer_pixels,
+                track_inner_pixels,
+                prev_track_inner_pixels,
+            );
+            draw_tri(
+                &mut mask,
+                width,
+                track_outer_pixels,
+                prev_track_outer_pixels,
+                prev_track_inner_pixels,
+            );
+
+            prev_track_outer_pixels = track_outer_pixels;
+            prev_track_inner_pixels = track_inner_pixels;
+        }
+
+        mask
+    }
 }
 
 impl CentrelinePoint {
@@ -171,6 +218,19 @@ impl CentrelinePoint {
         let y_normal = y - self.y;
         let a_sign = (x_normal * -self.dy_ds + y_normal * self.dx_ds).signum();
         a_sign * float::hypot(x_normal, y_normal)
+    }
+
+    /// Returns the track coordinate at a perpendicular distance `a` from the centreline.
+    pub fn at_a(&self, a: float) -> (float, float) {
+        let dx = self.dx_ds;
+        let dy = self.dy_ds;
+        let len = float::hypot(dx, dy);
+        let dx = dx / len;
+        let dy = dy / len;
+
+        let x = self.x - dy * a;
+        let y = self.y + dx * a;
+        (x, y)
     }
 
     /// Returns the jacobian of the track parameterisation evalualted at (s, a).
@@ -199,5 +259,64 @@ pub struct IndexedPoint(float, [f64; 2]);
 impl KdtreePointTrait for IndexedPoint {
     fn dims(&self) -> &[f64] {
         &self.1[..]
+    }
+}
+
+// A wild triangle rasterisation algorithm appears. This probably isn't the best place for it.
+// It is based on the triangle drawing algorithm from:
+// http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
+fn draw_tri(
+    image: &mut [u8],
+    width: usize,
+    v1: (float, float),
+    v2: (float, float),
+    v3: (float, float),
+) {
+    assert!(image.len() % width == 0);
+    let height = image.len() / width;
+
+    // Sort vertices by ascending y then x coordinate.
+    let mut vertices = [v1, v2, v3];
+    vertices.sort_by(|&(a1, a2), &(b1, b2)| (a2, a1).partial_cmp(&(b2, b1)).unwrap());
+
+    // Axes are positive rightwards and upwards.
+    // Bottom left triagle
+    let v1 = vertices[0];
+    // Middle, bottom right, or upper left triangle.
+    let v2 = vertices[1];
+    // Upper right triangle.
+    let v3 = vertices[2];
+
+    let y_bottom = v1.1 as isize;
+    // The is the y scanline at which the gradient of one of the triangle sides changes.
+    let y_mid = v2.1 as isize;
+    let y_top = v3.1 as isize;
+
+    // The left side of the triangle is nominally the one with vertex part way up it.
+    let mut dx_dy_left = (v2.0 - v1.0) / (v2.1 - v1.1);
+    let dx_dy_right = (v3.0 - v1.0) / (v3.1 - v1.1);
+
+    let mut x_left = v1.0;
+    let mut x_right = v1.0;
+
+    for scan_y in y_bottom..y_top {
+        // At y_mid change the left side gradient and left x position.
+        if scan_y == y_mid {
+            dx_dy_left = (v3.0 - v2.0) / (v3.1 - v2.1);
+            x_left = v2.0;
+        }
+
+        // Only draw the part of the line that is inside the image.
+        if scan_y >= 0 && scan_y as usize <= height {
+            let scan_x_left = min(min(x_left as usize, x_right as usize), width);
+            let scan_x_right = min(max(x_left as usize, x_right as usize), width);
+            for i in scan_x_left..scan_x_right {
+                image[scan_y as usize * width + i] = 255;
+            }
+        }
+
+        // Update x positions for next y scanline.
+        x_left += dx_dy_left;
+        x_right += dx_dy_right;
     }
 }
