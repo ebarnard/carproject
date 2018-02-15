@@ -3,8 +3,9 @@
 
 extern crate config;
 extern crate control_model;
+extern crate controller;
 extern crate env_logger;
-extern crate flame;
+extern crate estimator;
 extern crate itertools;
 #[macro_use]
 extern crate log;
@@ -15,12 +16,9 @@ extern crate stats;
 extern crate track;
 extern crate ui;
 
-mod controller;
-mod estimator;
 mod flame_merge;
 mod simulation_model;
 mod visualisation;
-mod osqp;
 
 use nalgebra::{Vector3, Vector4, Vector6};
 use std::time::{Duration, Instant};
@@ -124,12 +122,15 @@ fn run_simulation<M: ControlModel>(
         // Run simulation
         let ctrl = model.u_to_control(&control);
         let state = sim_model.step(dt, &prev_state, &ctrl);
-        let mut measurement = Measurement::from_state(&state);
 
         // Add noise to measurement
-        measurement.position.0 += randn() * 0.002;
-        measurement.position.1 += randn() * 0.002;
-        measurement.heading += randn() * 0.03;
+        let mut measurement = Measurement {
+            position: (
+                state.position.0 + randn() * 0.002,
+                state.position.1 + randn() * 0.002,
+            ),
+            heading: state.heading + randn() * 0.03,
+        };
 
         // Start timer
         let start = Instant::now();

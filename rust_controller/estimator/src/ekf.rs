@@ -2,7 +2,7 @@ use nalgebra::{self, DimAdd, DimSum, U0, U3, Vector3};
 
 use prelude::*;
 use control_model::{discretise, CombineState, ControlModel};
-use estimator::{Estimator, Measurement};
+use {Estimator, Measurement};
 
 type NM = U3;
 

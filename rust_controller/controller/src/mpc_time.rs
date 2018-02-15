@@ -3,9 +3,9 @@ use nalgebra::{self, U2, VectorN};
 use std::sync::Arc;
 
 use prelude::*;
-use controller::{Controller, MpcBase};
 use control_model::ControlModel;
 use track::Track;
+use {Controller, MpcBase};
 
 pub struct MpcTime<M: ControlModel>
 where

@@ -1,11 +1,12 @@
 extern crate osqp as osqp_inner;
+extern crate prelude;
+extern crate sparse;
 
 use flame;
 use self::osqp_inner::Problem as InnerProblem;
 pub use self::osqp_inner::*;
 
 use prelude::*;
-use sparse;
 
 #[allow(non_snake_case)]
 pub struct Problem {

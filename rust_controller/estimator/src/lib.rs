@@ -1,10 +1,17 @@
+#![allow(non_snake_case)]
+
+extern crate control_model;
+#[macro_use]
+extern crate log;
+extern crate osqp;
+extern crate prelude;
+extern crate sparse;
+
 use prelude::*;
 use control_model::ControlModel;
-use simulation_model::State;
 
 mod ekf;
-pub use self::ekf::EKF;
-pub use self::ekf::JointEKF;
+pub use ekf::{JointEKF, EKF};
 
 mod param_least_squares;
 
@@ -27,13 +34,4 @@ where
 pub struct Measurement {
     pub position: (float, float),
     pub heading: float,
-}
-
-impl Measurement {
-    pub fn from_state(state: &State) -> Measurement {
-        Measurement {
-            position: state.position,
-            heading: state.heading,
-        }
-    }
 }

@@ -1,8 +1,7 @@
-use itertools::{repeat_n, Itertools};
 use log::Level::Debug;
 use nalgebra::{self, Dynamic as Dy, MatrixMN, U1, VectorN};
 use osqp::{Problem, Settings, Status};
-use std::iter::once;
+use std::iter::{once, repeat};
 
 use prelude::*;
 use sparse;
@@ -57,11 +56,11 @@ where
 
         // Build state quadratic penalty
         let Q = sparse::block(&Q_stage);
-        let Q = sparse::block_diag(&repeat_n(&Q, N).collect_vec());
+        let Q = sparse::block_diag(&repeat(&Q).take(N).collect::<Vec<_>>());
 
         // Build input delta quadratic penalty
         let R_grad = sparse::block(&R_stage_grad);
-        let R_grad = sparse::block_diag(&repeat_n(&R_grad, N).collect_vec());
+        let R_grad = sparse::block_diag(&repeat(&R_grad).take(N).collect::<Vec<_>>());
 
         // Build penalty matrix P
         let P = sparse::block_diag(&[

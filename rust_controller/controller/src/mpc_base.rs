@@ -2,8 +2,8 @@ use flame;
 use nalgebra::{Dynamic, MatrixMN, VectorN};
 
 use prelude::*;
-use controller::OsqpMpc;
 use control_model::{discretise, discretise_sparsity, ControlModel};
+use OsqpMpc;
 
 pub struct MpcBase<M: ControlModel>
 where

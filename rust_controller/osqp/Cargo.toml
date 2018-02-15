@@ -1,0 +1,9 @@
+[package]
+name = "osqp"
+version = "0.1.0"
+authors = ["Edward Barnard <eabarnard@gmail.com>"]
+
+[dependencies]
+osqp = "0.0.1-pre.3"
+prelude = { path = "../prelude" }
+sparse = { path = "../sparse" }

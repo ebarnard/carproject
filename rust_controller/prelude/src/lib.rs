@@ -1,3 +1,4 @@
+pub extern crate flame;
 pub extern crate nalgebra;
 extern crate rand;
 

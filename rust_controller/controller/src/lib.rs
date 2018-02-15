@@ -1,17 +1,27 @@
+#![allow(non_snake_case)]
+
+extern crate control_model;
+#[macro_use]
+extern crate log;
+extern crate osqp;
+extern crate prelude;
+extern crate sparse;
+extern crate track;
+
 use prelude::*;
 use control_model::ControlModel;
 
 mod mpc_base;
-use self::mpc_base::MpcBase;
+use mpc_base::MpcBase;
 
 mod mpc_position;
-pub use self::mpc_position::MpcPosition;
+pub use mpc_position::MpcPosition;
 
 mod mpc_time;
-pub use self::mpc_time::MpcTime;
+pub use mpc_time::MpcTime;
 
 mod osqp_mpc_builder;
-pub use self::osqp_mpc_builder::OsqpMpc;
+pub use osqp_mpc_builder::OsqpMpc;
 
 pub trait Controller<M: ControlModel>
 where

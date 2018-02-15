@@ -1,0 +1,12 @@
+[package]
+name = "controller"
+version = "0.1.0"
+authors = ["Edward Barnard <eabarnard@gmail.com>"]
+
+[dependencies]
+control_model = { path = "../control_model" }
+log = "0.4.1"
+osqp = { path = "../osqp" }
+prelude = { path = "../prelude" }
+sparse = { path = "../sparse" }
+track = { path = "../track" }
