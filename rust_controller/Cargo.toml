@@ -13,6 +13,7 @@ log = "0.4.1"
 env_logger = "0.5.3"
 streaming-stats = "0.1.28"
 sparse = { path = "sparse" }
+car_remote = { path = "car_remote" }
 config = { path = "config" }
 control_model = { path = "control_model" }
 ui = { path = "ui" }
