@@ -1022,11 +1022,8 @@ name = "rust_controller"
 version = "0.1.0"
 dependencies = [
  "config 0.1.0",
- "csv 1.0.0-beta.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "cubic_spline 0.1.0",
  "env_logger 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "flame 0.2.1-pre (git+https://github.com/TyOverby/flame?rev=983199a2af26ca1f8c5bdd31115933fef16628fa)",
- "fux_kdtree 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1034,6 +1031,7 @@ dependencies = [
  "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "sparse 0.1.0",
  "streaming-stats 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
+ "track 0.1.0",
  "ui 0.1.0",
 ]
 
@@ -1273,6 +1271,17 @@ version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "track"
+version = "0.1.0"
+dependencies = [
+ "csv 1.0.0-beta.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cubic_spline 0.1.0",
+ "fux_kdtree 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nalgebra 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

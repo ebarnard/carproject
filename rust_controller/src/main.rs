@@ -2,18 +2,16 @@
 #![allow(non_snake_case)]
 
 extern crate config;
-extern crate csv;
-extern crate cubic_spline;
 extern crate env_logger;
 extern crate flame;
 extern crate itertools;
-extern crate kdtree;
 #[macro_use]
 extern crate log;
 extern crate nalgebra;
 extern crate rand;
 extern crate sparse;
 extern crate stats;
+extern crate track;
 extern crate ui;
 
 mod prelude;
@@ -23,7 +21,6 @@ mod estimator;
 mod flame_merge;
 mod odeint;
 mod simulation_model;
-mod track;
 mod visualisation;
 mod osqp;
 

@@ -1,10 +1,19 @@
-use csv;
+#![allow(non_snake_case)]
+
+extern crate csv;
+extern crate cubic_spline;
+#[macro_use]
+extern crate log;
+extern crate kdtree;
+extern crate nalgebra;
+
+use cubic_spline::CubicSpline;
 use kdtree::kdtree::{Kdtree, KdtreePointTrait};
-use nalgebra::{Matrix2, U2, LU};
+use nalgebra::{Matrix2, LU};
 use std::path::Path;
 
-use prelude::*;
-use cubic_spline::CubicSpline;
+#[allow(non_camel_case_types)]
+type float = f64;
 
 #[derive(Clone)]
 pub struct Track {
@@ -147,7 +156,7 @@ impl CentrelinePoint {
 
     /// Returns the jacobian of the track parameterisation evalualted at (s, a).
     /// [delta_s, delta_a]' = J * [delta_x, delta_y]'
-    pub fn jacobian(&self, a: float) -> Matrix<U2, U2> {
+    pub fn jacobian(&self, a: float) -> Matrix2<float> {
         let dx_ds = self.dx_ds;
         let dy_ds = self.dy_ds;
         let dx_ds2 = self.dx_ds2;
