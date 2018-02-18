@@ -23,7 +23,7 @@ fn main() {
         match event {
             Event::WindowEvent {
                 event:
-                    WindowEvent::CursorMoved {
+                    WindowEvent::MouseMoved {
                         position: (x, y), ..
                     },
                 ..
