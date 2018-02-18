@@ -1049,6 +1049,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "online"
+version = "0.1.0"
+dependencies = [
+ "car_remote 0.1.0",
+ "car_tracker 0.1.0",
+ "config 0.1.0",
+ "control_model 0.1.0",
+ "controller 0.1.0",
+ "env_logger 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "estimator 0.1.0",
+ "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prelude 0.1.0",
+ "streaming-stats 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
+ "track 0.1.0",
+ "track_aruco 0.1.0",
+ "ui 0.1.0",
+]
+
+[[package]]
 name = "osmesa-sys"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1474,8 +1493,6 @@ dependencies = [
 name = "simulator"
 version = "0.1.0"
 dependencies = [
- "car_remote 0.1.0",
- "car_tracker 0.1.0",
  "config 0.1.0",
  "control_model 0.1.0",
  "controller 0.1.0",
@@ -1675,6 +1692,14 @@ dependencies = [
  "cubic_spline 0.1.0",
  "fux_kdtree 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prelude 0.1.0",
+]
+
+[[package]]
+name = "track_aruco"
+version = "0.1.0"
+dependencies = [
+ "cmake 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
  "prelude 0.1.0",
 ]
 

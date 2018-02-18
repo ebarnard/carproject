@@ -1,9 +1,11 @@
 [package]
-name = "simulator"
+name = "online"
 version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
+car_remote = { path = "../car_remote" }
+car_tracker = { path = "../car_tracker" }
 config = { path = "../config" }
 controller = { path = "../controller" }
 control_model = { path = "../control_model" }
@@ -13,4 +15,5 @@ log = "0.4.1"
 prelude = { path = "../prelude" }
 streaming-stats = "0.1.28"
 track = { path = "../track" }
+track_aruco = { path = "../track_aruco" }
 ui = { path = "../ui" }

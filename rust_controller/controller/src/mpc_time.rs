@@ -81,11 +81,13 @@ where
                 .fixed_rows_mut::<U2>(0)
                 .copy_from(&J.row(1).transpose());
 
-            // Terminal constraint to stay in the middle of the track
+            // TODO: Make this a configurable parameter
+            let max_car_dimension = 0.2;
             let a_max = if i == (N - 1) as usize {
-                0.0
+                // Terminal constraint to stay near the middle of the track
+                (centreline_point.track_width - max_car_dimension) / 4.0
             } else {
-                centreline_point.track_width / 2.0
+                (centreline_point.track_width - max_car_dimension) / 2.0
             };
 
             // Give the values to the builder
