@@ -2,6 +2,8 @@ pub extern crate flame;
 pub extern crate nalgebra;
 extern crate rand;
 
+pub mod flame_merge;
+
 #[allow(non_camel_case_types)]
 pub type float = f64;
 pub use std::f64::{INFINITY, NEG_INFINITY};

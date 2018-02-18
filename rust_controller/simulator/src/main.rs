@@ -13,7 +13,6 @@ extern crate stats;
 extern crate track;
 extern crate ui;
 
-mod flame_merge;
 mod simulation_model;
 mod visualisation;
 
@@ -25,9 +24,9 @@ use std::sync::Arc;
 use prelude::*;
 use controller::Controller;
 use control_model::ControlModel;
+use estimator::{Estimator, JointEKF, Measurement};
 use simulation_model::{SimulationModel, State};
 use track::Track;
-use estimator::{Estimator, JointEKF, Measurement};
 use ui::EventSender;
 use visualisation::{Event, Record};
 

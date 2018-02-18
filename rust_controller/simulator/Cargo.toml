@@ -13,6 +13,6 @@ env_logger = "0.5.3"
 estimator = { path = "../estimator" }
 log = "0.4.1"
 prelude = { path = "../prelude" }
-ui = { path = "../ui" }
 streaming-stats = "0.1.28"
 track = { path = "../track" }
+ui = { path = "../ui" }
