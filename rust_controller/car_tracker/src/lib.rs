@@ -9,8 +9,6 @@ mod camera;
 pub use camera::Camera;
 
 pub struct Tracker {
-    width: u32,
-    height: u32,
     bg: Vec<u8>,
     fg_thresh: Vec<u8>,
     fg: Vec<(u32, u32)>,
@@ -35,8 +33,6 @@ impl Tracker {
         }
 
         Tracker {
-            width,
-            height,
             bg,
             fg_thresh: vec![0; pixels],
             fg: vec![(0, 0); pixels],
@@ -71,7 +67,7 @@ impl Tracker {
             .scalar_fill(&mut self.fg_thresh);
 
         self.fg.truncate(0);
-        for (y, row) in self.fg_thresh.chunks(self.width as usize).enumerate() {
+        for (y, row) in self.fg_thresh.chunks(self.x_bins.len()).enumerate() {
             for (x, &v) in row.iter().enumerate() {
                 if v != 0 {
                     self.fg.push((x as u32, y as u32));
