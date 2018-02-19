@@ -150,9 +150,9 @@ frame = cv2.imread("../video/aruco_4x4_50_new_board.png", cv2.IMREAD_GRAYSCALE)
 H, corners = aruco_markers.find_homography(frame)
 track_mask = track.create_mask('../track_model_generator/office_desk_track_2500.csv', H, w, h)
 
-# show the image
-cv2.imshow('track mask', cv2.resize(track_mask, (int(w * 0.5), int(h * 0.5))))
-cv2.waitKey(1)
+# # show the image
+# cv2.imshow('track mask', cv2.resize(track_mask, (int(w * 0.5), int(h * 0.5))))
+# cv2.waitKey(1)
 
 cars = {}
 first_run = True
@@ -227,16 +227,16 @@ while True:
                 # draw the contour and center of the shape on the image
                 if distance < 20:
                     if key == "car 1":
+                        rect_corners = np.int0(cv2.boxPoints(car_rect))
                         print("Coordinates of ", key, " :")
                         print(car_X, ",", car_Y, ",", car_rect[2])
-                        rect_corners = np.int0(cv2.boxPoints(car_rect))
                         cv2.drawContours(im2, [rect_corners], -1, (150, 0, 0), 5)
                         cv2.circle(im2, (cX, cY), 3, (50, 50, 50), -1)
                         cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                     elif key == "car 2":
+                        rect_corners = np.int0(cv2.boxPoints(car_rect))
                         print("Coordinates of ", key, " :")
                         print(car_X, ",", car_Y, ",", car_rect[2])
-                        rect_corners = np.int0(cv2.boxPoints(car_rect))
                         cv2.drawContours(im2, [rect_corners], -1, (50, 0, 0), 5)
                         cv2.circle(im2, (cX, cY), 3, (50, 50, 50), -1)
                         cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
