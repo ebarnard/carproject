@@ -188,7 +188,7 @@ impl History {
 
         let (x, y) = r.predicted_state.position;
         self.position.push_back(x, y);
-        self.heading.push_back(r.t, r.state.heading);
+        self.heading.push_back(r.t, r.predicted_state.heading);
         let v = float::hypot(r.predicted_state.velocity.0, r.predicted_state.velocity.1);
         self.v.push_back(r.t, v);
         self.throttle_position

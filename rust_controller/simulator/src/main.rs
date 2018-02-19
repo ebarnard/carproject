@@ -68,6 +68,7 @@ fn run(config: &config::Config, track: Arc<Track>, mut record_tx: EventSender<Ev
     let initial_position = track.nearest_centreline_point(0.0);
     let mut state = State::default();
     state.position = (initial_position.x, initial_position.y);
+    state.heading = float::atan2(initial_position.dy_ds, initial_position.dx_ds);
 
     let mut sim_model = simulation_model::model_from_config(&config.simulator);
 
