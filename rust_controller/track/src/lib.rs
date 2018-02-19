@@ -299,15 +299,16 @@ fn draw_tri(
     let mut x_left = v1.0;
     let mut x_right = v1.0;
 
-    for scan_y in y_bottom..y_top {
+    // Don't attempt to draw beyond the top of the image.
+    for scan_y in y_bottom..min(y_top, height as isize) {
         // At y_mid change the left side gradient and left x position.
         if scan_y == y_mid {
             dx_dy_left = (v3.0 - v2.0) / (v3.1 - v2.1);
             x_left = v2.0;
         }
 
-        // Only draw the part of the line that is inside the image.
-        if scan_y >= 0 && scan_y as usize <= height {
+        // Don't draw parts of triangles below the bottom of the image.
+        if scan_y >= 0 {
             let scan_x_left = min(min(x_left as usize, x_right as usize), width);
             let scan_x_right = min(max(x_left as usize, x_right as usize), width);
             for i in scan_x_left..scan_x_right {
