@@ -1,0 +1,10 @@
+[package]
+name = "track_aruco"
+version = "0.1.0"
+authors = ["Edward Barnard <eabarnard@gmail.com>"]
+
+[dependencies]
+prelude = { path = "../prelude" }
+
+[build-dependencies]
+cmake = "0.1.29"
