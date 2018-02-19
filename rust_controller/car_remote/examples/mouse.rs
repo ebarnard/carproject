@@ -2,10 +2,14 @@ extern crate car_remote;
 extern crate winit;
 
 use std::cell::Cell;
+use std::thread;
 use winit::{ControlFlow, Event, WindowEvent};
 
 fn main() {
     let mut conn = car_remote::Connection::new();
+    conn.on(0);
+    thread::sleep_ms(300);
+
     let mut events_loop = winit::EventsLoop::new();
 
     let window = winit::WindowBuilder::new()

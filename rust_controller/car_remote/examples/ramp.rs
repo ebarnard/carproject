@@ -5,6 +5,8 @@ use std::time::Duration;
 
 fn main() {
     let mut conn = car_remote::Connection::new();
+    conn.on(0);
+    thread::sleep_ms(300);
 
     println!("running");
 
