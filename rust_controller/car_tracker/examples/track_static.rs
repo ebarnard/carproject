@@ -23,10 +23,6 @@ fn main() {
 
     let mut tracker = car_tracker::Tracker::new(width, height, &track_mask, &bg);
 
-    // process the same frame a few times
-    tracker.track_frame(&frame);
-    tracker.track_frame(&frame);
-
     let start = Instant::now();
     let (x_median, y_median, theta) = tracker.track_frame(&frame);
     let dur = Instant::now() - start;

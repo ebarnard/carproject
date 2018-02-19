@@ -8,7 +8,7 @@ use nalgebra::{Matrix2, Vector2};
 use prelude::*;
 
 mod camera;
-pub use camera::Camera;
+pub use camera::{Camera, Capture};
 
 pub struct Tracker {
     bg: Vec<u8>,

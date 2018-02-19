@@ -1,8 +1,13 @@
 extern crate libdc1394_sys;
-pub use self::libdc1394_sys::*;
+extern crate triple_buffer;
+
+use self::libdc1394_sys::*;
 
 use std::mem;
 use std::slice;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::{self, JoinHandle};
 
 pub struct Camera {
     dc: *mut dc1394_t,
@@ -133,9 +138,42 @@ impl Camera {
                 &mut height,
             );
 
+            // have the camera start sending us data
+            let err = dc1394_video_set_transmission(self.dc_cam, dc1394switch_t::DC1394_ON);
+            if err != dc1394error_t::DC1394_SUCCESS {
+                panic!("could not start camera transmission");
+            }
+
+            let mut inital_frame = vec![0; width as usize * height as usize];
+            capture_frame(self.dc_cam, width, height, &mut inital_frame);
+            let (mut input, output) = triple_buffer::TripleBuffer::new(inital_frame).split();
+
+            let capture_thread_stop = Arc::new(AtomicBool::new(false));
+            let capture_thread_stop_clone = capture_thread_stop.clone();
+
+            let dc_cam_usize = self.dc_cam as usize;
+            let capture_thread_handle = thread::spawn(move || {
+                let dc_cam = dc_cam_usize as *mut _;
+
+                while !capture_thread_stop_clone.load(Ordering::Relaxed) {
+                    capture_frame(dc_cam, width, height, input.raw_input_buffer());
+                    input.raw_publish();
+                }
+
+                // stop data transmission
+                let err = dc1394_video_set_transmission(dc_cam, dc1394switch_t::DC1394_OFF);
+                if err != dc1394error_t::DC1394_SUCCESS {
+                    println!("capture drop error {}", err);
+                    // TODO: is panic worth it?
+                    panic!("could not stop the camera");
+                }
+            });
+
             Capture {
-                camera: self,
-                started: false,
+                _camera: self,
+                capture_thread_stop,
+                capture_thread_handle: Some(capture_thread_handle),
+                output,
                 width,
                 height,
             }
@@ -154,8 +192,10 @@ impl Drop for Camera {
 }
 
 pub struct Capture<'a> {
-    camera: &'a mut Camera,
-    started: bool,
+    _camera: &'a mut Camera,
+    capture_thread_stop: Arc<AtomicBool>,
+    capture_thread_handle: Option<JoinHandle<()>>,
+    output: triple_buffer::Output<Vec<u8>>,
     width: u32,
     height: u32,
 }
@@ -173,98 +213,61 @@ impl<'a> Capture<'a> {
         self.width as usize * self.height as usize
     }
 
-    pub fn poll_frame(&mut self, buf: &mut [u8]) -> bool {
-        self.next_frame(buf, dc1394capture_policy_t::DC1394_CAPTURE_POLICY_POLL)
-    }
-
-    pub fn wait_frame(&mut self, buf: &mut [u8]) {
-        if !self.next_frame(buf, dc1394capture_policy_t::DC1394_CAPTURE_POLICY_WAIT) {
-            panic!("could not capture a frame");
-        }
-    }
-
-    pub fn wait_latest_frame(&mut self, buf: &mut [u8]) {
-        if self.poll_frame(buf) {
-            // Poll for the latest frame
-            while self.poll_frame(buf) {}
-        } else {
-            // Wait until a new frame is available which must be the latest frame
-            self.wait_frame(buf);
-        }
-    }
-
-    fn next_frame(&mut self, buf: &mut [u8], pol: dc1394capture_policy_t::Type) -> bool {
-        unsafe {
-            if !self.started {
-                // have the camera start sending us data
-                let err =
-                    dc1394_video_set_transmission(self.camera.dc_cam, dc1394switch_t::DC1394_ON);
-                if err != dc1394error_t::DC1394_SUCCESS {
-                    panic!("could not start camera transmission");
-                }
-                self.started = true;
-            }
-
-            // capture one frame
-            let mut frame = 0 as *mut _;
-            let err = dc1394_capture_dequeue(self.camera.dc_cam, pol, &mut frame);
-            if err != dc1394error_t::DC1394_SUCCESS {
-                println!("deque error {}", err);
-                panic!("could not deque frame");
-            }
-
-            // in poll mode frame is zero if there are no frames remaining
-            if frame == 0 as *mut _ {
-                return false;
-            }
-
-            if (*frame).size != [self.width, self.height] {
-                panic!("frame not expected size");
-            }
-
-            if (*frame).stride != self.width {
-                panic!("strides not supported")
-            }
-
-            // copy data to buf
-            let frame_image_len = (self.width * self.height) as usize;
-            if buf.len() != frame_image_len {
-                panic!("buf wrong size");
-            }
-            assert_eq!(frame_image_len as u64, (*frame).image_bytes as u64);
-            assert_eq!((*frame).padding_bytes, 0);
-
-            let data = slice::from_raw_parts((*frame).image, frame_image_len);
-            buf.copy_from_slice(data);
-
-            // return frame to ringbuffer
-            let err = dc1394_capture_enqueue(self.camera.dc_cam, frame);
-            if err != dc1394error_t::DC1394_SUCCESS {
-                panic!("could not return frame");
-            }
-
-            true
-        }
+    pub fn latest_frame(&mut self) -> &[u8] {
+        &self.output.read()
     }
 
     pub fn stop(self) {
-        drop(self)
+        drop(self);
     }
 }
 
 impl<'a> Drop for Capture<'a> {
     fn drop(&mut self) {
-        unsafe {
-            if !self.started {
-                return;
-            }
-            // stop data transmission
-            let err = dc1394_video_set_transmission(self.camera.dc_cam, dc1394switch_t::DC1394_OFF);
-            if err != dc1394error_t::DC1394_SUCCESS {
-                println!("capture drop error {}", err);
-                // TODO: is panic in drop worth it?
-                panic!("could not stop the camera");
-            }
-        }
+        self.capture_thread_stop.store(true, Ordering::SeqCst);
+        self.capture_thread_handle
+            .take()
+            .unwrap()
+            .join()
+            .expect("capture thread panicked");
+    }
+}
+
+unsafe fn capture_frame(dc_cam: *mut dc1394camera_t, width: u32, height: u32, buf: &mut [u8]) {
+    // capture one frame
+    let mut frame = 0 as *mut _;
+    let err = dc1394_capture_dequeue(
+        dc_cam,
+        dc1394capture_policy_t::DC1394_CAPTURE_POLICY_WAIT,
+        &mut frame,
+    );
+    if err != dc1394error_t::DC1394_SUCCESS {
+        println!("deque error {}", err);
+        panic!("could not deque frame");
+    }
+
+    if (*frame).size != [width, height] {
+        panic!("frame not expected size");
+    }
+
+    if (*frame).stride != width {
+        panic!("strides not supported")
+    }
+
+    // copy data to buf
+    let frame_image_len = (width * height) as usize;
+    if buf.len() != frame_image_len {
+        panic!("buf wrong size");
+    }
+    assert_eq!(frame_image_len as u64, (*frame).image_bytes as u64);
+    assert_eq!((*frame).padding_bytes, 0);
+
+    let data = slice::from_raw_parts((*frame).image, frame_image_len);
+    buf.copy_from_slice(data);
+
+    // return frame to ringbuffer
+    let err = dc1394_capture_enqueue(dc_cam, frame);
+    if err != dc1394error_t::DC1394_SUCCESS {
+        panic!("could not return frame");
     }
 }

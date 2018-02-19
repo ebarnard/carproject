@@ -16,14 +16,12 @@ fn main() {
     let track_mask = vec![1; frame_bytes];
 
     let mut bg = vec![0; frame_bytes];
-    cap.wait_latest_frame(&mut bg[..]);
-    cap.wait_latest_frame(&mut bg[..]);
-    cap.wait_latest_frame(&mut bg[..]);
+    bg.copy_from_slice(cap.latest_frame());
 
     let mut tracker = car_tracker::Tracker::new(frame_width, frame_height, &track_mask, &bg);
 
     for i in 0.. {
-        cap.wait_latest_frame(&mut frame[..]);
+        frame.copy_from_slice(cap.latest_frame());
 
         let start = Instant::now();
         let (x_median, y_median, theta) = tracker.track_frame(&frame);
