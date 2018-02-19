@@ -1,13 +1,13 @@
-t = 20
-dt = 0.01
-track = "../data/tracks/3yp_track2500.csv"
+t = 200
+dt = 0.04
+track = "../data/tracks/office_desk_track_2500.csv"
 
 [controller]
 N = 50
 model = "spengler_gammeter_bicycle"
 # Measurement variance
 R = [0.000004, 0.000004, 0.0009]
-initial_params = [0.5, 2.0, 2.0, 1.5, 0.1, 0.0045]
+initial_params = [0.1, 6.0, 1.0, 0.5, 0.2, 0.0045]
 # State evolution variance
 Q_state = [0.000005, 0.000005, 0.0005, 0.00001]
 # Initial parameter variance
@@ -17,7 +17,7 @@ Q_params_multiplier = 0.0000000001
 
 [simulator]
 # Run the simulator in real time instead of as fast as possible
-real_time = false
+real_time = true
 model = "spengler_gammeter_bicycle"
 # C1: Steering slip - negative for oversteer, positive for understeer
 # C2: Steering angle coupling - radians turned / meter travelled
@@ -25,4 +25,4 @@ model = "spengler_gammeter_bicycle"
 # Cm2 = Cm1 / v_motor_max (i.e. max speed with no air resistance)
 # Cr1: Rolling resistance
 # Cr2: Reduced air resistance coefficient (0.5 * rho * A * C_d)
-params = [0.1, 3.5, 1.0, 0.5, 0.2, 0.0045]
+params = [0.1, 6.0, 1.0, 0.5, 0.2, 0.0045]
