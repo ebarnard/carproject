@@ -215,6 +215,7 @@ while True:
         i += 1
         if "car 1" and "car 2" not in cars.keys():
             cars["car " + str(i)] = c
+        # if "car 1" and "car 2" not in cars.keys():
 
         cX, cY = np.int0(rect[0])
 
@@ -222,20 +223,27 @@ while True:
             for key in cars:
                 car_rect = cv2.minAreaRect(cars[key])
                 car_X, car_Y = np.int0(car_rect[0])
-                distance = math.sqrt(abs((car_X - cX)*(car_X - cX) - (car_Y - cY)*(car_Y - cY)))
-                if distance < 7:
+                distance = math.sqrt((car_X - cX)*(car_X - cX) + (car_Y - cY)*(car_Y - cY))
+                # draw the contour and center of the shape on the image
+                if distance < 20:
+                    if key == "car 1":
+                        print("Coordinates of ", key, " :")
+                        print(car_X, ",", car_Y, ",", car_rect[2])
+                        rect_corners = np.int0(cv2.boxPoints(car_rect))
+                        cv2.drawContours(im2, [rect_corners], -1, (150, 0, 0), 5)
+                        cv2.circle(im2, (cX, cY), 3, (50, 50, 50), -1)
+                        cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    elif key == "car 2":
+                        print("Coordinates of ", key, " :")
+                        print(car_X, ",", car_Y, ",", car_rect[2])
+                        rect_corners = np.int0(cv2.boxPoints(car_rect))
+                        cv2.drawContours(im2, [rect_corners], -1, (50, 0, 0), 5)
+                        cv2.circle(im2, (cX, cY), 3, (50, 50, 50), -1)
+                        cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                     cars[key] = c
-                print("Coordinates of ", key, " :")
-                print(car_X, ",", car_Y, ",", car_rect[2])
-        # draw the contour and center of the shape on the image
-rect_corners = np.int0(cv2.boxPoints(rect))
-cv2.drawContours(im2, [rect_corners], -1, (200, 0, 0), 5)
-cv2.circle(im2, (cX, cY), 3, (50, 50, 50), -1)
-cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
     time_delay = timer() - time_start
     print(time_delay)
-
     # show the image
-    cv2.imshow('Image', cv2.resize(im2, (int(w * 0.5), int(h * 0.5))))
+    cv2.imshow('Image', cv2.resize(im2, (int(w * 0.7), int(h * 0.7))))
     cv2.waitKey(1)
