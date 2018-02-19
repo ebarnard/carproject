@@ -222,6 +222,10 @@ impl Ticks {
     }
 
     fn next(&mut self, tick_str: &mut String) -> Option<f64> {
+        if self.spacing.is_nan() || self.spacing == 0.0 {
+            return None;
+        }
+
         if self.pos > self.max {
             return None;
         }
