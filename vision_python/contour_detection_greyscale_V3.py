@@ -138,15 +138,23 @@ import aruco_markers
 # input("Done! Press Enter to exit...\n")
 
 # Read video
-video = cv2.VideoCapture("../video/car_with_markers_drive_demo.avi")
+video = cv2.VideoCapture("../video/2_cars_with_markers_drive_demo.avi")
 
 ok, frame = video.read()
 
 frame_track = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-[h, w] = frame_track.shape
-H, corners = aruco_markers.find_homography(frame_track)
+
+frame = cv2.imread("../video/aruco_4x4_50_new_board.png", cv2.IMREAD_GRAYSCALE)
+
+[h, w] = frame.shape
+H, corners = aruco_markers.find_homography(frame)
 track_mask = track.create_mask('../track_model_generator/office_desk_track_2500.csv', H, w, h)
 
+# show the image
+cv2.imshow('track mask', cv2.resize(track_mask, (int(w * 0.5), int(h * 0.5))))
+cv2.waitKey(1)
+
+cars = {}
 first_run = True
 while True:
     time_start = timer()
@@ -155,11 +163,14 @@ while True:
     if not ok:
         break
 
+    # takes around 0.8ms
     imgray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+    # takes around 3ms
     ret, thresh = cv2.threshold(imgray, 60, 255, 0)
     thresh = thresh * (track_mask == 255)
 
+    # takes around 3ms
     kernel = np.ones((5, 5), np.uint8)
 
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
@@ -179,9 +190,10 @@ while True:
     #
     # thresh = cv2.medianBlur(thresh, 5)
 
+    # takes around 1ms
     im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    centres_of_mass = []
+    i = 0
     # loop over the contours
     for c in contours:
         # Looks like: ((centre_x, centre_y), (width, height), angle)
@@ -192,7 +204,7 @@ while True:
 
         min_length = 50
         max_length = 120
-        min_width = 30
+        min_width = 40
         max_width = 70
 
         if length > min_length and length < max_length and width > min_width and width < max_width:
@@ -200,19 +212,26 @@ while True:
         else:
             continue
 
+        i += 1
+        if "car 1" and "car 2" not in cars.keys():
+            cars["car " + str(i)] = c
+
         cX, cY = np.int0(rect[0])
 
-        print("Coordinates of marker", len(centres_of_mass) + 1, ":")
-        print(cX, ",", cY, ",", rect[2])
-
-        # Adds the coordinates of the centre of mass to an array
-        centres_of_mass.append([cX, cY])
-
+        if "car 1" and "car 2" in cars.keys():
+            for key in cars:
+                car_rect = cv2.minAreaRect(cars[key])
+                car_X, car_Y = np.int0(car_rect[0])
+                distance = math.sqrt(abs((car_X - cX)*(car_X - cX) - (car_Y - cY)*(car_Y - cY)))
+                if distance < 7:
+                    cars[key] = c
+                print("Coordinates of ", key, " :")
+                print(car_X, ",", car_Y, ",", car_rect[2])
         # draw the contour and center of the shape on the image
-        rect_corners = np.int0(cv2.boxPoints(rect))
-        cv2.drawContours(im2, [rect_corners], -1, (120, 120, 120), 3)
-        cv2.circle(im2, (cX, cY), 3, (50, 50, 50), -1)
-        cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+rect_corners = np.int0(cv2.boxPoints(rect))
+cv2.drawContours(im2, [rect_corners], -1, (200, 0, 0), 5)
+cv2.circle(im2, (cX, cY), 3, (50, 50, 50), -1)
+cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
     time_delay = timer() - time_start
     print(time_delay)

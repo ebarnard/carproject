@@ -27,18 +27,10 @@ def find_homography(frame):
     # use default aruco detection parameters
     parameters = aruco.DetectorParameters_create()
 
-    # TODO: convert to grayscale if necessary
-    #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # threshold the image
-    gray_thresh = frame.copy()
-    cv2.adaptiveThreshold(frame, maxValue=255, adaptiveMethod=cv2.ADAPTIVE_THRESH_MEAN_C,
-                          thresholdType=cv2.THRESH_BINARY, blockSize=9, C=0, dst=gray_thresh)
-
     # detect markers and then refine based on the known board positions
-    corners, ids, rejectedCorners = aruco.detectMarkers(gray_thresh, aruco_dict, parameters=parameters)
+    corners, ids, rejectedCorners = aruco.detectMarkers(frame, aruco_dict, parameters=parameters)
     # print("corners: ", corners)
-    corners, ids, rejectedCorners, _ = aruco.refineDetectedMarkers(gray_thresh, board, corners, ids, rejectedCorners)
+    corners, ids, rejectedCorners, _ = aruco.refineDetectedMarkers(frame, board, corners, ids, rejectedCorners)
     # print("refined corners: ", corners)
 
     # find the homography mapping world to image coordinates
