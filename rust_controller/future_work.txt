@@ -11,3 +11,4 @@
 - Estimator performance improvement
   - Historical batch estiamtion
 - When car is perpendicular to the centreline and not moving it is unable to make progress with the distance maximising controller
+- Reset some inputs to zero if horizon crosses track boundary
