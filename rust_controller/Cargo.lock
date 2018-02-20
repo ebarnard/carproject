@@ -1059,7 +1059,6 @@ version = "0.1.0"
 dependencies = [
  "car_remote 0.1.0",
  "car_tracker 0.1.0",
- "control_model 0.1.0",
  "controller_estimator 0.1.0",
  "env_logger 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",

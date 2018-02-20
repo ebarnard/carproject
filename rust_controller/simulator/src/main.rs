@@ -22,9 +22,8 @@ use std::time::{Duration, Instant};
 use std::thread;
 
 use prelude::*;
-use controller_estimator::Measurement;
+use controller_estimator::{Control, Measurement, State};
 use controller_estimator::visualisation::{self, Event, EventSender, Record};
-use control_model::{Control, State};
 
 fn main() {
     env_logger::init();
@@ -41,7 +40,7 @@ fn main() {
 }
 
 fn run(mut record_tx: EventSender<Event>) {
-    let mut controller = controller_estimator::new::<control_model::SpenglerGammeterBicycle>();
+    let mut controller = controller_estimator::controller_from_config();
     let dt = controller.dt();
     let N = controller.N();
 

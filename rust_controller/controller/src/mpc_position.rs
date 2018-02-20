@@ -16,11 +16,11 @@ where
     track: Arc<Track>,
 }
 
-impl<M: ControlModel> MpcPosition<M>
+impl<M: ControlModel> Controller<M> for MpcPosition<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    pub fn new(model: &M, N: u32, track: Arc<Track>) -> MpcPosition<M> {
+    fn new(model: &M, N: u32, track: &Arc<Track>) -> MpcPosition<M> {
         // State penalties
         let mut Q: Vector<M::NS> = nalgebra::zero();
         Q[0] = 20.0;
@@ -40,15 +40,14 @@ where
 
         MpcPosition {
             base: MpcBase::new(model, N, Q, R, &[track_bounds_ineq_sparsity]),
-            track,
+            track: track.clone(),
         }
     }
-}
 
-impl<M: ControlModel> Controller<M> for MpcPosition<M>
-where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
-{
+    fn name() -> &'static str {
+        "mpc_position"
+    }
+
     fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>) {
         self.base.update_input_bounds(u_min, u_max)
     }

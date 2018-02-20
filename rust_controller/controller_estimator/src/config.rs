@@ -12,6 +12,7 @@ pub struct ControllerConfig {
     pub track: String,
     pub N: u32,
     pub model: String,
+    pub controller: String,
     pub R: Vec<float>,
     pub Q_state: Vec<float>,
     pub Q_initial_params: Vec<float>,

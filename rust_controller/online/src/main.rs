@@ -8,7 +8,6 @@ extern crate stats;
 
 extern crate car_remote;
 extern crate car_tracker;
-extern crate control_model;
 extern crate controller_estimator;
 extern crate prelude;
 extern crate track;
@@ -38,7 +37,7 @@ fn main() {
 }
 
 fn run(mut record_tx: EventSender<Event>) {
-    let mut controller = controller_estimator::new::<control_model::SpenglerGammeterBicycle>();
+    let mut controller = controller_estimator::controller_from_config();
     let dt = controller.dt();
     let N = controller.N();
 

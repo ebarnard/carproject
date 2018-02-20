@@ -2,6 +2,7 @@ dt = 0.02
 track = "../data/tracks/office_desk_track_2500.csv"
 N = 50
 model = "spengler_gammeter_bicycle"
+controller = "mpc_position"
 # Measurement variance
 R = [0.000004, 0.000004, 0.0009]
 initial_params = [0.25, 6.0, 19.6, 11.2, 2.0, 0.0045]

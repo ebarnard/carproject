@@ -39,6 +39,10 @@ where
         panic!("ControlModel::new cannot be called on a CombineState<M>")
     }
 
+    fn name() -> &'static str {
+        "combine_state"
+    }
+
     fn state_equation(
         &self,
         x: &Vector<Self::NS>,

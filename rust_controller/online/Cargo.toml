@@ -10,7 +10,6 @@ streaming-stats = "0.1.28"
 car_remote = { path = "../car_remote" }
 car_tracker = { path = "../car_tracker" }
 controller_estimator = { path = "../controller_estimator" }
-control_model = { path = "../control_model" }
 prelude = { path = "../prelude" }
 track = { path = "../track" }
 track_aruco = { path = "../track_aruco" }

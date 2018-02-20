@@ -18,6 +18,10 @@ impl ControlModel for DirectVelocity {
         DirectVelocity
     }
 
+    fn name() -> &'static str {
+        "direct_velocity"
+    }
+
     fn state_equation(&self, x: &Vector<U3>, u: &Vector<U2>, _p: &Vector<U0>) -> Vector<U3> {
         let phi = x[2];
         let v = u[0];

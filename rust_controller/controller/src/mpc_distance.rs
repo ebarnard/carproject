@@ -7,7 +7,7 @@ use control_model::ControlModel;
 use track::Track;
 use {Controller, MpcBase};
 
-pub struct MpcTime<M: ControlModel>
+pub struct MpcDistance<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
@@ -15,11 +15,11 @@ where
     track: Arc<Track>,
 }
 
-impl<M: ControlModel> MpcTime<M>
+impl<M: ControlModel> Controller<M> for MpcDistance<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
-    pub fn new(model: &M, N: u32, track: Arc<Track>) -> MpcTime<M> {
+    fn new(model: &M, N: u32, track: &Arc<Track>) -> MpcDistance<M> {
         // State penalties
         let Q: Matrix<M::NS, M::NS> = nalgebra::zero();
 
@@ -34,17 +34,16 @@ where
         track_bounds_ineq_sparsity[0] = true;
         track_bounds_ineq_sparsity[1] = true;
 
-        MpcTime {
+        MpcDistance {
             base: MpcBase::new(model, N, Q, R, &[track_bounds_ineq_sparsity]),
-            track,
+            track: track.clone(),
         }
     }
-}
 
-impl<M: ControlModel> Controller<M> for MpcTime<M>
-where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
-{
+    fn name() -> &'static str {
+        "mpc_distance"
+    }
+
     fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>) {
         self.base.update_input_bounds(u_min, u_max)
     }

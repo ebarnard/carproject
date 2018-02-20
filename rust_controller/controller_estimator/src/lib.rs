@@ -20,10 +20,13 @@ use std::sync::Arc;
 
 use prelude::*;
 use controller::Controller;
-use control_model::{Control, ControlModel, State};
+use control_model::ControlModel;
 use estimator::{Estimator, JointEKF};
 use track::Track;
 
+use config::ControllerConfig;
+
+pub use control_model::{Control, State};
 pub use estimator::Measurement;
 
 pub trait ControllerEstimator {
@@ -41,7 +44,7 @@ pub struct StepResult<'a> {
     pub params: &'a [float],
 }
 
-pub struct ControllerEstimatorImpl<M: 'static + ControlModel>
+pub struct ControllerEstimatorImpl<M: ControlModel, C: Controller<M>>
 where
     DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
         + Dims3<M::NS, M::NI, M::NP>
@@ -52,14 +55,27 @@ where
     config: config::ControllerConfig,
     track: Arc<Track>,
     model: M,
-    controller: Box<Controller<M>>,
-    estimator: Box<Estimator<M>>,
+    controller: C,
+    estimator: JointEKF<M>,
     params: Vector<M::NP>,
     prev_control: Vector<M::NI>,
     horizon: Vec<(Control, State)>,
 }
 
-pub fn new<M: 'static + ControlModel>() -> Box<ControllerEstimator>
+pub fn controller_from_config() -> Box<ControllerEstimator> {
+    let config = config::ControllerConfig::load();
+    let track = Arc::new(track::Track::load(&*config.track));
+    CONTROLLERS
+        .iter()
+        .find(|c| c.0() == config.model && c.1() == config.controller)
+        .expect("controller not found")
+        .2(config, track)
+}
+
+fn new<M: 'static + ControlModel, C: 'static + Controller<M>>(
+    config: ControllerConfig,
+    track: Arc<Track>,
+) -> Box<ControllerEstimator>
 where
     DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
         + Dims3<M::NS, M::NI, M::NP>
@@ -67,12 +83,10 @@ where
     M::NS: DimAdd<M::NP>,
     DimSum<M::NS, M::NP>: DimName,
 {
-    let config = config::ControllerConfig::load();
-    let track = Arc::new(track::Track::load(&*config.track));
     let model = M::new();
     let N = config.N;
 
-    let mut controller = controller::MpcTime::<M>::new(&model, N, track.clone());
+    let mut controller = C::new(&model, N, &track);
     let u_min = Vector::<M::NI>::from_column_slice(&config.u_min);
     let u_max = Vector::<M::NI>::from_column_slice(&config.u_max);
     controller.update_input_bounds(u_min, u_max);
@@ -91,15 +105,16 @@ where
         config,
         track,
         model,
-        controller: Box::new(controller) as Box<Controller<M>>,
-        estimator: Box::new(state_estimator) as Box<Estimator<M>>,
+        controller: controller,
+        estimator: state_estimator,
         params: initial_params,
         prev_control: Vector::<M::NI>::zeros(),
         horizon: vec![Default::default(); N as usize],
     })
 }
 
-impl<M: 'static + ControlModel> ControllerEstimator for ControllerEstimatorImpl<M>
+impl<M: 'static + ControlModel, C: Controller<M>> ControllerEstimator
+    for ControllerEstimatorImpl<M, C>
 where
     DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
         + Dims3<M::NS, M::NI, M::NP>
@@ -163,5 +178,60 @@ where
             horizon: &self.horizon,
             params: &self.params.as_slice(),
         }
+    }
+}
+
+use control_model::*;
+
+macro_rules! as_expr {
+    ($e:expr) => {$e};
+}
+
+macro_rules! expand_controllers {
+    ($models:tt; ($($ex:tt)*);) => {
+        as_expr!(&[$($ex,)*])
+    };
+
+    (($($model:ident,)*); ($($ex:tt)*); $controller:ident, $($tail:tt)*) => {
+        expand_controllers!(
+            ($($model,)*);
+            ($($ex)* $((
+                control_model::$model::name,
+                controller::$controller::<$model>::name,
+                new::<control_model::$model, controller::$controller<control_model::$model>>
+            ))*);
+            $($tail)*
+        )
+    };
+}
+
+macro_rules! controllers {
+    (
+        models {
+            $($model:ident,)*
+        }
+        controllers {
+            $($controllers:ident,)*
+        }
+    ) => {
+        static CONTROLLERS: &'static [
+            (
+                fn() -> &'static str,
+                fn() -> &'static str,
+                fn(ControllerConfig, Arc<Track>) -> Box<ControllerEstimator>
+            )
+        ] = expand_controllers!(($($model,)*); (); $($controllers,)*);
+    };
+}
+
+controllers! {
+    models {
+        DirectVelocity,
+        SpenglerGammeterBicycle,
+    }
+
+    controllers {
+        MpcDistance,
+        MpcPosition,
     }
 }

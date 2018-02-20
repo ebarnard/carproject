@@ -8,20 +8,27 @@ pub trait SimulationModel {
     where
         Self: Sized;
 
+    fn name() -> &'static str
+    where
+        Self: Sized;
+
     fn step(&mut self, dt: float, state: &State, control: &Control) -> State;
 }
 
 pub fn model_from_config(config: &SimulatorConfig) -> Box<SimulationModel> {
     MODELS
         .iter()
-        .find(|m| m.0 == config.model)
+        .find(|m| m.0() == config.model)
         .expect("simulation model not found")
         .1(&config.params)
 }
 
-static MODELS: &'static [(&'static str, fn(&[float]) -> Box<SimulationModel>)] = &[
-    ("direct_velocity", new::<DirectVelocity>),
-    ("spengler_gammeter_bicycle", new::<SpenglerGammeterBicycle>),
+static MODELS: &'static [(fn() -> &'static str, fn(&[float]) -> Box<SimulationModel>)] = &[
+    (DirectVelocity::name, new::<DirectVelocity>),
+    (
+        SpenglerGammeterBicycle::name,
+        new::<SpenglerGammeterBicycle>,
+    ),
 ];
 
 fn new<T: 'static + SimulationModel>(params: &[float]) -> Box<SimulationModel> {
@@ -44,6 +51,10 @@ macro_rules! simulation_control_model(
                     params: Vector::<<$model as ControlModel>::NP>::from_column_slice(params),
                     model: <$model as ControlModel>::new(),
                 }
+            }
+
+            fn name() -> &'static str {
+                <$model as ControlModel>::name()
             }
 
             fn step(&mut self, dt: float, state: &State, control: &Control) -> State {

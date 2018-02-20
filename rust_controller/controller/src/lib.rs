@@ -8,8 +8,11 @@ extern crate prelude;
 extern crate sparse;
 extern crate track;
 
+use std::sync::Arc;
+
 use prelude::*;
 use control_model::ControlModel;
+use track::Track;
 
 mod mpc_base;
 use mpc_base::MpcBase;
@@ -17,8 +20,8 @@ use mpc_base::MpcBase;
 mod mpc_position;
 pub use mpc_position::MpcPosition;
 
-mod mpc_time;
-pub use mpc_time::MpcTime;
+mod mpc_distance;
+pub use mpc_distance::MpcDistance;
 
 mod osqp_mpc_builder;
 pub use osqp_mpc_builder::OsqpMpc;
@@ -27,6 +30,15 @@ pub trait Controller<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
+    fn new(model: &M, N: u32, track: &Arc<Track>) -> Self
+    where
+        Self: Sized;
+
+    // TODO: Make an associated const once stable
+    fn name() -> &'static str
+    where
+        Self: Sized;
+
     fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>);
 
     fn step(

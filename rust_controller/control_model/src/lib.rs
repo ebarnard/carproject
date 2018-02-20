@@ -39,6 +39,11 @@ where
     where
         Self: Sized;
 
+    // TODO: Make an associated const once stable
+    fn name() -> &'static str
+    where
+        Self: Sized;
+
     fn step(
         &self,
         dt: float,

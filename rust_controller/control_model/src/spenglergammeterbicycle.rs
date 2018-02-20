@@ -41,6 +41,10 @@ impl ControlModel for SpenglerGammeterBicycle {
         SpenglerGammeterBicycle
     }
 
+    fn name() -> &'static str {
+        "spengler_gammeter_bicycle"
+    }
+
     fn state_equation(&self, x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U6>) -> Vector<U4> {
         let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2) =
             SpenglerGammeterBicycle::vals(x, u, p);
