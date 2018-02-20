@@ -14,6 +14,8 @@ Q_state = [0.000005, 0.000005, 0.0005, 0.00001]
 Q_initial_params = [0.05, 2.0, 0.5, 0.4, 0.3, 0.0]
 # Q_params = Q_initial_params * Q_params_multiplier
 Q_params_multiplier = 0.0000000001
+u_min = [0.0, -1.0]
+u_max = [0.25, 1.0]
 
 [simulator]
 # Run the simulator in real time instead of as fast as possible

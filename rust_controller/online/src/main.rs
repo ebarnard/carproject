@@ -56,6 +56,9 @@ fn run(config: &config::Config, track: Arc<Track>, mut record_tx: EventSender<Ev
 
     let mut controller =
         controller::MpcTime::<Model>::new(&model, config.controller.N, track.clone());
+    let u_min = Vector2::from_column_slice(&config.controller.u_min);
+    let u_max = Vector2::from_column_slice(&config.controller.u_max);
+    controller.update_input_bounds(u_min, u_max);
 
     let initial_params = Vector6::from_column_slice(&config.controller.initial_params);
     let Q_state = Matrix::from_diagonal(&Vector4::from_column_slice(&config.controller.Q_state));

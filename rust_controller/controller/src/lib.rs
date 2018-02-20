@@ -27,6 +27,8 @@ pub trait Controller<M: ControlModel>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
+    fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>);
+
     fn step(
         &mut self,
         model: &M,

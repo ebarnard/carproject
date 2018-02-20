@@ -31,6 +31,8 @@ pub struct Controller {
     pub Q_initial_params: Vec<float>,
     pub Q_params_multiplier: float,
     pub initial_params: Vec<float>,
+    pub u_min: Vec<float>,
+    pub u_max: Vec<float>,
 }
 
 #[derive(Deserialize)]

@@ -12,6 +12,8 @@ where
     horizon: u32,
     u_mpc: Matrix<M::NI, Dynamic>,
     mpc: OsqpMpc<M::NS, M::NI>,
+    model_u_min: Vector<M::NI>,
+    model_u_max: Vector<M::NI>,
 }
 
 impl<M: ControlModel> MpcBase<M>
@@ -30,31 +32,40 @@ where
         let (A_sparsity, B_sparsity) = model.linearise_sparsity();
         let (A_d_sparsity, B_d_sparsity) = discretise_sparsity(&A_sparsity, &B_sparsity);
 
-        let mpc = flame::span_of("osqp mpc create", || {
-            let mut mpc = OsqpMpc::new(
-                N as usize,
-                Q,
-                R,
-                &A_d_sparsity,
-                &B_d_sparsity,
-                stage_ineq_sparsity,
-            );
-            let (input_min, input_max) = model.input_bounds();
-            mpc.set_input_bounds(input_min, input_max);
-            let (input_delta_min, input_delta_max) = model.input_delta_bounds();
-            mpc.set_input_delta_bounds(input_delta_min, input_delta_max);
-            mpc
-        });
+        let guard = flame::start_guard("osqp mpc create");
+
+        let mut mpc = OsqpMpc::new(
+            N as usize,
+            Q,
+            R,
+            &A_d_sparsity,
+            &B_d_sparsity,
+            stage_ineq_sparsity,
+        );
+        let (input_min, input_max) = model.input_bounds();
+        mpc.set_input_bounds(input_min.clone(), input_max.clone());
+        let (input_delta_min, input_delta_max) = model.input_delta_bounds();
+        mpc.set_input_delta_bounds(input_delta_min, input_delta_max);
+
+        guard.end();
 
         MpcBase {
             horizon: N,
             u_mpc: MatrixMN::zeros_generic(<M::NI as DimName>::name(), Dynamic::new(N as usize)),
             mpc,
+            model_u_min: input_min,
+            model_u_max: input_max,
         }
     }
 
     pub fn horizon_len(&self) -> u32 {
         self.horizon
+    }
+
+    pub fn update_input_bounds(&mut self, ext_u_min: Vector<M::NI>, ext_u_max: Vector<M::NI>) {
+        let u_min = self.model_u_min.zip_map(&ext_u_min, max);
+        let u_max = self.model_u_max.zip_map(&ext_u_max, min);
+        self.mpc.set_input_bounds(u_min, u_max);
     }
 
     pub fn step<F>(

@@ -49,6 +49,10 @@ impl<M: ControlModel> Controller<M> for MpcPosition<M>
 where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
+    fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>) {
+        self.base.update_input_bounds(u_min, u_max)
+    }
+
     fn step(
         &mut self,
         model: &M,

@@ -170,10 +170,8 @@ impl ControlModel for SpenglerGammeterBicycle {
     }
 
     fn input_bounds(&self) -> (Vector<U2>, Vector<U2>) {
-        // Temporary input bounds for the online controller
-        // TODO: Adjust using a configuration parameter
         let min = Vector2::new(0.0, -1.0);
-        let max = Vector2::new(0.25, 1.0);
+        let max = Vector2::new(1.0, 1.0);
         (min, max)
     }
 
