@@ -1,5 +1,5 @@
-use nalgebra::{Matrix4, Matrix4x2, Matrix4x6, Vector2, Vector4};
-use nalgebra::dimension::{U2, U4, U6};
+use nalgebra::{Matrix4, Matrix4x2, MatrixMN, Vector2, Vector4};
+use nalgebra::dimension::{U2, U4, U7};
 
 use prelude::*;
 use {ControlModel, State};
@@ -10,8 +10,8 @@ impl SpenglerGammeterBicycle {
     fn vals(
         x: &Vector<U4>,
         u: &Vector<U2>,
-        p: &Vector<U6>,
-    ) -> (float, float, float, float, float, float, float, float, float, float) {
+        p: &Vector<U7>,
+    ) -> (float, float, float, float, float, float, float, float, float, float, float) {
         let phi = x[2];
         let v = x[3];
 
@@ -20,19 +20,20 @@ impl SpenglerGammeterBicycle {
 
         let C1 = p[0];
         let C2 = p[1];
-        let Cm1 = p[2];
-        let Cm2 = p[3];
-        let Cr1 = p[4];
-        let Cr2 = p[5];
+        let C3 = p[2];
+        let Cm1 = p[3];
+        let Cm2 = p[4];
+        let Cr1 = p[5];
+        let Cr2 = p[6];
 
-        (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2)
+        (phi, v, throttle, delta, C1, C2, C3, Cm1, Cm2, Cr1, Cr2)
     }
 }
 
 impl ControlModel for SpenglerGammeterBicycle {
     type NS = U4;
     type NI = U2;
-    type NP = U6;
+    type NP = U7;
 
     fn new() -> Self
     where
@@ -41,19 +42,21 @@ impl ControlModel for SpenglerGammeterBicycle {
         SpenglerGammeterBicycle
     }
 
-    fn state_equation(&self, x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U6>) -> Vector<U4> {
-        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2) =
+    fn state_equation(&self, x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U7>) -> Vector<U4> {
+        let (phi, v, throttle, delta, C1, C2, C3, Cm1, Cm2, Cr1, Cr2) =
             SpenglerGammeterBicycle::vals(x, u, p);
 
-        let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
+        let delta_offset = delta + C3;
+
+        let (sin_k, cos_k) = (phi + C1 * delta_offset).sin_cos();
 
         let x_dot = v * cos_k;
         let y_dot = v * sin_k;
-        let phi_dot = C2 * delta * v;
+        let phi_dot = C2 * delta_offset * v;
 
         let v_dot_motor = Cm1 * throttle - Cm2 * throttle * v;
         let v_dot_friction = -Cr2 * v * v - Cr1 * v.signum();
-        let v_dot_cornering = -v * v * delta * delta * C1 * C2;
+        let v_dot_cornering = -v * v * delta_offset * delta_offset * C1 * C2 * 0.0;
         let v_dot = v_dot_motor + v_dot_friction + v_dot_cornering;
 
         Vector4::new(x_dot, y_dot, phi_dot, v_dot)
@@ -63,19 +66,20 @@ impl ControlModel for SpenglerGammeterBicycle {
         &self,
         x0: &Vector<U4>,
         u0: &Vector<U2>,
-        p0: &Vector<U6>,
+        p0: &Vector<U7>,
     ) -> (Matrix<U4, U4>, Matrix<U4, U2>) {
-        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, _Cr1, Cr2) =
+        let (phi, v, throttle, delta, C1, C2, C3, Cm1, Cm2, _Cr1, Cr2) =
             SpenglerGammeterBicycle::vals(x0, u0, p0);
+        let delta_offset = delta * C3;
 
-        let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
+        let (sin_k, cos_k) = (phi + C1 * delta_offset).sin_cos();
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         let A = Matrix4::new(
             0.0, 0.0, -v * sin_k, cos_k,
             0.0, 0.0, v * cos_k, sin_k,
-            0.0, 0.0, 0.0, C2 * delta,
-            0.0, 0.0, 0.0, -Cm2 * throttle - 2.0 * (Cr2 + C1 * C2 * delta * delta) * v
+            0.0, 0.0, 0.0, C2 * delta_offset,
+            0.0, 0.0, 0.0, -Cm2 * throttle - 2.0 * (Cr2 + C1 * C2 * delta_offset * delta_offset * 0.0) * v
         );
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -83,7 +87,7 @@ impl ControlModel for SpenglerGammeterBicycle {
             0.0, -C1 * v * sin_k,
             0.0, C1 * v * cos_k,
             0.0, C2 * v,
-            Cm1 - Cm2 * v, -2.0 * C1 * C2 * v * v * delta
+            Cm1 - Cm2 * v, -2.0 * C1 * C2 * v * v * delta_offset * 0.0
         );
 
         (A, B)
@@ -113,33 +117,34 @@ impl ControlModel for SpenglerGammeterBicycle {
         &self,
         x0: &Vector<U4>,
         u0: &Vector<U2>,
-        p0: &Vector<U6>,
-    ) -> Matrix<U4, U6> {
-        let (phi, v, throttle, delta, C1, C2, _Cm1, _Cm2, _Cr1, _Cr2) =
+        p0: &Vector<U7>,
+    ) -> Matrix<U4, U7> {
+        let (phi, v, throttle, delta, C1, C2, C3, _Cm1, _Cm2, _Cr1, _Cr2) =
             SpenglerGammeterBicycle::vals(x0, u0, p0);
+        let delta_offset = delta + C3;
 
-        let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
+        let (sin_k, cos_k) = (phi + C1 * delta_offset).sin_cos();
 
-        let v_delta = v * delta;
-        let v_delta_2 = v_delta * v_delta;
+        let v_delta_offset = v * delta_offset;
+        let v_delta_2 = v_delta_offset * v_delta_offset * 0.0;
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
-        Matrix4x6::new(
-            -v_delta * sin_k, 0.0, 0.0, 0.0, 0.0, 0.0,
-            v_delta * cos_k, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, v_delta, 0.0, 0.0, 0.0, 0.0,
-            -v_delta_2 * C2, -v_delta_2 * C1, throttle, -throttle * v, -v.signum(), -v * v
-        )
+        Matrix::<U4, U7>::from_row_slice(&[
+            -v_delta_offset * sin_k, 0.0, -v * sin_k * C1, 0.0, 0.0, 0.0, 0.0,
+            v_delta_offset * cos_k, 0.0, v * cos_k * C1, 0.0, 0.0, 0.0, 0.0,
+            0.0, v_delta_offset, C2 * v, 0.0, 0.0, 0.0, 0.0,
+            -v_delta_2 * C2, -v_delta_2 * C1, -2.0 * v * v * delta_offset * C1 * C2 * 0.0, throttle, -throttle * v, -v.signum(), -v * v
+        ])
     }
 
-    fn linearise_parameters_sparsity(&self) -> Matrix4x6<bool> {
+    fn linearise_parameters_sparsity(&self) -> MatrixMN<bool, U4, U7> {
         #[cfg_attr(rustfmt, rustfmt_skip)]
-        Matrix4x6::new(
-            true, false, false, false, false, false,
-            true, false, false, true, false, false,
-            false, true, false, false, false, false,
-            true, true, true, true, false, true,
-        )
+        MatrixMN::<bool, U4, U7>::from_row_slice(&[
+            true, false, true, false, false, false, false,
+            true, false, true, false, true, false, false,
+            false, true, true, false, false, false, false,
+            true, true, true, true, true, false, true,
+        ])
     }
 
     fn x_from_state(&self, state: &State) -> Vector<U4> {
