@@ -1,16 +1,15 @@
 [package]
-name = "simulator"
+name = "controller_estimator"
 version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
-env_logger = "0.5.3"
-log = "0.4.1"
 serde = "1.0"
 serde_derive = "1.0"
-streaming-stats = "0.1.28"
 toml = "0.4.5"
-controller_estimator = { path = "../controller_estimator" }
+controller = { path = "../controller" }
 control_model = { path = "../control_model" }
+estimator = { path = "../estimator" }
 prelude = { path = "../prelude" }
 track = { path = "../track" }
+ui = { path = "../ui" }

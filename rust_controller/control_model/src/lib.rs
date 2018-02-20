@@ -14,14 +14,14 @@ pub use spenglergammeterbicycle::SpenglerGammeterBicycle;
 mod combine_state;
 pub use combine_state::CombineState;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct State {
     pub position: (float, float),
     pub velocity: (float, float),
     pub heading: float,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Control {
     pub throttle_position: float,
     pub steering_angle: float,

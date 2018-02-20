@@ -1,43 +1,36 @@
 // Ignore this lint otherwise many warnings are generated for common mathematical notation
 #![allow(non_snake_case)]
 
-extern crate config;
-extern crate control_model;
-extern crate controller;
 extern crate env_logger;
-extern crate estimator;
 #[macro_use]
 extern crate log;
-extern crate prelude;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate stats;
+extern crate toml;
+
+extern crate control_model;
+extern crate controller_estimator;
+extern crate prelude;
 extern crate track;
-extern crate ui;
 
+mod config;
 mod simulation_model;
-mod visualisation;
 
-use nalgebra::{Vector3, Vector4, Vector6};
 use std::time::{Duration, Instant};
 use std::thread;
-use std::sync::Arc;
 
 use prelude::*;
-use controller::Controller;
-use control_model::ControlModel;
-use estimator::{Estimator, JointEKF, Measurement};
-use simulation_model::{SimulationModel, State};
-use track::Track;
-use ui::EventSender;
-use visualisation::{Event, Record};
+use controller_estimator::Measurement;
+use controller_estimator::visualisation::{self, Event, EventSender, Record};
+use control_model::{Control, State};
 
 fn main() {
     env_logger::init();
 
-    let config = config::load();
-    let track = Arc::new(track::Track::load(&*config.track));
-
-    let (mut window, record_tx) = visualisation::new(250, track.clone());
-    let sim_handle = thread::spawn(move || run(&config, track, record_tx));
+    let (mut window, record_tx) = visualisation::new();
+    let sim_handle = thread::spawn(move || run(record_tx));
     window.run_on_main_thread();
 
     if sim_handle.join().is_err() {
@@ -47,78 +40,40 @@ fn main() {
     flame_merge::write_flame();
 }
 
-type Model = control_model::SpenglerGammeterBicycle;
+fn run(mut record_tx: EventSender<Event>) {
+    let mut controller = controller_estimator::new::<control_model::SpenglerGammeterBicycle>();
+    let dt = controller.dt();
+    let N = controller.N();
 
-fn run(config: &config::Config, track: Arc<Track>, mut record_tx: EventSender<Event>) {
-    let model = control_model::SpenglerGammeterBicycle;
+    let sim_config = config::SimulatorConfig::load();
 
-    let mut controller =
-        controller::MpcTime::<Model>::new(&model, config.controller.N, track.clone());
+    let mut sim_model = simulation_model::model_from_config(&sim_config);
 
-    let initial_params = Vector6::from_column_slice(&config.controller.initial_params);
-    let Q_state = Matrix::from_diagonal(&Vector4::from_column_slice(&config.controller.Q_state));
-    let Q_initial_params = Matrix::from_diagonal(&Vector6::from_column_slice(
-        &config.controller.Q_initial_params,
-    ));
-    let Q_params = Q_initial_params * config.controller.Q_params_multiplier;
-    let R = Matrix::from_diagonal(&Vector3::from_column_slice(&config.controller.R));
+    record_tx
+        .send(Event::Reset {
+            n_history: 250,
+            track: controller.track().clone(),
+            horizon_len: N as usize,
+            np: controller.np() as usize,
+        })
+        .expect("visualisation window closed");
 
-    let mut state_estimator = JointEKF::<Model>::new(Q_state, Q_params, Q_initial_params, R);
+    let n_steps = (sim_config.t / dt) as usize;
+    let dt_duration = Duration::new(dt.floor() as u64, (dt.fract() * 1e9) as u32);
+    let mut stats = stats::OnlineStats::new();
 
-    let initial_position = track.nearest_centreline_point(0.0);
+    let initial_position = controller.track().nearest_centreline_point(0.0);
     let mut state = State::default();
     state.position = (initial_position.x, initial_position.y);
     state.heading = float::atan2(initial_position.dy_ds, initial_position.dx_ds);
 
-    let mut sim_model = simulation_model::model_from_config(&config.simulator);
-
-    record_tx
-        .send(Event::Reset {
-            horizon_len: config.controller.N as usize,
-            np: Q_params.shape().0,
-        })
-        .expect("visualisation window closed");
-
-    run_simulation(
-        config.t,
-        config.dt,
-        config.simulator.real_time,
-        state,
-        &mut *sim_model,
-        &model,
-        &mut controller,
-        initial_params,
-        &mut state_estimator,
-        &mut record_tx,
-    );
-}
-
-fn run_simulation<M: ControlModel>(
-    t: float,
-    dt: float,
-    real_time: bool,
-    mut prev_state: State,
-    sim_model: &mut SimulationModel,
-    model: &M,
-    controller: &mut Controller<M>,
-    mut params: Vector<M::NP>,
-    estimator: &mut Estimator<M>,
-    record_tx: &mut EventSender<Event>,
-) where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
-{
-    let n_steps = (t / dt) as usize;
-    let dt_duration = Duration::new(dt.floor() as u64, (dt.fract() * 1e9) as u32);
-    let mut stats = stats::OnlineStats::new();
-
-    let mut control: Vector<M::NI> = nalgebra::zero();
+    let mut control = Control::default();
 
     for i in 0..n_steps {
         let step_start = Instant::now();
 
         // Run simulation
-        let ctrl = model.u_to_control(&control);
-        let state = sim_model.step(dt, &prev_state, &ctrl);
+        state = sim_model.step(dt, &state, &control);
 
         // Add noise to measurement
         let mut measurement = Measurement {
@@ -129,51 +84,43 @@ fn run_simulation<M: ControlModel>(
             heading: state.heading + randn() * 0.03,
         };
 
-        // Start timer
-        let start = Instant::now();
-
-        // Estimate state and params
-        let (predicted_state, p) = estimator.step(model, dt, &control, Some(measurement), &params);
-        params = p;
+        // Start controller timer
+        let controller_start = Instant::now();
 
         // Run controller
-        let (horizon_ctrl, horizon_state) = controller.step(model, dt, &predicted_state, &params);
-        control = horizon_ctrl.column(0).into_owned();
+        let res = controller.step(Some(measurement));
 
         // Stop timer
-        let dur = Instant::now().duration_since(start);
+        let dur = Instant::now().duration_since(controller_start);
         let millis = (dur.as_secs() as f64) * 1000.0 + f64::from(dur.subsec_nanos()) * 0.000_001;
         stats.add(millis);
 
-        info!("Controller took {} ms", millis);
-        info!("State {:?}", state);
-        info!("Control {:?}", model.u_to_control(&control));
+        control = res.horizon[0].0;
 
-        let mut horizon = Vec::with_capacity(horizon_state.shape().1);
-        for i in 0..horizon.capacity() {
-            let col = horizon_state.column(i);
-            horizon.push((col[0], col[1]));
-        }
+        info!("Controller took {} ms", millis);
+        info!("State {:?}", res.predicted_state);
+        info!("Control {:?}", control);
+
+        let position_horizon = res.horizon
+            .iter()
+            .map(|&(_, state)| state.position)
+            .collect();
 
         record_tx
             .send(Event::Record(Record {
                 t: i as float * dt,
-                state: state.clone(),
-                predicted_state: model.x_to_state(&predicted_state),
-                control: model.u_to_control(&control),
-                params: params.as_slice().to_vec(),
-                param_var: estimator.param_covariance().diagonal().as_slice().to_vec(),
-                predicted_horizon: horizon,
+                predicted_state: res.predicted_state,
+                control,
+                params: res.params.to_vec(),
+                // TODO: pass real variances here once the plots are working again
+                param_var: res.params.to_vec(),
+                predicted_horizon: position_horizon,
             }))
             .expect("visualisation window closed");
 
-        prev_state = state;
-
         let step_elapsed = Instant::now() - step_start;
         if let Some(step_remaining) = dt_duration.checked_sub(step_elapsed) {
-            if real_time {
-                thread::sleep(step_remaining);
-            }
+            thread::sleep(step_remaining);
         } else {
             let millis =
                 step_elapsed.as_secs() as f64 * 1e3 + step_elapsed.subsec_nanos() as f64 / 1e6;

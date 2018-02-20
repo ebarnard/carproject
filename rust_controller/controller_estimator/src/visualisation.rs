@@ -5,25 +5,21 @@ use ui::plot::{Axes, AxesRange, AxesScale, Line, SingleLineAxes};
 
 use prelude::*;
 use control_model::{Control, State as ControllerState};
-use simulation_model::State;
 use track::Track;
 
-pub fn new(n_history: usize, track: Arc<Track>) -> (ui::Window, ui::EventSender<Event>) {
-    let (track_inner, track_outer) = track_inner_outer(&track, 1000);
+pub use ui::{EventSender, Window};
 
+pub fn new() -> (ui::Window, ui::EventSender<Event>) {
     let vis = Visualisation {
-        n_history,
-        // history is initialised on the first Event::Reset
         history: History::new(0, 0, 0),
-        track_inner,
-        track_outer,
+        track_inner: Line::new(0, BLACK),
+        track_outer: Line::new(0, BLACK),
     };
 
     ui::Window::new(vis)
 }
 
 struct Visualisation {
-    n_history: usize,
     history: History,
     track_inner: Line,
     track_outer: Line,
@@ -34,8 +30,16 @@ impl ui::State for Visualisation {
 
     fn update(&mut self, event: Event) {
         match event {
-            Event::Reset { horizon_len, np } => {
-                self.history = History::new(self.n_history, horizon_len, np)
+            Event::Reset {
+                n_history,
+                track,
+                horizon_len,
+                np,
+            } => {
+                let (track_inner, track_outer) = track_inner_outer(&track, 1000);
+                self.track_inner = track_inner;
+                self.track_outer = track_outer;
+                self.history = History::new(n_history, horizon_len, np)
             }
             Event::Record(record) => self.history.record(record),
         }
@@ -43,6 +47,7 @@ impl ui::State for Visualisation {
 
     fn draw(&self, canvas: &mut ui::Canvas) {
         let (w, h) = canvas.size();
+
         // 2/3 height for track
         canvas.subview([0.0, 0.0, w, h * 2.0 / 3.0], &mut |c| {
             ui::pad_all(10.0, c, |c| {
@@ -67,18 +72,21 @@ impl ui::State for Visualisation {
         canvas.subview([0.0, h * 2.0 / 3.0, w * 0.25, h * 1.0 / 3.0], &mut |c| {
             ui::pad_all(10.0, c, |c| self.history.v.draw(c));
         });
+
         canvas.subview(
             [w * 0.25, h * 2.0 / 3.0, w * 0.25, h * 1.0 / 3.0],
             &mut |c| {
                 ui::pad_all(10.0, c, |c| self.history.heading.draw(c));
             },
         );
+
         canvas.subview(
             [w * 0.5, h * 2.0 / 3.0, w * 0.25, h * 1.0 / 3.0],
             &mut |c| {
                 ui::pad_all(10.0, c, |c| self.history.throttle_position.draw(c));
             },
         );
+
         canvas.subview(
             [w * 0.75, h * 2.0 / 3.0, w * 0.25, h * 1.0 / 3.0],
             &mut |c| {
@@ -118,13 +126,17 @@ struct History {
 }
 
 pub enum Event {
-    Reset { horizon_len: usize, np: usize },
+    Reset {
+        n_history: usize,
+        track: Arc<Track>,
+        horizon_len: usize,
+        np: usize,
+    },
     Record(Record),
 }
 
 pub struct Record {
     pub t: float,
-    pub state: State,
     pub predicted_state: ControllerState,
     pub control: Control,
     pub params: Vec<float>,

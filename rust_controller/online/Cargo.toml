@@ -4,16 +4,13 @@ version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
+env_logger = "0.5.3"
+log = "0.4.1"
+streaming-stats = "0.1.28"
 car_remote = { path = "../car_remote" }
 car_tracker = { path = "../car_tracker" }
-config = { path = "../config" }
-controller = { path = "../controller" }
+controller_estimator = { path = "../controller_estimator" }
 control_model = { path = "../control_model" }
-env_logger = "0.5.3"
-estimator = { path = "../estimator" }
-log = "0.4.1"
 prelude = { path = "../prelude" }
-streaming-stats = "0.1.28"
 track = { path = "../track" }
 track_aruco = { path = "../track_aruco" }
-ui = { path = "../ui" }

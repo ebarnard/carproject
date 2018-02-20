@@ -1,24 +1,7 @@
-use config;
-
 use prelude::*;
-use control_model::{self, Control, ControlModel, State as ControllerState};
+use control_model::{self, Control, ControlModel, State};
 
-#[derive(Clone, Debug, Default)]
-pub struct State {
-    pub position: (float, float),
-    pub velocity: (float, float),
-    pub heading: float,
-}
-
-impl State {
-    pub fn to_controller_state(&self) -> ControllerState {
-        ControllerState {
-            position: self.position,
-            velocity: self.velocity,
-            heading: self.heading,
-        }
-    }
-}
+use config::SimulatorConfig;
 
 pub trait SimulationModel {
     fn new(params: &[float]) -> Self
@@ -28,7 +11,7 @@ pub trait SimulationModel {
     fn step(&mut self, dt: float, state: &State, control: &Control) -> State;
 }
 
-pub fn model_from_config(config: &config::Simulator) -> Box<SimulationModel> {
+pub fn model_from_config(config: &SimulatorConfig) -> Box<SimulationModel> {
     MODELS
         .iter()
         .find(|m| m.0 == config.model)
@@ -64,7 +47,7 @@ macro_rules! simulation_control_model(
             }
 
             fn step(&mut self, dt: float, state: &State, control: &Control) -> State {
-                let x = self.model.x_from_state(&state.to_controller_state());
+                let x = self.model.x_from_state(state);
                 let u = self.model.u_from_control(control);
                 let x_dt = self.model.step(dt, &x, &u, &self.params);
                 let controller_state = self.model.x_to_state(&x_dt);

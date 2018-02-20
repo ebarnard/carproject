@@ -253,16 +253,6 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "config"
-version = "0.1.0"
-dependencies = [
- "prelude 0.1.0",
- "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_derive 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
- "toml 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "control_model"
 version = "0.1.0"
 dependencies = [
@@ -279,6 +269,21 @@ dependencies = [
  "prelude 0.1.0",
  "sparse 0.1.0",
  "track 0.1.0",
+]
+
+[[package]]
+name = "controller_estimator"
+version = "0.1.0"
+dependencies = [
+ "control_model 0.1.0",
+ "controller 0.1.0",
+ "estimator 0.1.0",
+ "prelude 0.1.0",
+ "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toml 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "track 0.1.0",
+ "ui 0.1.0",
 ]
 
 [[package]]
@@ -1054,17 +1059,14 @@ version = "0.1.0"
 dependencies = [
  "car_remote 0.1.0",
  "car_tracker 0.1.0",
- "config 0.1.0",
  "control_model 0.1.0",
- "controller 0.1.0",
+ "controller_estimator 0.1.0",
  "env_logger 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "estimator 0.1.0",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prelude 0.1.0",
  "streaming-stats 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "track 0.1.0",
  "track_aruco 0.1.0",
- "ui 0.1.0",
 ]
 
 [[package]]
@@ -1493,16 +1495,16 @@ dependencies = [
 name = "simulator"
 version = "0.1.0"
 dependencies = [
- "config 0.1.0",
  "control_model 0.1.0",
- "controller 0.1.0",
+ "controller_estimator 0.1.0",
  "env_logger 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "estimator 0.1.0",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prelude 0.1.0",
+ "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "streaming-stats 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toml 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "track 0.1.0",
- "ui 0.1.0",
 ]
 
 [[package]]
