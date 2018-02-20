@@ -148,7 +148,8 @@ where
         let settings = Settings::default()
             .verbose(log_enabled!(Debug))
             .polish(false)
-            .eps_abs(1e-2);
+            .eps_abs(1e-2)
+            .max_iter(250);
 
         let problem = Problem::new(&P, q.as_slice(), &A, l.as_slice(), u.as_slice(), &settings);
 
@@ -354,7 +355,22 @@ where
                 .fill(0.0);
 
             // Solve the soft constrained problem
-            let solution = self.problem.solve().solution().ok_or(())?;
+            let solution = match self.problem.solve() {
+                Status::Solved(solution) | Status::SolvedInaccurate(solution) => solution,
+                Status::MaxIterationsReached(solution) => {
+                    println!("max iterations reached, retrying with soft constraints");
+                    solution
+                }
+                Status::PrimalInfeasible(_) | Status::PrimalInfeasibleInaccurate(_) => {
+                    println!("primal problem infeasible!");
+                    return Err(());
+                }
+                Status::DualInfeasible(_) | Status::DualInfeasibleInaccurate(_) => {
+                    println!("dual problem infeasible!");
+                    return Err(());
+                }
+                _ => return Err(()),
+            };
 
             // Update u_mpc and x_mpc
             add_deltas(&mut self.x_mpc, &mut self.u_mpc, solution.x());
