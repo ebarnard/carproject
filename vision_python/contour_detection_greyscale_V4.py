@@ -154,7 +154,7 @@ track_mask = track.create_mask('../track_model_generator/office_desk_track_2500.
 # cv2.imshow('track mask', cv2.resize(track_mask, (int(w * 0.7), int(h * 0.7))))
 # cv2.waitKey(1)
 
-# for i in range(0, 250):
+# for i in range(0, 500):
 #     video.read()
 
 cars = {}
@@ -163,13 +163,13 @@ cars['car 2'] = "empty"
 first_run = True
 car_1_position_updated = False
 car_2_position_updated = False
+car_detected = False
 while True:
     time_start = timer()
     # Read a new frame
     ok, frame = video.read()
     if not ok:
         break
-
     # takes around 0.8ms
     imgray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -204,6 +204,7 @@ while True:
     i = 0
     car_1_position_updated = False
     car_2_position_updated = False
+    car_detected = False
     for c in contours:
         # Looks like: ((centre_x, centre_y), (width, height), angle)
         rect = cv2.minAreaRect(c)
@@ -220,6 +221,8 @@ while True:
             pass
         else:
             continue
+
+        car_detected = True
 
         cX, cY = np.int0(rect[0])
 
