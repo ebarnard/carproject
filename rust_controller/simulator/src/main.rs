@@ -119,7 +119,9 @@ fn run(mut record_tx: EventSender<Event>) {
 
         let step_elapsed = Instant::now() - step_start;
         if let Some(step_remaining) = dt_duration.checked_sub(step_elapsed) {
-            thread::sleep(step_remaining);
+            if sim_config.real_time {
+                thread::sleep(step_remaining);
+            }
         } else {
             let millis =
                 step_elapsed.as_secs() as f64 * 1e3 + step_elapsed.subsec_nanos() as f64 / 1e6;
