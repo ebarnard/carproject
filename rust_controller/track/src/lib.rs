@@ -9,7 +9,7 @@ extern crate prelude;
 
 use cubic_spline::CubicSpline;
 use kdtree::kdtree::{Kdtree, KdtreePointTrait};
-use nalgebra::{Matrix2, Matrix3, Vector3, LU};
+use nalgebra::{Matrix2, Matrix3, Vector3};
 use std::iter::once;
 use std::path::Path;
 
@@ -247,9 +247,7 @@ impl CentrelinePoint {
             dy_ds + a * dx_ds2, dx_ds,
         );
 
-        LU::new(J_inv)
-            .try_inverse()
-            .expect("jacobian must be invertible")
+        J_inv.try_inverse().expect("jacobian must be invertible")
     }
 }
 
