@@ -1,17 +1,17 @@
 optimise_dt = 0.01
 horizon_dt = 0.04
 track = "../data/tracks/office_desk_track_2500.csv"
-N = 50
+N = 45
 model = "spengler_gammeter_bicycle"
-controller = "mpc_position"
+controller = "mpc_distance"
 # Measurement variance
 R = [0.000004, 0.000004, 0.0009]
-initial_params = [0.25, 6.0, 19.6, 11.2, 2.0, 0.0045]
+initial_params = [0.07, 3.9, 19.6, 14.2, 1.8, 0.0045]
 # State evolution variance
-Q_state = [0.00005, 0.00005, 0.0001, 0.005]
+Q_state = [0.00005, 0.00005, 0.0001, 0.001]
 # Initial parameter variance
-Q_initial_params = [0.05, 0.5, 0.5, 0.4, 0.3, 0.0]
+Q_initial_params = [0.005, 0.005, 0.005, 0.004, 0.003, 0.0]
 # Q_params = Q_initial_params * Q_params_multiplier
 Q_params_multiplier = 0.0000000001
-u_min = [0.0, -1.0]
-u_max = [0.25, 1.0]
+u_min = [0.0, -0.8]
+u_max = [0.3, 0.8]

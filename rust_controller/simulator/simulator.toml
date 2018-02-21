@@ -8,4 +8,4 @@ model = "spengler_gammeter_bicycle"
 # Cm2 = Cm1 / v_motor_max (i.e. max speed with no air resistance)
 # Cr1: Rolling resistance
 # Cr2: Reduced air resistance coefficient (0.5 * rho * A * C_d)
-params = [0.25, 6.0, 19.6, 11.2, 2.0, 0.0045]
+params = [0.07, 3.9, 19.6, 14.2, 1.8, 0.0045]
