@@ -34,12 +34,7 @@ where
             initial: true,
         }
     }
-}
 
-impl<M: ControlModel> Estimator<M> for EKF<M>
-where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP> + Dims2<NM, M::NS>,
-{
     fn step(
         &mut self,
         model: &M,
@@ -47,7 +42,11 @@ where
         u: &Vector<M::NI>,
         measure: Option<Measurement>,
         p: &Vector<M::NP>,
-    ) -> (Vector<M::NS>, Vector<M::NP>) {
+    ) -> &Vector<M::NS> {
+        if dt == 0.0 {
+            return &self.x_hat;
+        }
+
         // Use an MLE initial estimate
         if self.initial {
             if let Some(m) = measure {
@@ -59,7 +58,7 @@ where
                 self.initial = false;
             }
 
-            return (self.x_hat.clone(), p.clone());
+            return &self.x_hat;
         }
 
         // Predict
@@ -99,11 +98,7 @@ where
             self.P = P_predict;
         }
 
-        (self.x_hat.clone(), p.clone())
-    }
-
-    fn param_covariance(&self) -> Matrix<M::NP, M::NP> {
-        unimplemented!();
+        &self.x_hat
     }
 }
 
@@ -116,7 +111,10 @@ where
     DimSum<M::NS, M::NP>: DimName,
 {
     inner: EKF<CombineState<M>>,
+    initial_params: Vector<M::NP>,
     Q_initial_params: Matrix<M::NP, M::NP>,
+    x_hat: Vector<M::NS>,
+    p_hat: Vector<M::NP>,
 }
 
 impl<M: ControlModel> JointEKF<M>
@@ -128,6 +126,7 @@ where
     DimSum<M::NS, M::NP>: DimName,
 {
     pub fn new(
+        initial_params: Vector<M::NP>,
         Q_state: Matrix<M::NS, M::NS>,
         Q_params: Matrix<M::NP, M::NP>,
         Q_initial_params: Matrix<M::NP, M::NP>,
@@ -140,7 +139,10 @@ where
 
         JointEKF {
             inner: EKF::new(Q, R),
+            initial_params,
             Q_initial_params,
+            x_hat: nalgebra::zero(),
+            p_hat: nalgebra::zero(),
         }
     }
 }
@@ -159,10 +161,9 @@ where
         dt: float,
         u: &Vector<M::NI>,
         measure: Option<Measurement>,
-        p: &Vector<M::NP>,
-    ) -> (Vector<M::NS>, Vector<M::NP>) {
+    ) -> (&Vector<M::NS>, &Vector<M::NP>) {
         // TODO: Handle kalman state initialisation better
-        if self.inner.initial {
+        let x_combined = if self.inner.initial {
             if let Some(m) = measure {
                 let m = Vector3::new(m.position.0, m.position.1, m.heading);
                 self.inner.x_hat = nalgebra::zero();
@@ -170,7 +171,7 @@ where
                 self.inner
                     .x_hat
                     .fixed_rows_mut::<M::NP>(M::NS::dim())
-                    .copy_from(p);
+                    .copy_from(&self.initial_params);
                 self.inner.P = self.inner.Q.clone();
                 self.inner
                     .P
@@ -179,20 +180,21 @@ where
 
                 self.inner.initial = false;
             }
-
-            return CombineState::<M>::split_x(&self.inner.x_hat);
-        }
-
-        let x_combined = self.inner
-            .step(
+            &self.inner.x_hat
+        } else {
+            self.inner.step(
                 CombineState::from_ref(model),
                 dt,
                 u,
                 measure,
                 &nalgebra::zero(),
             )
-            .0;
-        CombineState::<M>::split_x(&x_combined)
+        };
+
+        let (x_hat, p_hat) = CombineState::<M>::split_x(x_combined);
+        self.x_hat = x_hat;
+        self.p_hat = p_hat;
+        (&self.x_hat, &self.p_hat)
     }
 
     fn param_covariance(&self) -> Matrix<M::NP, M::NP> {

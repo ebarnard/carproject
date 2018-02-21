@@ -72,6 +72,11 @@ fn run(mut record_tx: EventSender<Event>) {
     let mut control = Control::default();
 
     for i in 0..n_steps {
+        // Record control application
+        // TODO: Move this back to bottom of loop once NLL becomes stable
+        let control_time = dt_duration * i as u32;
+        controller.control_applied(control, control_time);
+
         let step_start = Instant::now();
 
         // Run simulation
@@ -85,27 +90,27 @@ fn run(mut record_tx: EventSender<Event>) {
             ),
             heading: state.heading + randn() * 0.03,
         };
+        let measurement_time = dt_duration * i as u32;
+        controller.measurement(measurement, measurement_time);
 
         // Start controller timer
         let controller_start = Instant::now();
 
         // Run controller
-        let measurement_time = dt_duration * i as u32;
-        let control_time = dt_duration * (i + 1) as u32;
-        let res = controller.step(Some(measurement), measurement_time, control_time);
+        let control_application_time = dt_duration * (i + 1) as u32;
+        let res = controller.step(control_application_time);
 
         // Stop timer
-        let dur = Instant::now().duration_since(controller_start);
-        let millis = (dur.as_secs() as f64) * 1000.0 + f64::from(dur.subsec_nanos()) * 0.000_001;
-        stats.add(millis);
+        let controller_millis = duration_to_secs(controller_start.elapsed()) * 1e3;
+        stats.add(controller_millis);
 
-        control = res.horizon[0].0;
+        control = res.control_horizon[0].0;
 
-        info!("Controller took {} ms", millis);
-        info!("State {:?}", res.predicted_state);
+        info!("Controller took {} ms", controller_millis);
+        info!("State {:?}", res.current_state);
         info!("Control {:?}", control);
 
-        let position_horizon = res.horizon
+        let position_horizon = res.control_horizon
             .iter()
             .map(|&(_, state)| state.position)
             .collect();
@@ -113,7 +118,7 @@ fn run(mut record_tx: EventSender<Event>) {
         record_tx
             .send(Event::Record(Record {
                 t: i as float * optimise_dt,
-                predicted_state: res.predicted_state,
+                predicted_state: res.current_state,
                 control,
                 params: res.params.to_vec(),
                 // TODO: pass real variances here once the plots are working again
@@ -128,9 +133,10 @@ fn run(mut record_tx: EventSender<Event>) {
                 thread::sleep(step_remaining);
             }
         } else {
-            let millis =
-                step_elapsed.as_secs() as f64 * 1e3 + step_elapsed.subsec_nanos() as f64 / 1e6;
-            println!("step missed deadline. took {:.1}ms.", millis);
+            println!(
+                "step missed deadline. took {:.1}ms.",
+                duration_to_secs(step_elapsed) * 1e3
+            );
         }
     }
 

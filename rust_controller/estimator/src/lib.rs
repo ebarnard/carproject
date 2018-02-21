@@ -25,8 +25,7 @@ where
         dt: float,
         u: &Vector<M::NI>,
         measure: Option<Measurement>,
-        p: &Vector<M::NP>,
-    ) -> (Vector<M::NS>, Vector<M::NP>);
+    ) -> (&Vector<M::NS>, &Vector<M::NP>);
 
     fn param_covariance(&self) -> Matrix<M::NP, M::NP>;
 }

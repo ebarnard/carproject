@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 use std::thread;
 
 use prelude::*;
-use controller_estimator::Measurement;
+use controller_estimator::{Control, Measurement};
 use controller_estimator::visualisation::{self, Event, EventSender, Record};
 
 fn main() {
@@ -83,48 +83,91 @@ fn run(mut record_tx: EventSender<Event>) {
         .read_line(&mut buf)
         .expect("could not read stdin");
 
-    let start_time = Instant::now();
+    let mut control = Control::default();
+    let mut prev_control_time = Duration::from_secs(0);
+    let mut prev_frame_time = Duration::from_secs(0);
+
+    // Synchronise the controller clock to the camera clock.
+    let start_time = capture.latest_frame().0;
 
     for i in 0.. {
-        // Start step timer
-        let step_start = Instant::now();
+        // Send control input to the car.
+        // TODO: Move this back to bottom of loop once NLL becomes stable.
+        // `control_time` is recorded so it can be sent to the estimator.
+        let control_time = start_time.elapsed();
+        remote.set(
+            0,
+            (control.throttle_position * 127.0) as i8,
+            (control.steering_angle * 127.0) as i8,
+        );
 
-        // Get the latest frame from the camera
-        let (frame_time, frame) = capture.latest_frame();
-        let frame_time = if frame_time > start_time {
-            frame_time - start_time
-        } else {
-            Duration::from_secs(0)
+        // Get the latest frame from the camera and Get measurement of car's position in image
+        // coordinates.
+        let ((image_x, image_y, image_heading), frame_time) = loop {
+            let (frame_time, frame) = capture.latest_frame();
+            let frame_time = frame_time.duration_since(start_time);
+            if frame_time > prev_frame_time && frame_time > prev_control_time {
+                break (tracker.track_frame(frame), frame_time);
+            } else {
+                // TODO: Use something better than a busy loop here.
+                thread::yield_now();
+            }
         };
-
-        // Get measurement of car's position in image coordinates
-        let (image_x, image_y, image_heading) = tracker.track_frame(frame);
+        prev_frame_time = frame_time;
+        prev_control_time = control_time;
         info!("car at pixel {} {}", image_x, image_y);
 
+        // Start the step timer once we've got a current frame.
+        let step_start = start_time.elapsed();
+
         // Transform to world coordinates
-        let measurement = image_to_world(&H_inv, image_x, image_y, image_heading);
+        let mut measurement = image_to_world(&H_inv, image_x, image_y, image_heading);
+
+        // Assume car is pointing in the direction of the track.
+        // TODO: Find the actual heading of the car.
+        let s = controller
+            .track()
+            .centreline_distance(measurement.position.0, measurement.position.1);
+        let cp = controller.track().nearest_centreline_point(s);
+        if measurement.heading.cos() * cp.dx_ds + measurement.heading.sin() * cp.dy_ds < 0.0 {
+            measurement.heading += ::std::f64::consts::PI;
+        }
         info!("car at {:?}", measurement);
+
+        // Ensure measurements and controls are recorded in temporal order.
+        debug!("control time: {:?}", control_time);
+        debug!("measurement time: {:?}", frame_time);
+        if frame_time > control_time {
+            controller.control_applied(control, control_time);
+            controller.measurement(measurement, frame_time);
+        } else {
+            controller.measurement(measurement, frame_time);
+            controller.control_applied(control, control_time);
+        }
 
         // Start controller timer
         let controller_start = Instant::now();
 
         // Run controller
         // TODO: Output control at regular intervals and skip optimising if a deadline is missed.
-        let control_time = step_start - start_time + dt_duration;
-        let res = controller.step(Some(measurement), frame_time, control_time);
+        let control_application_time = step_start + dt_duration;
+        debug!(
+            "target control application time: {:?}",
+            control_application_time
+        );
+        let res = controller.step(control_application_time);
 
         // Stop timer
-        let dur = Instant::now().duration_since(controller_start);
-        let millis = (dur.as_secs() as f64) * 1000.0 + f64::from(dur.subsec_nanos()) * 0.000_001;
-        stats.add(millis);
+        let controller_millis = duration_to_secs(controller_start.elapsed()) * 1e3;
+        stats.add(controller_millis);
 
-        let control = res.horizon[0].0;
+        control = res.control_horizon[0].0;
 
-        info!("Controller took {} ms", millis);
-        info!("State {:?}", res.predicted_state);
+        info!("Controller took {} ms", controller_millis);
+        info!("State {:?}", res.current_state);
         info!("Control {:?}", control);
 
-        let position_horizon = res.horizon
+        let position_horizon = res.control_horizon
             .iter()
             .map(|&(_, state)| state.position)
             .collect();
@@ -132,7 +175,7 @@ fn run(mut record_tx: EventSender<Event>) {
         record_tx
             .send(Event::Record(Record {
                 t: i as float * optimise_dt,
-                predicted_state: res.predicted_state,
+                predicted_state: res.current_state,
                 control,
                 params: res.params.to_vec(),
                 // TODO: pass real variances here once the plots are working again
@@ -141,21 +184,15 @@ fn run(mut record_tx: EventSender<Event>) {
             }))
             .expect("visualisation window closed");
 
-        let step_elapsed = Instant::now() - step_start;
+        let step_elapsed = start_time.elapsed() - step_start;
         if let Some(step_remaining) = dt_duration.checked_sub(step_elapsed) {
             thread::sleep(step_remaining);
         } else {
-            let millis =
-                step_elapsed.as_secs() as f64 * 1e3 + step_elapsed.subsec_nanos() as f64 / 1e6;
-            println!("step missed deadline. took {:.1}ms.", millis);
+            println!(
+                "step missed deadline. took {:.1}ms.",
+                duration_to_secs(step_elapsed) * 1e3
+            );
         }
-
-        // Send control to car
-        remote.set(
-            0,
-            (control.throttle_position * 127.0) as i8,
-            (control.steering_angle * 127.0) as i8,
-        );
     }
 
     println!("Running stats (mean/ms, stdev/ms): {:?}", stats);

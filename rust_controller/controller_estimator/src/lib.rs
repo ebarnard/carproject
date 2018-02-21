@@ -37,17 +37,17 @@ pub trait ControllerEstimator {
     fn np(&self) -> u32;
     fn track(&self) -> &Arc<Track>;
 
-    fn step(
-        &mut self,
-        measurement: Option<Measurement>,
-        measurement_time: Duration,
-        control_time: Duration,
-    ) -> StepResult;
+    fn control_applied(&mut self, control: Control, control_time: Duration);
+
+    fn measurement(&mut self, measurement: Measurement, measurement_time: Duration);
+
+    fn step(&mut self, control_application_time: Duration) -> StepResult;
 }
 
 pub struct StepResult<'a> {
-    pub predicted_state: State,
-    pub horizon: &'a [(Control, State)],
+    pub current_state: State,
+    pub control_application_state: State,
+    pub control_horizon: &'a [(Control, State)],
     pub params: &'a [float],
 }
 
@@ -64,11 +64,14 @@ where
     model: M,
     controller: C,
     estimator: JointEKF<M>,
-    params: Vector<M::NP>,
     u: Matrix<M::NI, Dy>,
     horizon: Vec<(Control, State)>,
-    prev_measurement_time: Duration,
-    prev_control_time: Duration,
+    /// The time at which the first input of `u` will be applied
+    u_target_time: Duration,
+    /// The control signal currently being applied.
+    current_control: Vector<M::NI>,
+    /// The current time of the estimator.
+    estimator_time: Duration,
 }
 
 pub fn controller_from_config() -> Box<ControllerEstimator> {
@@ -108,7 +111,8 @@ where
     let Q_params = &Q_initial_params * config.Q_params_multiplier;
     let R = Matrix::from_diagonal(&Vector3::from_column_slice(&config.R));
 
-    let state_estimator = JointEKF::<M>::new(Q_state, Q_params, Q_initial_params, R);
+    let state_estimator =
+        JointEKF::<M>::new(initial_params, Q_state, Q_params, Q_initial_params, R);
 
     Box::new(ControllerEstimatorImpl {
         config,
@@ -116,11 +120,11 @@ where
         model,
         controller: controller,
         estimator: state_estimator,
-        params: initial_params,
         u: MatrixMN::zeros_generic(<M::NI as DimName>::name(), Dy::new(N as usize + 1)),
         horizon: vec![Default::default(); N as usize],
-        prev_measurement_time: Duration::from_secs(0),
-        prev_control_time: Duration::from_secs(0),
+        u_target_time: Duration::from_secs(0),
+        current_control: Vector::<M::NI>::zeros(),
+        estimator_time: Duration::from_secs(0),
     })
 }
 
@@ -153,44 +157,67 @@ where
         &self.track
     }
 
-    // `measurement_time` is the absolute time at which the measurement was taken
-    // `control_time` is the absolute time at which the returned control input will be applied
-    fn step(
-        &mut self,
-        measurement: Option<Measurement>,
-        measurement_time: Duration,
-        control_time: Duration,
-    ) -> StepResult {
-        // Estimate state and params.
-        // TODO: Support accepting measurements even if the controller is delayed.
-        let measurement_delay = measurement_time
-            .checked_sub(self.prev_measurement_time)
-            .expect("measurements must be applied in temporal order");
-        let (predicted_state, p) = self.estimator.step(
+    // `control_time` is the absolute time at which the control input was applied.
+    fn control_applied(&mut self, control: Control, control_time: Duration) {
+        // Update estimator based on previous control value and time
+        // Save current control and time
+        let current_control_applied_duration = control_time
+            .checked_sub(self.estimator_time)
+            .expect("control must be applied after the previous control or measurement");
+
+        let (_, _) = self.estimator.step(
             &mut self.model,
-            duration_to_secs(measurement_delay),
-            &self.u.column(0).into_owned(),
-            measurement,
-            &self.params,
+            duration_to_secs(current_control_applied_duration),
+            &self.current_control,
+            None,
         );
-        self.params = p;
+
+        self.current_control = self.model.u_from_control(&control);
+        self.estimator_time = control_time;
+    }
+
+    // `measurement_time` is the absolute time at which the measurement was taken.
+    fn measurement(&mut self, measurement: Measurement, measurement_time: Duration) {
+        // Update estimator based on previous control value and time
+        // Save current control and time
+        let current_control_applied_duration = measurement_time
+            .checked_sub(self.estimator_time)
+            .expect("measurement must be applied after the previous control or measurement");
+
+        let (_, _) = self.estimator.step(
+            &mut self.model,
+            duration_to_secs(current_control_applied_duration),
+            &self.current_control,
+            Some(measurement),
+        );
+
+        self.estimator_time = measurement_time;
+    }
+
+    // `control_application_time` is the time at which the returned control input will be applied.
+    fn step(&mut self, control_application_time: Duration) -> StepResult {
+        // Calculate how far in the future the control will be applied.
+        let control_application_delay = control_application_time
+            .checked_sub(self.estimator_time)
+            .expect("target control application must be after the current control or measurement");
+
+        self.u_target_time = control_application_time;
+
+        // Get current predicted state and parameters
+        let (predicted_state, predicted_params) =
+            self.estimator
+                .step(&mut self.model, 0.0, &self.current_control, None);
 
         // Advance inputs so the first column of self.u contains the previously applied input.
         // TODO: Actually advance the values in the input matrix.
-        let _control_delay = control_time
-            .checked_sub(self.prev_control_time)
-            .expect("control must be applied after the previous control");
 
         // Simulate state evolution so `control_application_state` contains the state of the car
         // when the control input will be applied.
-        let measurement_control_delay = control_time
-            .checked_sub(measurement_time)
-            .expect("the control cannot be applied before the measurement");
         let control_application_state = self.model.step(
-            duration_to_secs(measurement_control_delay),
+            duration_to_secs(control_application_delay),
             &predicted_state,
             &self.u.column(0).into_owned(),
-            &self.params,
+            &predicted_params,
         );
 
         // Optimise control inputs.
@@ -199,7 +226,7 @@ where
             self.config.horizon_dt,
             &control_application_state,
             &self.u,
-            &self.params,
+            &predicted_params,
         );
         self.u
             .columns_mut(0, self.config.N as usize)
@@ -212,14 +239,11 @@ where
             self.horizon[i] = (control, state);
         }
 
-        // Update measurement and control application timestamps.
-        self.prev_control_time = control_time;
-        self.prev_measurement_time = measurement_time;
-
         StepResult {
-            predicted_state: self.model.x_to_state(&predicted_state),
-            horizon: &self.horizon,
-            params: &self.params.as_slice(),
+            current_state: self.model.x_to_state(&predicted_state),
+            control_application_state: self.model.x_to_state(&control_application_state),
+            control_horizon: &self.horizon,
+            params: predicted_params.as_slice(),
         }
     }
 }
