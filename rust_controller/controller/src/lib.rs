@@ -41,11 +41,13 @@ where
 
     fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>);
 
+    /// `u` has N + 1 columns where the first is the previously applied input.
     fn step(
         &mut self,
         model: &M,
         dt: float,
         x: &Vector<M::NS>,
+        u: &Matrix<M::NI, Dy>,
         p: &Vector<M::NP>,
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>);
 }

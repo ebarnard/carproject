@@ -53,11 +53,12 @@ where
         model: &M,
         dt: float,
         x: &Vector<M::NS>,
+        u: &Matrix<M::NI, Dy>,
         p: &Vector<M::NP>,
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>) {
         let track = &self.track;
         let N = self.base.horizon_len();
-        self.base.step(model, dt, x, p, |i, x_i, _u_i, mpc| {
+        self.base.step(model, dt, x, u, p, |i, x_i, _u_i, mpc| {
             // Find track point
             let centreline_point = flame::span_of("centreline point lookup", || {
                 let s = track.centreline_distance(x_i[0], x_i[1]);

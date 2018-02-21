@@ -1,5 +1,5 @@
 use log::Level::Debug;
-use nalgebra::{self, Dynamic as Dy, MatrixMN, U1, VectorN};
+use nalgebra::{Dynamic as Dy, MatrixMN, U1, VectorN};
 use osqp::{Problem, Settings, Status};
 use std::iter::{once, repeat};
 
@@ -34,7 +34,6 @@ where
     // Optimisation results
     x_mpc: Matrix<NS, Dy>,
     u_mpc: Matrix<NI, Dy>,
-    u_prev: Vector<NI>,
 }
 
 impl<NS: DimName, NI: DimName> OsqpMpc<NS, NI>
@@ -174,7 +173,6 @@ where
             u_delta_max: Vector::from_element_generic(NI::name(), U1, INFINITY),
             x_mpc: Matrix::zeros_generic(NS::name(), Dy::new(N)),
             u_mpc: Matrix::zeros_generic(NI::name(), Dy::new(N)),
-            u_prev: nalgebra::zero(),
         }
     }
 
@@ -191,7 +189,9 @@ where
     pub fn set_model(
         &mut self,
         i: usize,
+        // delta_x_i+1 = A * delta_x_i
         A: &Matrix<NS, NS>,
+        // delta_x_i+1 + B * delta_u_i
         B: &Matrix<NS, NI>,
         x0: &Vector<NS>,
         u0: &Vector<NI>,
@@ -252,14 +252,14 @@ where
         self.u[N * (ns + 2 * ni + n_stage_ineq) + n_stage_ineq * i + j] = max;
     }
 
-    pub fn solve(&mut self) -> Result<Solution<NS, NI>, ()> {
+    pub fn solve(&mut self, u_prev: Vector<NI>) -> Result<Solution<NS, NI>, ()> {
         let N = self.N;
         let ns = NS::dim();
         let ni = NI::dim();
         let n_stage_ineq = self.n_stage_ineq;
 
         // Set the u_0 values for the input constraints
-        let mut u0_i_minus_1 = self.u_prev.clone();
+        let mut u0_i_minus_1 = u_prev;
         for i in 0..N {
             let u0_i = self.u_mpc.column(i);
             let u0_i_grad = u0_i - u0_i_minus_1;
@@ -392,9 +392,6 @@ where
                 assert!(false, "u not within constraints");
             }
         }
-
-        // Save input gradient
-        self.u_prev.copy_from(&self.u_mpc.column(0));
 
         Ok(Solution {
             x: &self.x_mpc,

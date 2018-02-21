@@ -35,6 +35,11 @@ pub fn randn() -> float {
     n
 }
 
+use std::time::Duration;
+pub fn duration_to_secs(d: Duration) -> float {
+    d.as_secs() as f64 + d.subsec_nanos() as f64 * 1e-9
+}
+
 pub type Matrix<R, C> = nalgebra::MatrixMN<float, R, C>;
 pub type Vector<N> = nalgebra::VectorN<float, N>;
 

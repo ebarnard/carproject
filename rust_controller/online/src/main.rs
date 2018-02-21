@@ -38,7 +38,7 @@ fn main() {
 
 fn run(mut record_tx: EventSender<Event>) {
     let mut controller = controller_estimator::controller_from_config();
-    let dt = controller.dt();
+    let optimise_dt = controller.optimise_dt();
     let N = controller.N();
 
     record_tx
@@ -50,7 +50,10 @@ fn run(mut record_tx: EventSender<Event>) {
         })
         .expect("visualisation window closed");
 
-    let dt_duration = Duration::new(dt.floor() as u64, (dt.fract() * 1e9) as u32);
+    let dt_duration = Duration::new(
+        optimise_dt.floor() as u64,
+        (optimise_dt.fract() * 1e9) as u32,
+    );
     let mut stats = stats::OnlineStats::new();
 
     info!("starting camera");
@@ -60,7 +63,7 @@ fn run(mut record_tx: EventSender<Event>) {
     let h = capture.height();
     info!("camera started");
 
-    let H = track_aruco::find_homography(capture.latest_frame(), w, h)
+    let H = track_aruco::find_homography(capture.latest_frame().1, w, h)
         .expect("cannot find world to image homography");
     debug!("H: {}", H);
 
@@ -68,7 +71,7 @@ fn run(mut record_tx: EventSender<Event>) {
     let H_inv = H_inv / H_inv[(2, 2)];
 
     let track_mask = controller.track().bitmap_mask(&H, w, h);
-    let mut tracker = car_tracker::Tracker::new(w, h, &track_mask, capture.latest_frame());
+    let mut tracker = car_tracker::Tracker::new(w, h, &track_mask, capture.latest_frame().1);
 
     let mut remote = car_remote::Connection::new();
     remote.off(0);
@@ -80,12 +83,21 @@ fn run(mut record_tx: EventSender<Event>) {
         .read_line(&mut buf)
         .expect("could not read stdin");
 
+    let start_time = Instant::now();
+
     for i in 0.. {
         // Start step timer
         let step_start = Instant::now();
 
+        // Get the latest frame from the camera
+        let (frame_time, frame) = capture.latest_frame();
+        let frame_time = if frame_time > start_time {
+            frame_time - start_time
+        } else {
+            Duration::from_secs(0)
+        };
+
         // Get measurement of car's position in image coordinates
-        let frame = capture.latest_frame();
         let (image_x, image_y, image_heading) = tracker.track_frame(frame);
         info!("car at pixel {} {}", image_x, image_y);
 
@@ -97,7 +109,9 @@ fn run(mut record_tx: EventSender<Event>) {
         let controller_start = Instant::now();
 
         // Run controller
-        let res = controller.step(Some(measurement));
+        // TODO: Output control at regular intervals and skip optimising if a deadline is missed.
+        let control_time = step_start - start_time + dt_duration;
+        let res = controller.step(Some(measurement), frame_time, control_time);
 
         // Stop timer
         let dur = Instant::now().duration_since(controller_start);
@@ -117,7 +131,7 @@ fn run(mut record_tx: EventSender<Event>) {
 
         record_tx
             .send(Event::Record(Record {
-                t: i as float * dt,
+                t: i as float * optimise_dt,
                 predicted_state: res.predicted_state,
                 control,
                 params: res.params.to_vec(),

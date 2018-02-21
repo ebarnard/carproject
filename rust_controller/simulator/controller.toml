@@ -1,4 +1,5 @@
-dt = 0.02
+optimise_dt = 0.01
+horizon_dt = 0.04
 track = "../data/tracks/office_desk_track_2500.csv"
 N = 50
 model = "spengler_gammeter_bicycle"

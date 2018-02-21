@@ -15,8 +15,9 @@ extern crate ui;
 mod config;
 pub mod visualisation;
 
-use nalgebra::{self, DimAdd, DimSum, U0, U3, Vector3};
+use nalgebra::{self, DimAdd, DimSum, MatrixMN, U0, U3, Vector3};
 use std::sync::Arc;
+use std::time::Duration;
 
 use prelude::*;
 use controller::Controller;
@@ -30,12 +31,18 @@ pub use control_model::{Control, State};
 pub use estimator::Measurement;
 
 pub trait ControllerEstimator {
-    fn dt(&self) -> float;
+    fn optimise_dt(&self) -> float;
+    fn horizon_dt(&self) -> float;
     fn N(&self) -> u32;
     fn np(&self) -> u32;
     fn track(&self) -> &Arc<Track>;
 
-    fn step(&mut self, measurement: Option<Measurement>) -> StepResult;
+    fn step(
+        &mut self,
+        measurement: Option<Measurement>,
+        measurement_time: Duration,
+        control_time: Duration,
+    ) -> StepResult;
 }
 
 pub struct StepResult<'a> {
@@ -58,8 +65,10 @@ where
     controller: C,
     estimator: JointEKF<M>,
     params: Vector<M::NP>,
-    prev_control: Vector<M::NI>,
+    u: Matrix<M::NI, Dy>,
     horizon: Vec<(Control, State)>,
+    prev_measurement_time: Duration,
+    prev_control_time: Duration,
 }
 
 pub fn controller_from_config() -> Box<ControllerEstimator> {
@@ -108,8 +117,10 @@ where
         controller: controller,
         estimator: state_estimator,
         params: initial_params,
-        prev_control: Vector::<M::NI>::zeros(),
+        u: MatrixMN::zeros_generic(<M::NI as DimName>::name(), Dy::new(N as usize + 1)),
         horizon: vec![Default::default(); N as usize],
+        prev_measurement_time: Duration::from_secs(0),
+        prev_control_time: Duration::from_secs(0),
     })
 }
 
@@ -122,8 +133,12 @@ where
     M::NS: DimAdd<M::NP>,
     DimSum<M::NS, M::NP>: DimName,
 {
-    fn dt(&self) -> float {
-        self.config.dt
+    fn optimise_dt(&self) -> float {
+        self.config.optimise_dt
+    }
+
+    fn horizon_dt(&self) -> float {
+        self.config.horizon_dt
     }
 
     fn N(&self) -> u32 {
@@ -138,33 +153,57 @@ where
         &self.track
     }
 
-    fn step(&mut self, measurement: Option<Measurement>) -> StepResult {
-        // Estimate state and params
+    // `measurement_time` is the absolute time at which the measurement was taken
+    // `control_time` is the absolute time at which the returned control input will be applied
+    fn step(
+        &mut self,
+        measurement: Option<Measurement>,
+        measurement_time: Duration,
+        control_time: Duration,
+    ) -> StepResult {
+        // Estimate state and params.
+        // TODO: Support accepting measurements even if the controller is delayed.
+        let measurement_delay = measurement_time
+            .checked_sub(self.prev_measurement_time)
+            .expect("measurements must be applied in temporal order");
         let (predicted_state, p) = self.estimator.step(
             &mut self.model,
-            self.config.dt,
-            &self.prev_control,
+            duration_to_secs(measurement_delay),
+            &self.u.column(0).into_owned(),
             measurement,
             &self.params,
         );
         self.params = p;
 
-        // Advance
-        let next_predicted_state = self.model.step(
-            self.config.dt,
+        // Advance inputs so the first column of self.u contains the previously applied input.
+        // TODO: Actually advance the values in the input matrix.
+        let _control_delay = control_time
+            .checked_sub(self.prev_control_time)
+            .expect("control must be applied after the previous control");
+
+        // Simulate state evolution so `control_application_state` contains the state of the car
+        // when the control input will be applied.
+        let measurement_control_delay = control_time
+            .checked_sub(measurement_time)
+            .expect("the control cannot be applied before the measurement");
+        let control_application_state = self.model.step(
+            duration_to_secs(measurement_control_delay),
             &predicted_state,
-            &self.prev_control,
+            &self.u.column(0).into_owned(),
             &self.params,
         );
 
-        // Run controller
+        // Optimise control inputs.
         let (horizon_ctrl, horizon_state) = self.controller.step(
             &mut self.model,
-            self.config.dt,
-            &next_predicted_state,
+            self.config.horizon_dt,
+            &control_application_state,
+            &self.u,
             &self.params,
         );
-        self.prev_control = horizon_ctrl.column(0).into_owned();
+        self.u
+            .columns_mut(0, self.config.N as usize)
+            .copy_from(horizon_ctrl);
 
         for i in 0..(self.config.N as usize) {
             let control = self.model
@@ -172,6 +211,10 @@ where
             let state = self.model.x_to_state(&horizon_state.column(i).into_owned());
             self.horizon[i] = (control, state);
         }
+
+        // Update measurement and control application timestamps.
+        self.prev_control_time = control_time;
+        self.prev_measurement_time = measurement_time;
 
         StepResult {
             predicted_state: self.model.x_to_state(&predicted_state),

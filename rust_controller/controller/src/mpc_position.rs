@@ -57,6 +57,7 @@ where
         model: &M,
         dt: float,
         x: &Vector<M::NS>,
+        u: &Matrix<M::NI, Dy>,
         p: &Vector<M::NP>,
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>) {
         let v_target = dt * 2.0;
@@ -65,7 +66,7 @@ where
         });
 
         let track = &self.track;
-        self.base.step(model, dt, x, p, |i, x_i, _u_i, mpc| {
+        self.base.step(model, dt, x, u, p, |i, x_i, _u_i, mpc| {
             // Find track point
             s_target += v_target;
             let target = flame::span_of("centreline point lookup", || {

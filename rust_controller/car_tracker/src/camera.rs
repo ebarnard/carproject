@@ -8,6 +8,7 @@ use std::slice;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
+use std::time::Instant;
 
 pub struct Camera {
     dc: *mut dc1394_t,
@@ -144,7 +145,7 @@ impl Camera {
                 panic!("could not start camera transmission");
             }
 
-            let mut inital_frame = vec![0; width as usize * height as usize];
+            let mut inital_frame = (Instant::now(), vec![0; width as usize * height as usize]);
             capture_frame(self.dc_cam, width, height, &mut inital_frame);
             let (mut input, output) = triple_buffer::TripleBuffer::new(inital_frame).split();
 
@@ -195,7 +196,7 @@ pub struct Capture<'a> {
     _camera: &'a mut Camera,
     capture_thread_stop: Arc<AtomicBool>,
     capture_thread_handle: Option<JoinHandle<()>>,
-    output: triple_buffer::Output<Vec<u8>>,
+    output: triple_buffer::Output<(Instant, Vec<u8>)>,
     width: u32,
     height: u32,
 }
@@ -213,8 +214,9 @@ impl<'a> Capture<'a> {
         self.width as usize * self.height as usize
     }
 
-    pub fn latest_frame(&mut self) -> &[u8] {
-        &self.output.read()
+    pub fn latest_frame(&mut self) -> (Instant, &[u8]) {
+        let &(timestamp, ref frame) = self.output.read();
+        (timestamp, frame)
     }
 
     pub fn stop(self) {
@@ -233,7 +235,12 @@ impl<'a> Drop for Capture<'a> {
     }
 }
 
-unsafe fn capture_frame(dc_cam: *mut dc1394camera_t, width: u32, height: u32, buf: &mut [u8]) {
+unsafe fn capture_frame(
+    dc_cam: *mut dc1394camera_t,
+    width: u32,
+    height: u32,
+    &mut (ref mut timestamp, ref mut buf): &mut (Instant, Vec<u8>),
+) {
     // capture one frame
     let mut frame = 0 as *mut _;
     let err = dc1394_capture_dequeue(
@@ -262,6 +269,7 @@ unsafe fn capture_frame(dc_cam: *mut dc1394camera_t, width: u32, height: u32, bu
     assert_eq!(frame_image_len as u64, (*frame).image_bytes as u64);
     assert_eq!((*frame).padding_bytes, 0);
 
+    *timestamp = Instant::now();
     let data = slice::from_raw_parts((*frame).image, frame_image_len);
     buf.copy_from_slice(data);
 

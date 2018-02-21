@@ -8,7 +8,10 @@ static CONFIG_FILE: &'static str = "controller.toml";
 
 #[derive(Deserialize)]
 pub struct ControllerConfig {
-    pub dt: float,
+    /// Target time between optimisations
+    pub optimise_dt: float,
+    /// Time between points on the MPC horizon
+    pub horizon_dt: float,
     pub track: String,
     pub N: u32,
     pub model: String,

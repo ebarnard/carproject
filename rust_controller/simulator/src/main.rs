@@ -41,7 +41,7 @@ fn main() {
 
 fn run(mut record_tx: EventSender<Event>) {
     let mut controller = controller_estimator::controller_from_config();
-    let dt = controller.dt();
+    let optimise_dt = controller.optimise_dt();
     let N = controller.N();
 
     let sim_config = config::SimulatorConfig::load();
@@ -57,8 +57,11 @@ fn run(mut record_tx: EventSender<Event>) {
         })
         .expect("visualisation window closed");
 
-    let n_steps = (sim_config.t / dt) as usize;
-    let dt_duration = Duration::new(dt.floor() as u64, (dt.fract() * 1e9) as u32);
+    let n_steps = (sim_config.t / optimise_dt) as usize;
+    let dt_duration = Duration::new(
+        optimise_dt.floor() as u64,
+        (optimise_dt.fract() * 1e9) as u32,
+    );
     let mut stats = stats::OnlineStats::new();
 
     let initial_position = controller.track().nearest_centreline_point(0.0);
@@ -72,7 +75,7 @@ fn run(mut record_tx: EventSender<Event>) {
         let step_start = Instant::now();
 
         // Run simulation
-        state = sim_model.step(dt, &state, &control);
+        state = sim_model.step(optimise_dt, &state, &control);
 
         // Add noise to measurement
         let mut measurement = Measurement {
@@ -87,7 +90,9 @@ fn run(mut record_tx: EventSender<Event>) {
         let controller_start = Instant::now();
 
         // Run controller
-        let res = controller.step(Some(measurement));
+        let measurement_time = dt_duration * i as u32;
+        let control_time = dt_duration * (i + 1) as u32;
+        let res = controller.step(Some(measurement), measurement_time, control_time);
 
         // Stop timer
         let dur = Instant::now().duration_since(controller_start);
@@ -107,7 +112,7 @@ fn run(mut record_tx: EventSender<Event>) {
 
         record_tx
             .send(Event::Record(Record {
-                t: i as float * dt,
+                t: i as float * optimise_dt,
                 predicted_state: res.predicted_state,
                 control,
                 params: res.params.to_vec(),

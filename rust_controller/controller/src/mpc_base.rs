@@ -1,5 +1,5 @@
 use flame;
-use nalgebra::{Dynamic, MatrixMN, VectorN};
+use nalgebra::VectorN;
 
 use prelude::*;
 use control_model::{discretise, discretise_sparsity, ControlModel};
@@ -10,7 +10,6 @@ where
     DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
 {
     horizon: u32,
-    u_mpc: Matrix<M::NI, Dynamic>,
     mpc: OsqpMpc<M::NS, M::NI>,
     model_u_min: Vector<M::NI>,
     model_u_max: Vector<M::NI>,
@@ -51,7 +50,6 @@ where
 
         MpcBase {
             horizon: N,
-            u_mpc: MatrixMN::zeros_generic(<M::NI as DimName>::name(), Dynamic::new(N as usize)),
             mpc,
             model_u_min: input_min,
             model_u_max: input_max,
@@ -73,6 +71,7 @@ where
         model: &M,
         dt: float,
         x: &Vector<M::NS>,
+        u: &Matrix<M::NI, Dy>,
         p: &Vector<M::NP>,
         mut f: F,
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>)
@@ -86,7 +85,7 @@ where
 
         let guard = flame::start_guard("mpc setup");
         for i in 0..N {
-            let u_i = self.u_mpc.column(i).into_owned();
+            let u_i = u.column(i + 1).into_owned();
 
             // Linearise model around x_i-1 and u_i
             let (A_c, B_c) = flame::span_of("model linearise", || model.linearise(&x_i, &u_i, p));
@@ -107,15 +106,10 @@ where
         guard.end();
 
         let guard = flame::start_guard("mpc solve");
-        let solution = self.mpc.solve().expect("solve failed");
+        let solution = self.mpc
+            .solve(u.column(0).into_owned())
+            .expect("solve failed");
         guard.end();
-
-        self.u_mpc
-            .columns_mut(0, N - 1)
-            .copy_from(&solution.u.columns(1, N - 1));
-        self.u_mpc
-            .column_mut(N - 1)
-            .copy_from(&Vector::<M::NI>::zeros());
 
         (&solution.u, &solution.x)
     }
