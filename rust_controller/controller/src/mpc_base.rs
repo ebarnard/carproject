@@ -1,9 +1,9 @@
 use flame;
-use nalgebra::VectorN;
+use nalgebra::{MatrixMN, U1};
 
 use prelude::*;
 use control_model::{discretise, discretise_sparsity, ControlModel};
-use OsqpMpc;
+use {MpcStage, OsqpMpc};
 
 pub struct MpcBase<M: ControlModel>
 where
@@ -13,6 +13,25 @@ where
     mpc: OsqpMpc<M::NS, M::NI>,
     model_u_min: Vector<M::NI>,
     model_u_max: Vector<M::NI>,
+    base_stage: MpcBaseStage,
+}
+
+pub struct MpcBaseStage {
+    pub x_target: Vector<Dy>,
+    pub x_linear_penalty: Vector<Dy>,
+    pub stage_ineq: Matrix<Dy, Dy>,
+    pub stage_ineq_min: Vector<Dy>,
+    pub stage_ineq_max: Vector<Dy>,
+}
+
+impl MpcBaseStage {
+    fn zero(&mut self) {
+        self.x_target.fill(0.0);
+        self.x_linear_penalty.fill(0.0);
+        self.stage_ineq.fill(0.0);
+        self.stage_ineq_min.fill(0.0);
+        self.stage_ineq_max.fill(0.0);
+    }
 }
 
 impl<M: ControlModel> MpcBase<M>
@@ -22,9 +41,10 @@ where
     pub fn new(
         model: &M,
         N: u32,
-        Q: Matrix<M::NS, M::NS>,
+        Q: Matrix<Dy, Dy>,
+        Q_terminal: Matrix<Dy, Dy>,
         R: Matrix<M::NI, M::NI>,
-        stage_ineq_sparsity: &[VectorN<bool, M::NS>],
+        stage_ineq_sparsity: &MatrixMN<bool, Dy, Dy>,
     ) -> MpcBase<M> {
         // Some components of A and B will always be zero and can be excluded from the sparse
         // constraint matrix
@@ -36,6 +56,7 @@ where
         let mut mpc = OsqpMpc::new(
             N as usize,
             Q,
+            Q_terminal,
             R,
             &A_d_sparsity,
             &B_d_sparsity,
@@ -46,6 +67,15 @@ where
         let (input_delta_min, input_delta_max) = model.input_delta_bounds();
         mpc.set_input_delta_bounds(input_delta_min, input_delta_max);
 
+        let (n_stage_ineq, ns_plus_nvs) = stage_ineq_sparsity.shape();
+        let base_stage = MpcBaseStage {
+            x_target: Vector::zeros_generic(Dy::new(ns_plus_nvs), U1),
+            x_linear_penalty: Vector::zeros_generic(Dy::new(ns_plus_nvs), U1),
+            stage_ineq: Matrix::zeros_generic(Dy::new(n_stage_ineq), Dy::new(ns_plus_nvs)),
+            stage_ineq_min: Vector::zeros_generic(Dy::new(n_stage_ineq), U1),
+            stage_ineq_max: Vector::zeros_generic(Dy::new(n_stage_ineq), U1),
+        };
+
         guard.end();
 
         MpcBase {
@@ -53,11 +83,8 @@ where
             mpc,
             model_u_min: input_min,
             model_u_max: input_max,
+            base_stage,
         }
-    }
-
-    pub fn horizon_len(&self) -> u32 {
-        self.horizon
     }
 
     pub fn update_input_bounds(&mut self, ext_u_min: Vector<M::NI>, ext_u_max: Vector<M::NI>) {
@@ -76,8 +103,7 @@ where
         mut f: F,
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>)
     where
-        F: FnMut(usize, &Vector<M::NS>, &Vector<M::NI>, &mut OsqpMpc<M::NS, M::NI>)
-            -> (Vector<M::NS>, Vector<M::NS>),
+        F: FnMut(usize, &Vector<M::NS>, &Vector<M::NI>, &mut MpcBaseStage),
     {
         let _guard = flame::start_guard("controller step");
         let N = self.horizon as usize;
@@ -95,13 +121,26 @@ where
             x_i = flame::span_of("model integrate", || model.step(dt, &x_i, &u_i, p));
 
             // Get state target, state linear penalty and set any inequalities
-            let (x_target, x_linear_penalty) = f(i, &x_i, &u_i, &mut self.mpc);
+            let base_stage = &mut self.base_stage;
+            base_stage.zero();
+            f(i, &x_i, &u_i, base_stage);
+
+            let stage = MpcStage {
+                A: &A,
+                B: &B,
+                x0: &x_i,
+                u0: &u_i,
+                x_target: &base_stage.x_target,
+                x_linear_penalty: &base_stage.x_linear_penalty,
+                stage_ineq: &base_stage.stage_ineq,
+                stage_ineq_min: &base_stage.stage_ineq_min,
+                stage_ineq_max: &base_stage.stage_ineq_max,
+            };
 
             // Give the values to the builder
-            flame::span_of("update mpc matrices", || {
-                self.mpc
-                    .set_model(i, &A, &B, &x_i, &u_i, &x_target, &x_linear_penalty)
-            });
+            let guard = flame::start_guard("update mpc matrices");
+            self.mpc.set_model(i, &stage);
+            guard.end();
         }
         guard.end();
 

@@ -24,7 +24,7 @@ mod mpc_distance;
 pub use mpc_distance::MpcDistance;
 
 mod osqp_mpc_builder;
-pub use osqp_mpc_builder::OsqpMpc;
+pub use osqp_mpc_builder::{MpcStage, OsqpMpc};
 
 pub trait Controller<M: ControlModel>
 where

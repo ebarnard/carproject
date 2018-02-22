@@ -1,5 +1,5 @@
 use log::Level::Debug;
-use nalgebra::{Dynamic as Dy, MatrixMN, U1, VectorN};
+use nalgebra::{Dynamic as Dy, MatrixMN, U1};
 use osqp::{Problem, Settings, Status};
 use std::iter::{once, repeat};
 
@@ -13,10 +13,12 @@ where
     problem: Problem,
     N: usize,
     n_stage_ineq: usize,
+    n_virtual_states: usize,
     stage_ineq_lambda_max: float,
     // Objective:
     q: Vector<Dy>,
-    Q_stage: Matrix<NS, NS>,
+    Q_stage: Matrix<Dy, Dy>,
+    Q_terminal: Matrix<Dy, Dy>,
     R_stage_grad: Matrix<NI, NI>,
     // Inequalities:
     // N * ns state transition rows
@@ -26,7 +28,7 @@ where
     u: Vector<Dy>,
     A_blocks: Vec<sparse::BlockRef<NS, NS>>,
     B_blocks: Vec<sparse::BlockRef<NS, NI>>,
-    stage_ineq_blocks: Vec<sparse::BlockRef<U1, NS>>,
+    stage_ineq_blocks: Vec<sparse::BlockRef<Dy, Dy>>,
     u_min: Vector<NI>,
     u_max: Vector<NI>,
     u_delta_min: Vector<NI>,
@@ -36,26 +38,52 @@ where
     u_mpc: Matrix<NI, Dy>,
 }
 
+// x_i = A_i * delta_x_i-1 + B_i * delta_u_i-1 + x0_i
+pub struct MpcStage<'a, NS: 'a + DimName, NI: 'a + DimName>
+where
+    DefaultAllocator: Dims2<NS, NI>,
+{
+    pub A: &'a Matrix<NS, NS>,
+    pub B: &'a Matrix<NS, NI>,
+    pub x0: &'a Vector<NS>,
+    pub u0: &'a Vector<NI>,
+    pub x_target: &'a Vector<Dy>,
+    pub x_linear_penalty: &'a Vector<Dy>,
+    pub stage_ineq: &'a Matrix<Dy, Dy>,
+    pub stage_ineq_min: &'a Vector<Dy>,
+    pub stage_ineq_max: &'a Vector<Dy>,
+}
+
+// TODO: Use const integer types instead of Dy once available.
 impl<NS: DimName, NI: DimName> OsqpMpc<NS, NI>
 where
     DefaultAllocator: Dims2<NS, NI>,
 {
     pub fn new(
         N: usize,
-        Q_stage: Matrix<NS, NS>,
+        Q_stage: Matrix<Dy, Dy>,
+        Q_terminal: Matrix<Dy, Dy>,
         R_stage_grad: Matrix<NI, NI>,
         A_sparsity: &MatrixMN<bool, NS, NS>,
         B_sparsity: &MatrixMN<bool, NS, NI>,
-        stage_ineq_sparsity: &[VectorN<bool, NS>],
+        stage_ineq_sparsity: &MatrixMN<bool, Dy, Dy>,
     ) -> OsqpMpc<NS, NI> {
         let N = N as usize;
         let ns = NS::dim();
         let ni = NI::dim();
-        let n_stage_ineq = stage_ineq_sparsity.len();
+        let (n_stage_ineq, n_total_states) = stage_ineq_sparsity.shape();
+        assert!(n_total_states >= ns);
+        let n_virtual_states = n_total_states - ns;
+
+        assert_eq!(Q_stage.shape(), (n_total_states, n_total_states));
+        assert_eq!(Q_stage.shape(), Q_terminal.shape());
+        assert_eq!(stage_ineq_sparsity.shape().1, n_total_states);
 
         // Build state quadratic penalty
-        let Q = sparse::block(&Q_stage);
-        let Q = sparse::block_diag(&repeat(&Q).take(N).collect::<Vec<_>>());
+        let Q = sparse::block_diag(&repeat(&sparse::block(&Q_stage))
+            .take(N - 1)
+            .chain(once(&sparse::block(&Q_terminal)))
+            .collect::<Vec<_>>());
 
         // Build input delta quadratic penalty
         let R_grad = sparse::block(&R_stage_grad);
@@ -72,14 +100,24 @@ where
         ]).build_csc();
 
         // Build state evolution matrices
-        let (Ax, A_blocks): (Vec<_>, Vec<_>) =
-            (1..N).map(|_| sparse::block_mut(A_sparsity)).unzip();
+        let (Ax, A_blocks): (Vec<_>, Vec<_>) = (1..N)
+            .map(|_| {
+                let (A, A_block) = sparse::block_mut(A_sparsity);
+                (
+                    sparse::hstack(&[A, sparse::zeros(ns, n_virtual_states)]),
+                    A_block,
+                )
+            })
+            .unzip();
         let (Au, B_blocks): (Vec<_>, Vec<_>) =
             (0..N).map(|_| sparse::block_mut(B_sparsity)).unzip();
+        let A_evolution_diag: Vec<_> = (0..N)
+            .map(|_| sparse::hstack(&[sparse::eye(ns), sparse::zeros(ns, n_virtual_states)]))
+            .collect();
 
-        let Ax = -sparse::eye(N * ns)
+        let Ax = -sparse::block_diag(&A_evolution_diag)
             + sparse::bmat(&[
-                &[None, Some(sparse::zeros(ns, ns))],
+                &[None, Some(sparse::zeros(ns, ns + n_virtual_states))],
                 &[Some(sparse::block_diag(&Ax)), None],
             ]);
         let Au = sparse::block_diag(&Au);
@@ -92,31 +130,10 @@ where
         // 0         < b_i           < INFINITY
         // min       < F_i * x + b_i < INFINITY
         // -INFINITY < F_i * x - b_i < max
-        let mut stage_ineq_blocks = Vec::with_capacity(N * n_stage_ineq);
-        let stage_ineqs = sparse::block_diag(&(0..N)
-            .map(|_| {
-                sparse::vstack(&stage_ineq_sparsity
-                    .iter()
-                    .map(|ineq_sparsity| {
-                        let ineq_sparsity = ineq_sparsity.transpose();
-                        let (ineq, block) = sparse::block_mut(&ineq_sparsity);
-                        stage_ineq_blocks.push(block);
-                        ineq
-                    })
-                    // Ensure stage_ineqs has N * ns columns
-                    .chain(once(sparse::zeros(0, ns)))
-                    .collect::<Vec<_>>())
-            })
-            .collect::<Vec<_>>());
-
-        let stage_ineq_diag = sparse::block_diag(&(0..N)
-            .map(|_| {
-                sparse::vstack(&stage_ineq_sparsity
-                    .iter()
-                    .map(|_| sparse::eye(1))
-                    .collect::<Vec<_>>())
-            })
-            .collect::<Vec<_>>());
+        let (stage_ineqs, stage_ineq_blocks): (Vec<_>, Vec<_>) = (0..N)
+            .map(|_| sparse::block_mut(stage_ineq_sparsity))
+            .unzip();
+        let stage_ineqs = sparse::block_diag(&stage_ineqs);
 
         // Build constraint matrix A
         let A = sparse::bmat(&[
@@ -127,14 +144,27 @@ where
             // Input absolute and delta constraints
             &[None, Some(&sparse::eye(N * ni)), None, None],
             // Soft stage inequality min constraints
-            &[Some(&stage_ineqs), None, None, Some(&stage_ineq_diag)],
+            &[
+                Some(&stage_ineqs),
+                None,
+                None,
+                Some(&sparse::eye(N * n_stage_ineq)),
+            ],
             // Soft stage inequality max constraints
-            &[Some(&stage_ineqs), None, None, Some(&-&stage_ineq_diag)],
+            &[
+                Some(&stage_ineqs),
+                None,
+                None,
+                Some(&-sparse::eye(N * n_stage_ineq)),
+            ],
             // Soft stage inequality penalty variable is positive constraint
             &[None, None, None, Some(&sparse::eye(N * n_stage_ineq))],
         ]).build_csc();
 
-        let q = Vector::zeros_generic(Dy::new(N * (ns + 2 * ni + n_stage_ineq)), U1);
+        let q = Vector::zeros_generic(
+            Dy::new(N * (ns + n_virtual_states + 2 * ni + n_stage_ineq)),
+            U1,
+        );
         let mut l = Vector::zeros_generic(Dy::new(N * (ns + 2 * ni + 3 * n_stage_ineq)), U1);
         let mut u = Vector::zeros_generic(Dy::new(N * (ns + 2 * ni + 3 * n_stage_ineq)), U1);
 
@@ -156,9 +186,11 @@ where
             problem,
             N,
             n_stage_ineq,
+            n_virtual_states,
             stage_ineq_lambda_max: 0.0,
             q,
             Q_stage,
+            Q_terminal,
             R_stage_grad,
             A,
             l,
@@ -186,38 +218,42 @@ where
         self.u_delta_max = u_delta_max;
     }
 
-    pub fn set_model(
-        &mut self,
-        i: usize,
-        // delta_x_i+1 = A * delta_x_i
-        A: &Matrix<NS, NS>,
-        // delta_x_i+1 + B * delta_u_i
-        B: &Matrix<NS, NI>,
-        x0: &Vector<NS>,
-        u0: &Vector<NI>,
-        x_target: &Vector<NS>,
-        x_linear_penalty: &Vector<NS>,
-    ) {
-        assert!(i < self.N);
+    pub fn set_model(&mut self, i: usize, s: &MpcStage<NS, NI>) {
+        let ns = NS::dim();
+        let ni = NI::dim();
+        let N = self.N;
+        let n_stage_ineq = self.n_stage_ineq;
+        let n_virtual_states = self.n_virtual_states;
+
+        assert!(i < N);
+        assert_eq!(s.x_target.shape().0, ns + n_virtual_states);
+        assert_eq!(s.x_linear_penalty.shape().0, ns + n_virtual_states);
 
         if i > 0 {
             let A_block = &self.A_blocks[i - 1];
-            self.A.set_block(A_block, A);
+            self.A.set_block(A_block, s.A);
         }
 
         let B_block = &self.B_blocks[i];
-        self.A.set_block(B_block, B);
-
-        let ns = NS::dim();
-        let ni = NI::dim();
+        self.A.set_block(B_block, s.B);
 
         // Linear state penalty
-        let q = &self.Q_stage * (x0 - x_target) + x_linear_penalty;
-        self.q.fixed_rows_mut::<NS>(i * ns).copy_from(&q);
+        let Q = if i == N - 1 {
+            &self.Q_terminal
+        } else {
+            &self.Q_stage
+        };
+
+        let mut x0_virtual = Vector::zeros_generic(Dy::new(ns + n_virtual_states), U1);
+        x0_virtual.fixed_rows_mut::<NS>(0).copy_from(s.x0);
+        let q = Q * (x0_virtual - s.x_target) + s.x_linear_penalty;
+        self.q
+            .rows_mut(i * (ns + n_virtual_states), ns + n_virtual_states)
+            .copy_from(&q);
 
         // Calulcate lower and upper bounds
-        let u_min = self.u_delta_min.zip_map(&(&self.u_min - u0), max);
-        let u_max = self.u_delta_max.zip_map(&(&self.u_max - u0), min);
+        let u_min = self.u_delta_min.zip_map(&(&self.u_min - s.u0), max);
+        let u_max = self.u_delta_max.zip_map(&(&self.u_max - s.u0), min);
 
         let u_bounds_start = self.N * (ns + ni) + i * ni;
         self.l
@@ -228,33 +264,26 @@ where
             .copy_from(&u_max);
 
         // Save x0 and u0
-        self.x_mpc.column_mut(i).copy_from(x0);
-        self.u_mpc.column_mut(i).copy_from(u0);
-    }
+        self.x_mpc.column_mut(i).copy_from(s.x0);
+        self.u_mpc.column_mut(i).copy_from(s.u0);
 
-    pub fn set_stage_inequality(
-        &mut self,
-        i: usize,
-        j: usize,
-        F: &Vector<NS>,
-        min: float,
-        max: float,
-    ) {
-        let N = self.N;
-        let n_stage_ineq = self.n_stage_ineq;
-        let ns = NS::dim();
-        let ni = NI::dim();
+        // Set stage ineqs
 
-        let block = &self.stage_ineq_blocks[n_stage_ineq * i + j];
-        self.A.set_block(block, &F.transpose());
+        let block = &self.stage_ineq_blocks[i];
+        self.A.set_block(block, &s.stage_ineq);
 
-        self.l[N * (ns + 2 * ni) + n_stage_ineq * i + j] = min;
-        self.u[N * (ns + 2 * ni + n_stage_ineq) + n_stage_ineq * i + j] = max;
+        self.l
+            .rows_mut(N * (ns + 2 * ni) + n_stage_ineq * i, n_stage_ineq)
+            .copy_from(s.stage_ineq_min);
+        self.u
+            .rows_mut(N * (ns + 2 * ni) + n_stage_ineq * i, n_stage_ineq)
+            .copy_from(s.stage_ineq_max);
     }
 
     pub fn solve(&mut self, u_prev: Vector<NI>) -> Result<Solution<NS, NI>, ()> {
         let N = self.N;
         let ns = NS::dim();
+        let n_virtual_states = self.n_virtual_states;
         let ni = NI::dim();
         let n_stage_ineq = self.n_stage_ineq;
 
@@ -265,14 +294,20 @@ where
             let u0_i_grad = u0_i - u0_i_minus_1;
             u0_i_minus_1 = u0_i.into_owned();
 
-            let idx = N * (ns + ni) + i * ni;
             self.q
-                .fixed_rows_mut::<NI>(idx)
+                .fixed_rows_mut::<NI>(N * (ns + n_virtual_states + ni) + i * ni)
                 .copy_from(&(&self.R_stage_grad * u0_i_grad));
         }
 
         // Set upper and lower bounds for first input difference
         self.problem.update_lin_cost(self.q.as_slice());
+
+        for (i, (&l, &u)) in self.l.as_slice().iter().zip(self.u.as_slice()).enumerate() {
+            if l > u {
+                println!("l > u at i={} l={} u={}", i, l, u);
+            }
+        }
+
         self.problem
             .update_bounds(self.l.as_slice(), self.u.as_slice());
         self.problem.update_A(&self.A);
@@ -283,6 +318,7 @@ where
             x_mpc: &mut Matrix<NS, Dy>,
             u_mpc: &mut Matrix<NI, Dy>,
             x: &[float],
+            n_virtual_states: usize,
         ) where
             DefaultAllocator: Dims2<NS, NI>,
         {
@@ -292,11 +328,24 @@ where
             };
             let (ns, N) = x_mpc.shape();
             let ni = NI::dim();
-            x_mpc.iter_mut().zip(&x[0..N * ns]).for_each(add_delta);
-            u_mpc
-                .iter_mut()
-                .zip(&x[N * ns..N * (ni + ns)])
-                .for_each(add_delta);
+            for (i, delta_x) in x.chunks(ns + n_virtual_states).take(N).enumerate() {
+                x_mpc
+                    .column_mut(i)
+                    .iter_mut()
+                    .zip(delta_x)
+                    .for_each(add_delta);
+            }
+            for (i, delta_u) in (&x[N * (ns + n_virtual_states)..])
+                .chunks(ni)
+                .take(N)
+                .enumerate()
+            {
+                u_mpc
+                    .column_mut(i)
+                    .iter_mut()
+                    .zip(delta_u)
+                    .for_each(add_delta);
+            }
         };
 
         let primal_infeasible = match self.problem.solve() {
@@ -315,7 +364,12 @@ where
                 );
 
                 // Update u_mpc and x_mpc
-                add_deltas(&mut self.x_mpc, &mut self.u_mpc, solution.x());
+                add_deltas(
+                    &mut self.x_mpc,
+                    &mut self.u_mpc,
+                    solution.x(),
+                    n_virtual_states,
+                );
                 false
             }
             Status::MaxIterationsReached(_) => {
@@ -341,7 +395,7 @@ where
             self.problem.update_upper_bound(self.u.as_slice());
             // Soft stage inequality variable linear penalty
             self.q
-                .rows_mut(N * (ns + 2 * ni), N * n_stage_ineq)
+                .rows_mut(N * (ns + n_virtual_states + 2 * ni), N * n_stage_ineq)
                 .fill(min(1e3, self.stage_ineq_lambda_max));
             self.problem.update_lin_cost(self.q.as_slice());
 
@@ -351,7 +405,7 @@ where
                 .fill(0.0);
             // Soft stage inequality variable linear penalty
             self.q
-                .rows_mut(N * (ns + 2 * ni), N * n_stage_ineq)
+                .rows_mut(N * (ns + n_virtual_states + 2 * ni), N * n_stage_ineq)
                 .fill(0.0);
 
             // Solve the soft constrained problem
@@ -373,7 +427,12 @@ where
             };
 
             // Update u_mpc and x_mpc
-            add_deltas(&mut self.x_mpc, &mut self.u_mpc, solution.x());
+            add_deltas(
+                &mut self.x_mpc,
+                &mut self.u_mpc,
+                solution.x(),
+                n_virtual_states,
+            );
         }
 
         // Validate input constraints
