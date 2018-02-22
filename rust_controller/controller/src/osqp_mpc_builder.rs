@@ -349,7 +349,9 @@ where
         };
 
         let primal_infeasible = match self.problem.solve() {
-            Status::Solved(solution) | Status::SolvedInaccurate(solution) => {
+            Status::Solved(solution)
+            | Status::SolvedInaccurate(solution)
+            | Status::MaxIterationsReached(solution) => {
                 // Update soft constraint multipliers
                 let lambda_max = solution
                     .y()
@@ -372,16 +374,12 @@ where
                 );
                 false
             }
-            Status::MaxIterationsReached(_) => {
-                println!("max iterations reached, retrying with soft constraints");
-                true
-            }
             Status::PrimalInfeasible(_) | Status::PrimalInfeasibleInaccurate(_) => {
-                println!("primal problem infeasible!");
+                println!("hard constrained primal problem infeasible!");
                 true
             }
             Status::DualInfeasible(_) | Status::DualInfeasibleInaccurate(_) => {
-                println!("dual problem infeasible!");
+                println!("hard constrained dual problem infeasible!");
                 return Err(());
             }
             _ => return Err(()),
@@ -412,15 +410,15 @@ where
             let solution = match self.problem.solve() {
                 Status::Solved(solution) | Status::SolvedInaccurate(solution) => solution,
                 Status::MaxIterationsReached(solution) => {
-                    println!("max iterations reached, retrying with soft constraints");
+                    println!("max iterations reached on soft constrained problem");
                     solution
                 }
                 Status::PrimalInfeasible(_) | Status::PrimalInfeasibleInaccurate(_) => {
-                    println!("primal problem infeasible!");
+                    println!("soft constrained primal problem infeasible!");
                     return Err(());
                 }
                 Status::DualInfeasible(_) | Status::DualInfeasibleInaccurate(_) => {
-                    println!("dual problem infeasible!");
+                    println!("soft constrained dual problem infeasible!");
                     return Err(());
                 }
                 _ => return Err(()),
