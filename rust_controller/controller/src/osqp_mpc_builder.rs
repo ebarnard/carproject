@@ -445,9 +445,9 @@ where
                 .zip(self.u_min.iter())
                 .all(|(&val, &min)| val >= min - 0.1);
             if !(a && b) {
-                error!("{}", self.u_mpc);
-                error!("u_min: {:?}", &self.l.as_slice()[N * ns..N * (ni + ns)]);
-                error!("u_max: {:?}", &self.u.as_slice()[N * ns..N * (ni + ns)]);
+                println!("u: {}", self.u_mpc);
+                println!("u_min: {}", &self.l.rows(N * (ns + ni), N * ni));
+                println!("u_max: {}", &self.u.rows(N * (ns + ni), N * ni));
                 assert!(false, "u not within constraints");
             }
         }
