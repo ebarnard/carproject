@@ -4,7 +4,7 @@ extern crate nalgebra;
 mod erased_into_iter;
 
 use itertools::Itertools;
-use nalgebra::{DefaultAllocator, Dim, DimName, Dynamic as Dy, MatrixMN, MatrixSlice};
+use nalgebra::{DefaultAllocator, Dim, Dynamic as Dy, MatrixMN, MatrixSlice};
 use nalgebra::allocator::Allocator;
 use std::convert::AsRef;
 use std::iter::once;
@@ -255,9 +255,7 @@ where
     }
 }
 
-pub fn block_mut<M: DimName, N: DimName>(
-    sparsity: &MatrixMN<bool, M, N>,
-) -> (Builder, BlockRef<M, N>)
+pub fn block_mut<M: Dim, N: Dim>(sparsity: &MatrixMN<bool, M, N>) -> (Builder, BlockRef<M, N>)
 where
     DefaultAllocator: Allocator<bool, M, N>,
 {
@@ -569,9 +567,7 @@ impl CscMatrix {
     }
 }
 
-fn to_dynamic<V: nalgebra::Scalar, M: DimName, N: DimName>(
-    mat: &MatrixMN<V, M, N>,
-) -> MatrixMN<V, Dy, Dy>
+fn to_dynamic<V: nalgebra::Scalar, M: Dim, N: Dim>(mat: &MatrixMN<V, M, N>) -> MatrixMN<V, Dy, Dy>
 where
     DefaultAllocator: Allocator<V, M, N>,
 {
