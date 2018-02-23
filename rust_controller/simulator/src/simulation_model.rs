@@ -29,6 +29,7 @@ static MODELS: &'static [(fn() -> &'static str, fn(&[float]) -> Box<SimulationMo
         SpenglerGammeterBicycle::name,
         new::<SpenglerGammeterBicycle>,
     ),
+    (NoSlipBicycle::name, new::<NoSlipBicycle>),
 ];
 
 fn new<T: 'static + SimulationModel>(params: &[float]) -> Box<SimulationModel> {
@@ -78,3 +79,4 @@ simulation_control_model!(
     SpenglerGammeterBicycle,
     control_model::SpenglerGammeterBicycle
 );
+simulation_control_model!(NoSlipBicycle, control_model::NoSlipBicycle);

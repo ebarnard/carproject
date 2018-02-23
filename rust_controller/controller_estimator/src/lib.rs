@@ -294,7 +294,7 @@ macro_rules! controllers {
 controllers! {
     models {
         DirectVelocity,
-        SpenglerGammeterBicycle,
+        NoSlipBicycle,
     }
 
     controllers {

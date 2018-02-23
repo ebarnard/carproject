@@ -11,6 +11,9 @@ pub use directvelocity::DirectVelocity;
 mod spenglergammeterbicycle;
 pub use spenglergammeterbicycle::SpenglerGammeterBicycle;
 
+mod no_slip_bicycle;
+pub use no_slip_bicycle::NoSlipBicycle;
+
 mod combine_state;
 pub use combine_state::CombineState;
 

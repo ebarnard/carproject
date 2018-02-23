@@ -1,11 +1,11 @@
 t = 200
 # Run the simulator in real time instead of as fast as possible
 real_time = true
-model = "spengler_gammeter_bicycle"
+model = "no_slip_bicycle"
 # C1: Steering slip - negative for oversteer, positive for understeer
 # C2: Steering angle coupling - radians turned / meter travelled
 # Cm1: Duty cycle to acceleration a = Cm1 * throttle
 # Cm2 = Cm1 / v_motor_max (i.e. max speed with no air resistance)
 # Cr1: Rolling resistance
 # Cr2: Reduced air resistance coefficient (0.5 * rho * A * C_d)
-params = [0.07, 3.9, 19.6, 14.2, 1.8, 0.0045]
+params = [0.07, 3.9, 10.0, 19.6, 14.2, 1.8, 0.0045]
