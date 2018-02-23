@@ -158,14 +158,6 @@ impl ControlModel for NoSlipBicycle {
         ])
     }
 
-    fn x_from_state(&self, state: &State) -> Vector<U5> {
-        let (x, y) = state.position;
-        let phi = state.heading;
-        let v = float::hypot(state.velocity.0, state.velocity.1);
-
-        Vector5::new(x, y, phi, v, 0.0)
-    }
-
     fn x_to_state(&self, x: &Vector<U5>) -> State {
         let heading = x[2];
         let v = x[3];

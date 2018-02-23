@@ -116,10 +116,6 @@ where
         nalgebra::zero()
     }
 
-    fn x_from_state(&self, _state: &State) -> Vector<Self::NS> {
-        panic!("x_form_state cannot be called on a CombineState<M>")
-    }
-
     fn x_to_state(&self, x: &Vector<Self::NS>) -> State {
         self.0.x_to_state(&x.fixed_rows::<M::NS>(0).into_owned())
     }

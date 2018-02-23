@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use std::thread;
 
 use prelude::*;
-use controller_estimator::{Control, Measurement, State};
+use controller_estimator::{Control, Measurement};
 use controller_estimator::visualisation::{self, Event, EventSender, Record};
 
 fn main() {
@@ -65,9 +65,11 @@ fn run(mut record_tx: EventSender<Event>) {
     let mut stats = stats::OnlineStats::new();
 
     let initial_position = controller.track().nearest_centreline_point(0.0);
-    let mut state = State::default();
-    state.position = (initial_position.x, initial_position.y);
-    state.heading = float::atan2(initial_position.dy_ds, initial_position.dx_ds);
+    let mut sim_state = sim_model.init_state(
+        initial_position.x,
+        initial_position.y,
+        float::atan2(initial_position.dy_ds, initial_position.dx_ds),
+    );
 
     let mut control = Control::default();
 
@@ -80,9 +82,10 @@ fn run(mut record_tx: EventSender<Event>) {
         let step_start = Instant::now();
 
         // Run simulation
-        state = sim_model.step(optimise_dt, &state, &control);
+        sim_state = sim_model.step(optimise_dt, sim_state, &control);
 
         // Add noise to measurement
+        let state = sim_model.inspect_state(&sim_state);
         let mut measurement = Measurement {
             position: (
                 state.position.0 + randn() * 0.002,

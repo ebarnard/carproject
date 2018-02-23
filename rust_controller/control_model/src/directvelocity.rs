@@ -91,13 +91,6 @@ impl ControlModel for DirectVelocity {
         nalgebra::zero()
     }
 
-    fn x_from_state(&self, state: &State) -> Vector<U3> {
-        let (x, y) = state.position;
-        let phi = state.heading;
-
-        Vector3::new(x, y, phi)
-    }
-
     fn x_to_state(&self, x: &Vector<U3>) -> State {
         State {
             position: (x[0], x[1]),

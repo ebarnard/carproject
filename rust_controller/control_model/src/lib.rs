@@ -97,8 +97,6 @@ where
         MatrixMN::<bool, Self::NS, Self::NP>::from_element(true)
     }
 
-    fn x_from_state(&self, state: &State) -> Vector<Self::NS>;
-
     fn x_to_state(&self, x: &Vector<Self::NS>) -> State;
 
     fn u_to_control(&self, u: &Vector<Self::NI>) -> Control {

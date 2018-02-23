@@ -3,6 +3,9 @@ use control_model::{self, Control, ControlModel, State};
 
 use config::SimulatorConfig;
 
+#[derive(Clone)]
+pub struct SimState(Vec<float>);
+
 pub trait SimulationModel {
     fn new(params: &[float]) -> Self
     where
@@ -12,7 +15,11 @@ pub trait SimulationModel {
     where
         Self: Sized;
 
-    fn step(&mut self, dt: float, state: &State, control: &Control) -> State;
+    fn init_state(&self, x: float, y: float, heading: float) -> SimState;
+
+    fn inspect_state(&self, state: &SimState) -> State;
+
+    fn step(&mut self, dt: float, state: SimState, control: &Control) -> SimState;
 }
 
 pub fn model_from_config(config: &SimulatorConfig) -> Box<SimulationModel> {
@@ -58,17 +65,25 @@ macro_rules! simulation_control_model(
                 <$model as ControlModel>::name()
             }
 
-            fn step(&mut self, dt: float, state: &State, control: &Control) -> State {
-                let x = self.model.x_from_state(state);
+            fn init_state(&self, x: float, y: float, heading: float) -> SimState {
+                let mut state = vec![0.0; <$model as ControlModel>::NS::dim()];
+                state[0] = x;
+                state[1] = y;
+                state[2] = heading;
+                SimState(state)
+            }
+
+            fn inspect_state(&self, state: &SimState) -> State {
+                let x = Vector::<<$model as ControlModel>::NS>::from_column_slice(&state.0);
+                self.model.x_to_state(&x)
+            }
+
+            fn step(&mut self, dt: float, mut state: SimState, control: &Control) -> SimState {
+                let x = Vector::<<$model as ControlModel>::NS>::from_column_slice(&state.0);
                 let u = self.model.u_from_control(control);
                 let x_dt = self.model.step(dt, &x, &u, &self.params);
-                let controller_state = self.model.x_to_state(&x_dt);
-
-                State {
-                    position: controller_state.position,
-                    velocity: controller_state.velocity,
-                    heading: controller_state.heading,
-                }
+                state.0.copy_from_slice(x_dt.as_slice());
+                state
             }
         }
     );
