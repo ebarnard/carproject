@@ -8,14 +8,14 @@ use std::mem;
 use prelude::*;
 
 pub fn find_homography(frame: &[u8], width: u32, height: u32) -> Result<Matrix3<float>, ()> {
-    let markerWidth = 0.060;
+    let marker_width = 0.060;
     let markers = &[
-        ffi::Marker::new(8, -0.305, -0.490, markerWidth),
-        ffi::Marker::new(10, -0.902, 0.450, markerWidth),
-        ffi::Marker::new(11, 0.848, 0.440, markerWidth),
-        ffi::Marker::new(13, 0.848, -0.498, markerWidth),
-        ffi::Marker::new(16, 0.298, -0.178, markerWidth),
-        ffi::Marker::new(14, -0.162, 0.246, markerWidth),
+        ffi::Marker::new(8, -0.305, -0.490, marker_width),
+        ffi::Marker::new(10, -0.902, 0.450, marker_width),
+        ffi::Marker::new(11, 0.848, 0.440, marker_width),
+        ffi::Marker::new(13, 0.848, -0.498, marker_width),
+        ffi::Marker::new(16, 0.298, -0.178, marker_width),
+        ffi::Marker::new(14, -0.162, 0.246, marker_width),
     ];
 
     unsafe {
@@ -59,11 +59,11 @@ mod ffi {
     extern "C" {
         pub fn find_homography(
             markers: *const Marker,
-            numMarkers: u32,
+            num_markers: u32,
             frame: *const u8,
             width: u32,
             height: u32,
-            debug_draw_markers: i32,
+            debug_print: i32,
             H: *mut Homography2,
         ) -> u32;
     }
