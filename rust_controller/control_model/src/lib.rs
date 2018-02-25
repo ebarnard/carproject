@@ -8,11 +8,11 @@ use prelude::*;
 mod directvelocity;
 pub use directvelocity::DirectVelocity;
 
-mod spenglergammeterbicycle;
-pub use spenglergammeterbicycle::SpenglerGammeterBicycle;
+mod spengler_gammeter;
+pub use spengler_gammeter::SpenglerGammeter;
 
-mod no_slip_bicycle;
-pub use no_slip_bicycle::NoSlipBicycle;
+mod no_slip_point;
+pub use no_slip_point::NoSlipPoint;
 
 mod combine_state;
 pub use combine_state::CombineState;

@@ -4,9 +4,9 @@ use nalgebra::dimension::{U2, U5, U7};
 use prelude::*;
 use {ControlModel, State};
 
-pub struct NoSlipBicycle;
+pub struct NoSlipPoint;
 
-impl NoSlipBicycle {
+impl NoSlipPoint {
     fn vals(
         x: &Vector<U5>,
         u: &Vector<U2>,
@@ -31,7 +31,7 @@ impl NoSlipBicycle {
     }
 }
 
-impl ControlModel for NoSlipBicycle {
+impl ControlModel for NoSlipPoint {
     type NS = U5;
     type NI = U2;
     type NP = U7;
@@ -40,16 +40,16 @@ impl ControlModel for NoSlipBicycle {
     where
         Self: Sized,
     {
-        NoSlipBicycle
+        NoSlipPoint
     }
 
     fn name() -> &'static str {
-        "no_slip_bicycle"
+        "no_slip_point"
     }
 
     fn state_equation(&self, x: &Vector<U5>, u: &Vector<U2>, p: &Vector<U7>) -> Vector<U5> {
         let (phi, v, delta, throttle, delta_target, C1, C2, C3, Cm1, Cm2, Cr1, Cr2) =
-            NoSlipBicycle::vals(x, u, p);
+            NoSlipPoint::vals(x, u, p);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -74,7 +74,7 @@ impl ControlModel for NoSlipBicycle {
         p0: &Vector<U7>,
     ) -> (Matrix<U5, U5>, Matrix<U5, U2>) {
         let (phi, v, delta, throttle, _delta_target, C1, C2, C3, Cm1, Cm2, _Cr1, Cr2) =
-            NoSlipBicycle::vals(x0, u0, p0);
+            NoSlipPoint::vals(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -130,7 +130,7 @@ impl ControlModel for NoSlipBicycle {
         p0: &Vector<U7>,
     ) -> Matrix<U5, U7> {
         let (phi, v, delta, throttle, delta_target, C1, C2, _C3, _Cm1, _Cm2, _Cr1, _Cr2) =
-            NoSlipBicycle::vals(x0, u0, p0);
+            NoSlipPoint::vals(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 

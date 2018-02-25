@@ -2,7 +2,7 @@ optimise_dt = 0.01
 horizon_dt = 0.04
 track = "../data/tracks/office_desk_track_2500.csv"
 N = 45
-model = "no_slip_bicycle"
+model = "no_slip_point"
 controller = "mpc_distance"
 # Measurement variance
 R = [0.000004, 0.000004, 0.0009]

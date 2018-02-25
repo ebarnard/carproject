@@ -1,7 +1,7 @@
 t = 200
 # Run the simulator in real time instead of as fast as possible
 real_time = true
-model = "no_slip_bicycle"
+model = "no_slip_point"
 # C1: Steering slip - negative for oversteer, positive for understeer
 # C2: Steering angle coupling - radians turned / meter travelled
 # Cm1: Duty cycle to acceleration a = Cm1 * throttle

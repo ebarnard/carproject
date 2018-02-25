@@ -32,11 +32,8 @@ pub fn model_from_config(config: &SimulatorConfig) -> Box<SimulationModel> {
 
 static MODELS: &'static [(fn() -> &'static str, fn(&[float]) -> Box<SimulationModel>)] = &[
     (DirectVelocity::name, new::<DirectVelocity>),
-    (
-        SpenglerGammeterBicycle::name,
-        new::<SpenglerGammeterBicycle>,
-    ),
-    (NoSlipBicycle::name, new::<NoSlipBicycle>),
+    (SpenglerGammeter::name, new::<SpenglerGammeter>),
+    (NoSlipPoint::name, new::<NoSlipPoint>),
 ];
 
 fn new<T: 'static + SimulationModel>(params: &[float]) -> Box<SimulationModel> {
@@ -90,8 +87,5 @@ macro_rules! simulation_control_model(
 );
 
 simulation_control_model!(DirectVelocity, control_model::DirectVelocity);
-simulation_control_model!(
-    SpenglerGammeterBicycle,
-    control_model::SpenglerGammeterBicycle
-);
-simulation_control_model!(NoSlipBicycle, control_model::NoSlipBicycle);
+simulation_control_model!(SpenglerGammeter, control_model::SpenglerGammeter);
+simulation_control_model!(NoSlipPoint, control_model::NoSlipPoint);

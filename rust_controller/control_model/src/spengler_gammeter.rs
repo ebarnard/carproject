@@ -4,9 +4,9 @@ use nalgebra::dimension::{U2, U4, U6};
 use prelude::*;
 use {ControlModel, State};
 
-pub struct SpenglerGammeterBicycle;
+pub struct SpenglerGammeter;
 
-impl SpenglerGammeterBicycle {
+impl SpenglerGammeter {
     fn vals(
         x: &Vector<U4>,
         u: &Vector<U2>,
@@ -29,7 +29,7 @@ impl SpenglerGammeterBicycle {
     }
 }
 
-impl ControlModel for SpenglerGammeterBicycle {
+impl ControlModel for SpenglerGammeter {
     type NS = U4;
     type NI = U2;
     type NP = U6;
@@ -38,16 +38,15 @@ impl ControlModel for SpenglerGammeterBicycle {
     where
         Self: Sized,
     {
-        SpenglerGammeterBicycle
+        SpenglerGammeter
     }
 
     fn name() -> &'static str {
-        "spengler_gammeter_bicycle"
+        "spengler_gammeter"
     }
 
     fn state_equation(&self, x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U6>) -> Vector<U4> {
-        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2) =
-            SpenglerGammeterBicycle::vals(x, u, p);
+        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2) = SpenglerGammeter::vals(x, u, p);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -70,7 +69,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         p0: &Vector<U6>,
     ) -> (Matrix<U4, U4>, Matrix<U4, U2>) {
         let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, _Cr1, Cr2) =
-            SpenglerGammeterBicycle::vals(x0, u0, p0);
+            SpenglerGammeter::vals(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -120,7 +119,7 @@ impl ControlModel for SpenglerGammeterBicycle {
         p0: &Vector<U6>,
     ) -> Matrix<U4, U6> {
         let (phi, v, throttle, delta, C1, C2, _Cm1, _Cm2, _Cr1, _Cr2) =
-            SpenglerGammeterBicycle::vals(x0, u0, p0);
+            SpenglerGammeter::vals(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
