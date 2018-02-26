@@ -215,7 +215,7 @@ pub fn eye(n: usize) -> Builder {
     builder
 }
 
-pub fn diags(n: usize, vals: &[&[float]], diag: &[isize]) -> Builder {
+pub fn diags(n: usize, vals: &[float], diag: &[isize]) -> Builder {
     let cap = diag.iter().map(|&d| n - d.abs() as usize).sum();
     let mut builder = Builder::with_capacity(n, n, cap);
 
@@ -223,12 +223,12 @@ pub fn diags(n: usize, vals: &[&[float]], diag: &[isize]) -> Builder {
         assert!((k.abs() as usize) < n);
         if k >= 0 {
             let k = k as usize;
-            for (i, &v) in (0..(n - k)).zip(v.iter().cycle()) {
+            for i in 0..(n - k) {
                 builder.coords.push((i, i + k, v));
             }
         } else if k < 0 {
             let k = -k as usize;
-            for (i, &v) in (0..(n - k)).zip(v.iter().cycle()) {
+            for i in 0..(n - k) {
                 builder.coords.push((i + k, i, v));
             }
         }

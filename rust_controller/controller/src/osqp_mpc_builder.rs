@@ -123,7 +123,7 @@ where
         let Au = sparse::block_diag(&Au);
 
         // Build input to input difference equality matrix
-        let A_R_grad = sparse::diags(N * ni, &[&[1.0], &[-1.0]], &[0, -(ni as isize)]);
+        let A_R_grad = sparse::diags(N * ni, &[1.0, -1.0], &[0, -(ni as isize)]);
 
         // Build stage soft inequality matrix
         // Soft inequalities are formulated as:
