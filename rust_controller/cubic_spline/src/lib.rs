@@ -62,6 +62,33 @@ impl CubicSpline {
     }
 }
 
+/// Returns the first row of the periodic cubic spline second derivative matrix:
+///
+/// ```text
+/// │ x''(t = 0) │   │ a  b  c  d  e  d  c  b │   │ x(t = 0) │
+/// │ x''(t = 1) │   │ b  a  b  c  d  e  d  c │   │ x(t = 1) │
+/// │ x''(t = 2) │   │ c  b  a  b  c  d  e  d │   │ x(t = 2) │
+/// │ x''(t = 3) │ = │ d  c  b  a  b  c  d  e │ * │ x(t = 3) │
+/// │ x''(t = 4) │   │ e  d  c  b  a  b  c  d │   │ x(t = 4) │
+/// │ x''(t = 5) │   │ d  e  d  c  b  a  b  c │   │ x(t = 5) │
+/// │ x''(t = 6) │   │ c  d  e  d  c  b  a  b │   │ x(t = 6) │
+/// │ x''(t = 7) │   │ b  c  d  e  d  c  b  a │   │ x(t = 7) │
+/// ```
+///
+/// The magnitide of the nth element goes as approximately `10 ^ (-n / 2)`.
+///
+pub fn periodic_second_derivative_matrix(vals: &mut [float]) {
+    let N = vals.len();
+    assert!(N >= 3);
+
+    let mut rhs = vec![0.0; N];
+    rhs[0] = -12.0;
+    rhs[1] = 6.0;
+    rhs[N - 1] = 6.0;
+
+    thomas_sherman_morrison(1.0, 4.0, 1.0, &rhs, vals);
+}
+
 /// Solves a tridiagonal linear system of the form:
 ///
 /// ```text
@@ -183,6 +210,50 @@ mod test {
 
         for (D, &D_exp) in spline.coefs.iter().map(|&(_, D, _, _)| D).zip(D_expected) {
             assert!((D - D_exp).abs() < 1e-6, "{} {}", D_exp, D);
+        }
+    }
+
+    #[test]
+    fn matlab_second_derivative_matrix() {
+        let mut x = vec![0.0; 2500];
+
+        periodic_second_derivative_matrix(&mut x);
+
+        let x_expected = &[
+            -4.392304845413264,
+            2.784609690826527,
+            -0.746133917892846,
+            0.199925980744858,
+            -0.053570005086585,
+            0.014354039601482,
+            -0.003846153319341,
+            0.001030573675884,
+            -0.000276141384194,
+            0.000073991860892,
+            -0.000019826059372,
+            0.000005312376598,
+            -0.000001423447019,
+            0.000000381411479,
+            -0.000000102198898,
+            0.000000027384112,
+            -0.000000007337551,
+            0.000000001966091,
+            -0.000000000526812,
+            0.000000000141159,
+            -0.000000000037823,
+            0.000000000010135,
+            -0.000000000002716,
+            0.000000000000728,
+            -0.000000000000195,
+            0.000000000000052,
+            -0.000000000000014,
+            0.000000000000004,
+            -0.000000000000001,
+            0.000000000000000,
+        ];
+
+        for (&x, &x_exp) in x.iter().zip(x_expected) {
+            assert!((x - x_exp).abs() < 1e-15, "{} {}", x, x_exp);
         }
     }
 
