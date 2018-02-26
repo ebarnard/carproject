@@ -16,18 +16,15 @@ impl CubicSpline {
         let n = y.len();
         assert!(n >= 2);
 
-        let tri_a = vec![1.0; n];
-        let tri_b = vec![4.0; n];
-        let tri_c = vec![1.0; n];
-
-        let mut tri_d = vec![0.0; n];
-        tri_d[0] = 3. * (y[1] - y[n - 1]);
+        let mut rhs = vec![0.0; n];
+        rhs[0] = 3.0 * (y[1] - y[n - 1]);
         for i in 1..n - 1 {
-            tri_d[i] = 3. * (y[i + 1] - y[i - 1]);
+            rhs[i] = 3.0 * (y[i + 1] - y[i - 1]);
         }
-        tri_d[n - 1] = 3. * (y[0] - y[n - 2]);
+        rhs[n - 1] = 3.0 * (y[0] - y[n - 2]);
 
-        let tri_x = thomas_sherman_morrison(&tri_a, &tri_b, &tri_c, &tri_d);
+        let mut D = vec![0.0; n];
+        thomas_sherman_morrison(1.0, 4.0, 1.0, &rhs, &mut D);
 
         let make_coef = |y, y_p, D, D_p| {
             let a = y;
@@ -39,9 +36,9 @@ impl CubicSpline {
 
         let mut coefs = Vec::with_capacity(n);
         for i in 0..n - 1 {
-            coefs.push(make_coef(y[i], y[i + 1], tri_x[i], tri_x[i + 1]));
+            coefs.push(make_coef(y[i], y[i + 1], D[i], D[i + 1]));
         }
-        coefs.push(make_coef(y[n - 1], y[0], tri_x[n - 1], tri_x[0]));
+        coefs.push(make_coef(y[n - 1], y[0], D[n - 1], D[0]));
 
         CubicSpline { coefs: coefs }
     }
@@ -65,53 +62,65 @@ impl CubicSpline {
     }
 }
 
-// `a` is the subdiagonal, `b` is the main diagonal, `c` is the superdiagonal, and `d` is the
-// right-hand side.
-fn thomas_sherman_morrison(a: &[float], b: &[float], c: &[float], d: &[float]) -> Vec<float> {
-    let N = a.len();
-    assert_eq!(N, b.len());
-    assert_eq!(N, c.len());
+/// Solves a tridiagonal linear system of the form:
+///
+/// ```text
+/// │ b  c  0  0  a │   | x0 │   │ d0 │
+/// │ a  b  c  0  0 │   | x1 │   │ d1 │
+/// │ 0  a  b  c  0 │ * | x2 │ = │ d2 │
+/// │ 0  0  a  b  c │   | x3 │   │ d3 │
+/// │ c  0  0  a  b │   | x4 │   │ d4 │
+/// ```
+fn thomas_sherman_morrison(a: float, b: float, c: float, d: &[float], x: &mut [float]) {
+    // Tridiagonal matrix is periodic. Solve using the divisionless Thomas algorithm and the
+    // Sherman-Morrison formula.
+    // https://www.cfd-online.com/Wiki/Tridiagonal_matrix_algorithm_-_TDMA_(Thomas_algorithm)
 
-    if a[0] == 0.0 && c[N - 1] == 0.0 {
-        // Tridiagonal matrix is not periodic. Solve using the divisionless Thomas algorithm.
-        thomas_divisionless(a, b, c, d)
-    } else {
-        // Tridiagonal matrix is periodic. Solve using the divisionless Thomas algorithm and the
-        // Sherman-Morrison formula.
-        // https://www.cfd-online.com/Wiki/Tridiagonal_matrix_algorithm_-_TDMA_(Thomas_algorithm)
+    let N = d.len();
+    assert!(N >= 3);
 
-        let mut u = vec![0.0; N];
-        let mut a_dash = a.to_vec();
-        let mut b_dash = b.to_vec();
-        let mut c_dash = c.to_vec();
+    let mut u = vec![0.0; N];
+    u[0] = -b;
+    u[N - 1] = c;
+    let v_0 = 1.0;
+    let v_N = -a / b;
 
-        u[0] = -b[0];
-        u[N - 1] = c[N - 1];
-        let v_0 = 1.0;
-        let v_N = -a[0] / b[0];
+    let b_0 = b - u[0];
+    let b_N = b - u[N - 1] * v_N;
 
-        a_dash[0] = 0.0;
-        b_dash[0] -= u[0];
-        b_dash[N - 1] -= u[N - 1] * v_N;
-        c_dash[N - 1] = 0.0;
+    // let q = x;
+    thomas_divisionless(a, b_0, b, b_N, c, &u, x);
+    let v_transpose_q = v_0 * x[0] + v_N * x[N - 1];
 
-        let y = thomas_divisionless(&a_dash, &b_dash, &c_dash, d);
-        let q = thomas_divisionless(&a_dash, &b_dash, &c_dash, &u);
+    let mut y = u;
+    thomas_divisionless(a, b_0, b, b_N, c, d, &mut y);
+    let v_transpose_y = v_0 * y[0] + v_N * y[N - 1];
 
-        let v_transpose_y = v_0 * y[0] + v_N * y[N - 1];
-        let v_transpose_q = v_0 * q[0] + v_N * q[N - 1];
-        let q_scale = v_transpose_y / (1.0 + v_transpose_q);
+    let q_scale = v_transpose_y / (1.0 + v_transpose_q);
 
-        let mut x = vec![0.0; N];
-        for i in 0..N {
-            x[i] = y[i] - q_scale * q[i];
-        }
-
-        x
+    for i in 0..N {
+        x[i] = y[i] - q_scale * x[i];
     }
 }
 
-fn thomas_divisionless(a: &[float], b: &[float], c: &[float], f: &[float]) -> Vec<float> {
+/// Solves a tridiagonal linear system of the form:
+///
+/// ```text
+/// │ b0  c  0  0  0  │   │ x0 │   │ d0 │
+/// │  a  b  c  0  0  │   │ x1 │   │ d1 │
+/// │  0  a  b  c  0  │ * │ x2 │ = │ d2 │
+/// │  0  0  a  b  c  │   │ x3 │   │ d3 │
+/// │  0  0  0  a  bN │   │ x4 │   │ d4 │
+/// ```
+fn thomas_divisionless(
+    a: float,
+    b_0: float,
+    b: float,
+    b_N: float,
+    c: float,
+    d: &[float],
+    x: &mut [float],
+) {
     // MATLAB code from Program 13, P. 93, Numerical Mathematics - Quarteroni, Sacco and Saler.
     // In this code `a` is the main diagonal, `b` the sub-diagonal, and 'f' the right-hand side.
     //
@@ -130,27 +139,27 @@ fn thomas_divisionless(a: &[float], b: &[float], c: &[float], f: &[float]) -> Ve
     //     x(i) = y(i) - gamma(i) * c(i) * x(i+1);
     // end
 
-    let N = a.len();
+    let N = d.len();
+    assert!(N >= 3);
+    assert_eq!(x.len(), N);
+
+    let a_c = a * c;
 
     let mut gamma = vec![0.0; N];
-    gamma[0] = 1.0 / b[0];
+    gamma[0] = 1.0 / b_0;
+    for i in 1..(N - 1) {
+        gamma[i] = 1.0 / (b - a_c * gamma[i - 1]);
+    }
+    gamma[N - 1] = 1.0 / (b_N - a_c * gamma[N - 2]);
+
+    x[0] = gamma[0] * d[0];
     for i in 1..N {
-        gamma[i] = 1.0 / (b[i] - a[i] * gamma[i - 1] * c[i - 1]);
+        x[i] = gamma[i] * (d[i] - a * x[i - 1]);
     }
 
-    let mut y = vec![0.0; N];
-    y[0] = gamma[0] * f[0];
-    for i in 1..N {
-        y[i] = gamma[i] * (f[i] - a[i] * y[i - 1]);
-    }
-
-    let mut x = vec![0.0; N];
-    x[N - 1] = y[N - 1];
     for i in (0..N - 1).rev() {
-        x[i] = y[i] - gamma[i] * c[i] * x[i + 1];
+        x[i] -= gamma[i] * c * x[i + 1];
     }
-
-    x
 }
 
 #[cfg(test)]
@@ -178,39 +187,41 @@ mod test {
     }
 
     #[test]
-    fn thomas_sherman_morrison_nonperiodic() {
-        let mut a = vec![2.0; 5];
-        a[0] = 0.0;
-        let b = vec![5.0; 5];
-        let mut c = vec![3.0; 5];
-        c[4] = 0.0;
+    fn thomas_nonperiodic() {
+        let a = 2.0;
+        let b_0 = 10.0;
+        let b = 5.0;
+        let b_N = 15.0;
+        let c = 3.0;
         let d = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 
-        let solution = thomas_sherman_morrison(&a, &b, &c, &d);
+        let mut x = vec![0.0; 5];
+        thomas_divisionless(a, b_0, b, b_N, c, &d, &mut x);
 
-        let expected = &[
-            0.299248120300752,
-            -0.165413533834587,
-            0.742857142857143,
-            -0.127819548872180,
-            1.051127819548872,
+        let x_expected = &[
+            -0.002966101694915,
+            0.343220338983051,
+            0.096610169491525,
+            0.610169491525424,
+            0.251977401129943,
         ];
 
-        for (&s, &e) in solution.iter().zip(expected) {
-            assert!((s - e).abs() < 1e-15, "{} {}", s, e);
+        for (&x, &x_exp) in x.iter().zip(x_expected) {
+            assert!((x - x_exp).abs() < 1e-15, "{} {}", x, x_exp);
         }
     }
 
     #[test]
     fn thomas_sherman_morrison_periodic() {
-        let a = vec![2.0; 5];
-        let b = vec![5.0; 5];
-        let c = vec![3.0; 5];
+        let a = 2.0;
+        let b = 5.0;
+        let c = 3.0;
         let d = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 
-        let solution = thomas_sherman_morrison(&a, &b, &c, &d);
+        let mut x = vec![0.0; 5];
+        thomas_sherman_morrison(a, b, c, &d, &mut x);
 
-        let expected = &[
+        let x_expected = &[
             -0.427272727272727,
             0.118181818181818,
             0.754545454545455,
@@ -218,8 +229,8 @@ mod test {
             1.390909090909091,
         ];
 
-        for (&s, &e) in solution.iter().zip(expected) {
-            assert!((s - e).abs() < 1e-15, "{} {}", s, e);
+        for (&x, &x_exp) in x.iter().zip(x_expected) {
+            assert!((x - x_exp).abs() < 1e-15, "{} {}", x, x_exp);
         }
     }
 }
