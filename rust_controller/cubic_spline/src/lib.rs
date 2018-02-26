@@ -81,26 +81,25 @@ fn thomas_sherman_morrison(a: &[float], b: &[float], c: &[float], d: &[float]) -
         // https://www.cfd-online.com/Wiki/Tridiagonal_matrix_algorithm_-_TDMA_(Thomas_algorithm)
 
         let mut u = vec![0.0; N];
-        let mut v = vec![0.0; N];
         let mut a_dash = a.to_vec();
         let mut b_dash = b.to_vec();
         let mut c_dash = c.to_vec();
 
         u[0] = -b[0];
         u[N - 1] = c[N - 1];
-        v[0] = 1.0;
-        v[N - 1] = -a[0] / b[0];
+        let v_0 = 1.0;
+        let v_N = -a[0] / b[0];
 
         a_dash[0] = 0.0;
         b_dash[0] -= u[0];
-        b_dash[N - 1] -= u[N - 1] * v[N - 1];
+        b_dash[N - 1] -= u[N - 1] * v_N;
         c_dash[N - 1] = 0.0;
 
         let y = thomas_divisionless(&a_dash, &b_dash, &c_dash, d);
         let q = thomas_divisionless(&a_dash, &b_dash, &c_dash, &u);
 
-        let v_transpose_y: float = v.iter().zip(&y).map(|(&v, &y)| v * y).sum();
-        let v_transpose_q: float = v.iter().zip(&q).map(|(&v, &q)| v * q).sum();
+        let v_transpose_y = v_0 * y[0] + v_N * y[N - 1];
+        let v_transpose_q = v_0 * q[0] + v_N * q[N - 1];
         let q_scale = v_transpose_y / (1.0 + v_transpose_q);
 
         let mut x = vec![0.0; N];
