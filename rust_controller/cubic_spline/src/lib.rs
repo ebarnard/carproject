@@ -196,6 +196,10 @@ mod test {
     #[test]
     fn matlab_d_values() {
         let y = &[5., 6., 8., 2., 1.5, 7.4, 9.];
+
+        let spline = CubicSpline::periodic(y);
+        let D: Vec<_> = spline.coefs.iter().map(|&(_, D, _, _)| D).collect();
+
         let D_expected = &[
             -2.509756097560976,
             3.519512195121950,
@@ -206,11 +210,7 @@ mod test {
             -2.480487804878049,
         ];
 
-        let spline = CubicSpline::periodic(y);
-
-        for (D, &D_exp) in spline.coefs.iter().map(|&(_, D, _, _)| D).zip(D_expected) {
-            assert!((D - D_exp).abs() < 1e-6, "{} {}", D_exp, D);
-        }
+        assert_approx_eq(&D, D_expected, 1e-15);
     }
 
     #[test]
@@ -252,9 +252,7 @@ mod test {
             0.000000000000000,
         ];
 
-        for (&x, &x_exp) in x.iter().zip(x_expected) {
-            assert!((x - x_exp).abs() < 1e-15, "{} {}", x, x_exp);
-        }
+        assert_approx_eq(&x, x_expected, 1e-15);
     }
 
     #[test]
@@ -277,9 +275,7 @@ mod test {
             0.251977401129943,
         ];
 
-        for (&x, &x_exp) in x.iter().zip(x_expected) {
-            assert!((x - x_exp).abs() < 1e-15, "{} {}", x, x_exp);
-        }
+        assert_approx_eq(&x, x_expected, 1e-15);
     }
 
     #[test]
@@ -300,8 +296,17 @@ mod test {
             1.390909090909091,
         ];
 
+        assert_approx_eq(&x, x_expected, 1e-15);
+    }
+
+    fn assert_approx_eq(x: &[float], x_expected: &[float], eps: float) {
         for (&x, &x_exp) in x.iter().zip(x_expected) {
-            assert!((x - x_exp).abs() < 1e-15, "{} {}", x, x_exp);
+            assert!(
+                (x - x_exp).abs() < eps,
+                "acutal: {}. expected: {}.",
+                x,
+                x_exp
+            );
         }
     }
 }
