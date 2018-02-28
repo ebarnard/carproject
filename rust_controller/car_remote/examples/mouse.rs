@@ -1,14 +1,19 @@
 extern crate car_remote;
 extern crate winit;
 
+mod utils;
+
 use std::cell::Cell;
 use std::thread;
+use std::time::Duration;
 use winit::{ControlFlow, Event, WindowEvent};
 
 fn main() {
+    let car = utils::parse_car_from_command_line();
+
     let mut conn = car_remote::Connection::new();
-    conn.on(0);
-    thread::sleep_ms(300);
+    conn.on(car);
+    thread::sleep(Duration::from_millis(300));
 
     let mut events_loop = winit::EventsLoop::new();
 
@@ -39,7 +44,7 @@ fn main() {
         }
 
         conn.set(
-            0,
+            car,
             (throttle * 128.0).floor() as i8 / 4,
             (steering * 128.0).floor() as i8,
         );

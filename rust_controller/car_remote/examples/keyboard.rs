@@ -1,17 +1,22 @@
 extern crate car_remote;
 extern crate winit;
 
+mod utils;
+
 use std::thread;
+use std::time::Duration;
 use winit::{ControlFlow, ElementState, Event, VirtualKeyCode, WindowEvent};
 
 fn main() {
+    let car = utils::parse_car_from_command_line();
+
     let mut conn = car_remote::Connection::new();
-    conn.on(0);
-    thread::sleep_ms(300);
+    conn.on(car);
+    thread::sleep(Duration::from_millis(300));
 
     let mut events_loop = winit::EventsLoop::new();
 
-    let window = winit::WindowBuilder::new()
+    let _window = winit::WindowBuilder::new()
         .build(&events_loop)
         .expect("could not create window");
 
@@ -53,7 +58,7 @@ fn main() {
             _ => (),
         }
 
-        conn.set(0, throttle, steering);
+        conn.set(car, throttle, steering);
 
         ControlFlow::Continue
     });

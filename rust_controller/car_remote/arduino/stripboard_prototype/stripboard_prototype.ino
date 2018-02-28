@@ -1,21 +1,28 @@
 #include <SPI.h>
 
-void setup() {
-  // Turn off the controller
-  controller_off(0);
-  pinMode(19, OUTPUT);
-  
-  // Disable POT_0 SPI chip select.
-  digitalWrite(14, HIGH);
-  pinMode(14, OUTPUT);
+const int NUM_CARS = 2;
+const int POT_CS_PINS[NUM_CARS] = {2, 14};
+const int REMOTE_POWER_PINS[NUM_CARS] = {3, 19};
 
+void setup() {
   // Set slave-select (SS) pin to output so we don't become an SPI slave device.
   pinMode(10, OUTPUT);
   // Init SPI
   SPI.begin();
 
-  // Set the POTs to middle range
-  send_command(0, 128, 128);
+  // Initialise the car controllers
+  for (int i = 0; i < NUM_CARS; i++) {
+    // Turn off the controller
+    controller_power(i, 0);
+    pinMode(REMOTE_POWER_PINS[i], OUTPUT);
+  
+    // Disable POT_0 SPI chip select.
+    digitalWrite(POT_CS_PINS[i], HIGH);
+    pinMode(POT_CS_PINS[i], OUTPUT);
+
+    // Set the POTs to middle range
+    send_command(0, 128, 128);
+  }
 
   // Start USB serial interface
   Serial.begin(115200);
@@ -56,13 +63,13 @@ void loop() {
 
     if (string_eq(buf, buf_len, "ON", 2)) {
       if (serial_read_newline()) {
-        return controller_on(car);
+        return controller_power(car, 1);
       } else {
         return error("expected newline after ON command");
       }
     } else if (string_eq(buf, buf_len, "OFF", 3)) {
       if (serial_read_newline()) {
-        return controller_off(car);
+        return controller_power(car, 0);
       } else {
         return error("expected newline after OFF command");
       }
@@ -199,16 +206,23 @@ void error(const char* message) {
   while (Serial.read() != -1) { }
 }
 
-void controller_on(int car) {
-  digitalWrite(19, HIGH);
-}
-
-void controller_off(int car) {
-  digitalWrite(19, LOW);
+void controller_power(int car, int on) {
+  if (car < 0 || car >= NUM_CARS) {
+    Serial.print("error: car number ");
+    Serial.print(car);
+    Serial.println(" does not exist");
+    return;
+  }
+  
+  if (on) {
+    digitalWrite(REMOTE_POWER_PINS[car], HIGH);
+  } else {
+    digitalWrite(REMOTE_POWER_PINS[car], LOW);
+  }
 }
 
 void send_command(int car, int throttle, int steering) {
-  if (car != 0) {
+  if (car < 0 || car >= NUM_CARS) {
     Serial.print("error: car number ");
     Serial.print(car);
     Serial.println(" does not exist");
@@ -217,7 +231,7 @@ void send_command(int car, int throttle, int steering) {
 
   SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
   // Enable POT_0 SPI interface.
-  digitalWrite(14, LOW);
+  digitalWrite(POT_CS_PINS[car], LOW);
   // Wait at least 60ns for it to become enabled
   __asm__("nop\n\t");
 
@@ -227,7 +241,7 @@ void send_command(int car, int throttle, int steering) {
   SPI.transfer(steering);
 
   // Disable it again.
-  digitalWrite(14, HIGH);
+  digitalWrite(POT_CS_PINS[car], HIGH);
   SPI.endTransaction();
 }
 
