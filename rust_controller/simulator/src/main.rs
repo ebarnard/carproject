@@ -94,7 +94,7 @@ fn run(mut record_tx: EventSender<Event>) {
             heading: state.heading + randn() * 0.03,
         };
         let measurement_time = dt_duration * i as u32;
-        controller.measurement(measurement, measurement_time);
+        controller.measurement(Some(measurement), measurement_time);
 
         // Start controller timer
         let controller_start = Instant::now();

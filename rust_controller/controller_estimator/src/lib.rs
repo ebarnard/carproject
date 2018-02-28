@@ -39,7 +39,7 @@ pub trait ControllerEstimator {
 
     fn control_applied(&mut self, control: Control, control_time: Duration);
 
-    fn measurement(&mut self, measurement: Measurement, measurement_time: Duration);
+    fn measurement(&mut self, measurement: Option<Measurement>, measurement_time: Duration);
 
     fn step(&mut self, control_application_time: Duration) -> StepResult;
 }
@@ -177,7 +177,7 @@ where
     }
 
     // `measurement_time` is the absolute time at which the measurement was taken.
-    fn measurement(&mut self, measurement: Measurement, measurement_time: Duration) {
+    fn measurement(&mut self, measurement: Option<Measurement>, measurement_time: Duration) {
         // Update estimator based on previous control value and time
         // Save current control and time
         let current_control_applied_duration = measurement_time
@@ -188,7 +188,7 @@ where
             &mut self.model,
             duration_to_secs(current_control_applied_duration),
             &self.current_control,
-            Some(measurement),
+            measurement,
         );
 
         self.estimator_time = measurement_time;

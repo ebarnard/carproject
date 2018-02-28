@@ -2,10 +2,14 @@ extern crate car_tracker;
 extern crate cv;
 extern crate image;
 
-use std::f64::consts::PI;
+mod utils;
+
+use std::env;
 use std::time::Instant;
 
 fn main() {
+    let max_cars = parse_cars_from_command_line();
+
     let mut camera = car_tracker::Camera::new();
     let mut cap = camera.start_capture();
     let frame_bytes = cap.bytes();
@@ -18,13 +22,14 @@ fn main() {
     let mut bg = vec![0; frame_bytes];
     bg.copy_from_slice(cap.latest_frame().1);
 
-    let mut tracker = car_tracker::Tracker::new(frame_width, frame_height, &track_mask, &bg);
+    let mut tracker =
+        car_tracker::Tracker::new(max_cars, frame_width, frame_height, &track_mask, &bg);
 
     for i in 0.. {
         frame.copy_from_slice(cap.latest_frame().1);
 
         let start = Instant::now();
-        let (x_median, y_median, theta) = tracker.track_frame(&frame);
+        let car_positions = tracker.track_frame(&frame);
         let dur = Instant::now() - start;
 
         // Only print and show sometimes
@@ -36,27 +41,21 @@ fn main() {
             "took {}ms",
             dur.as_secs() as f64 * 1e3 + dur.subsec_nanos() as f64 * 1e-6
         );
-        println!("med {} {} {}", x_median, y_median, theta * 180.0 / PI);
 
-        let fg = cv::Mat::from_buffer(frame_height as i32, frame_width as i32, 0, &frame);
-        fg.rectangle_custom(
-            cv::Rect::new(x_median as i32 - 5, y_median as i32 - 5, 10, 10),
-            cv::Scalar::all(127),
-            5,
-            cv::LineTypes::Filled,
-        );
-
-        let x = (theta.cos() * 55.0 + x_median as f64) as i32;
-        let y = (theta.sin() * 55.0 + y_median as f64) as i32;
-        fg.line_custom(
-            cv::Point2i::new(x_median as i32, y_median as i32),
-            cv::Point2i::new(x, y),
-            cv::Scalar::all(127),
-            3,
-            cv::LineTypes::Filled,
-            0,
-        );
-
+        let mut fg = cv::Mat::from_buffer(frame_height as i32, frame_width as i32, 0, &frame);
+        utils::draw_car_positions(car_positions, &mut fg);
         fg.show("win", 1).unwrap();
     }
+}
+
+pub fn parse_cars_from_command_line() -> u32 {
+    let mut args = env::args();
+    // Skip executable path.
+    args.next();
+    if let Some("--cars") = args.next().as_ref().map(|a| a.as_str()) {
+        if let Some(cars) = args.next().and_then(|c| c.parse().ok()) {
+            return cars;
+        }
+    }
+    panic!("error. maximum number of cars must be specified by passing --cars <N>.");
 }

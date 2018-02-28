@@ -71,7 +71,7 @@ fn run(mut record_tx: EventSender<Event>) {
     let H_inv = H_inv / H_inv[(2, 2)];
 
     let track_mask = controller.track().bitmap_mask(&H, w, h);
-    let mut tracker = car_tracker::Tracker::new(w, h, &track_mask, capture.latest_frame().1);
+    let mut tracker = car_tracker::Tracker::new(1, w, h, &track_mask, capture.latest_frame().1);
 
     let mut remote = car_remote::Connection::new();
     remote.off(0);
@@ -103,11 +103,11 @@ fn run(mut record_tx: EventSender<Event>) {
 
         // Get the latest frame from the camera and Get measurement of car's position in image
         // coordinates.
-        let ((image_x, image_y, image_heading), frame_time) = loop {
+        let (image_pos, frame_time) = loop {
             let (frame_time, frame) = capture.latest_frame();
             let frame_time = frame_time.duration_since(start_time);
             if frame_time > prev_frame_time && frame_time > prev_control_time {
-                break (tracker.track_frame(frame), frame_time);
+                break (tracker.track_frame(frame)[0], frame_time);
             } else {
                 // TODO: Use something better than a busy loop here.
                 thread::yield_now();
@@ -115,24 +115,29 @@ fn run(mut record_tx: EventSender<Event>) {
         };
         prev_frame_time = frame_time;
         prev_control_time = control_time;
-        info!("car at pixel {} {}", image_x, image_y);
 
         // Start the step timer once we've got a current frame.
         let step_start = start_time.elapsed();
 
         // Transform to world coordinates
-        let mut measurement = image_to_world(&H_inv, image_x, image_y, image_heading);
+        let mut measurement = image_pos.map(|p| {
+            info!("car at pixel {} {}", p.x, p.y);
 
-        // Assume car is pointing in the direction of the track.
-        // TODO: Find the actual heading of the car.
-        let s = controller
-            .track()
-            .centreline_distance(measurement.position.0, measurement.position.1);
-        let cp = controller.track().nearest_centreline_point(s);
-        if measurement.heading.cos() * cp.dx_ds + measurement.heading.sin() * cp.dy_ds < 0.0 {
-            measurement.heading += ::std::f64::consts::PI;
-        }
-        info!("car at {:?}", measurement);
+            let mut m = image_to_world(&H_inv, p.x, p.y, p.heading);
+
+            // Assume car is pointing in the direction of the track.
+            // TODO: Find the actual heading of the car.
+            let s = controller
+                .track()
+                .centreline_distance(m.position.0, m.position.1);
+            let cp = controller.track().nearest_centreline_point(s);
+            if m.heading.cos() * cp.dx_ds + m.heading.sin() * cp.dy_ds < 0.0 {
+                m.heading += ::std::f64::consts::PI;
+            }
+
+            info!("car at {:?}", m);
+            m
+        });
 
         // Ensure measurements and controls are recorded in temporal order.
         debug!("control time: {:?}", control_time);

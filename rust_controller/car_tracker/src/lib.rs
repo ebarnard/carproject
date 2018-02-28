@@ -11,17 +11,30 @@ use prelude::*;
 mod camera;
 pub use camera::{Camera, Capture};
 
+const MAX_CARS: u32 = 2;
+
 pub struct Tracker {
+    max_cars: u32,
     bg: Vec<u8>,
     fg_thresh: Vec<u8>,
     fg: Vec<(u32, u32)>,
     x_bins: Vec<u32>,
     y_bins: Vec<u32>,
-    theta_vector_prev: Vector2<float>,
+    theta_vector_prev: [Vector2<float>; MAX_CARS as usize],
+    car_positions: [Option<Car>; MAX_CARS as usize],
+}
+
+#[derive(Clone, Copy)]
+pub struct Car {
+    pub x: f64,
+    pub y: f64,
+    pub heading: f64,
 }
 
 impl Tracker {
-    pub fn new(width: u32, height: u32, track_mask: &[u8], bg: &[u8]) -> Tracker {
+    pub fn new(max_cars: u32, width: u32, height: u32, track_mask: &[u8], bg: &[u8]) -> Tracker {
+        assert!(max_cars <= MAX_CARS);
+
         let pixels = width as usize * height as usize;
         assert_eq!(pixels, track_mask.len());
         assert_eq!(pixels, bg.len());
@@ -36,16 +49,18 @@ impl Tracker {
         }
 
         Tracker {
+            max_cars,
             bg,
             fg_thresh: vec![0; pixels],
             fg: vec![(0, 0); pixels],
             x_bins: vec![0; width as usize],
             y_bins: vec![0; height as usize],
-            theta_vector_prev: Vector2::zeros(),
+            theta_vector_prev: [Vector2::zeros(); MAX_CARS as usize],
+            car_positions: [None; MAX_CARS as usize],
         }
     }
 
-    pub fn track_frame(&mut self, frame: &[u8]) -> (float, float, float) {
+    pub fn track_frame(&mut self, frame: &[u8]) -> &[Option<Car>] {
         assert_eq!(self.bg.len(), frame.len());
 
         // Subtract background and threshold at 50.
@@ -57,50 +72,139 @@ impl Tracker {
             &self.fg_thresh,
             self.x_bins.len() as u32,
             None,
-            None,
+            |_| None,
             4,
             &mut self.fg,
         );
 
-        // Return early if there are no foreground pixels.
-        // TODO: Return None if there is an unexpected number of foreground pixels.
+        // Don't bother looking for cars if there are no foreground pixels.
         if self.fg.len() == 0 {
-            return (0.0, 0.0, 0.0);
+            self.car_positions.iter_mut().for_each(|p| *p = None);
+            return &self.car_positions;
         }
 
-        // Find the median foreground pixel coordinate of the scaled image
-        let (x_median_scaled, y_median_scaled) =
-            find_median_x_y(&self.fg, &mut self.x_bins, &mut self.y_bins);
+        let (left, right) = match self.max_cars {
+            1 => (self.track_frame_one_car(), None),
+            2 => self.track_frame_two_cars(),
+            _ => unreachable!(),
+        };
 
+        // The order of the cars can change so we assume the correct ordering is the one where
+        // each car has moved the smallest distance.
+        // `large_distance` is any number larger than a possible distance in the image.
+        let large_distance = frame.len() as f64;
+        let distance = |a: Option<Car>, b: Option<Car>| match (a, b) {
+            (Some(a), Some(b)) => float::hypot(a.x - b.x, a.y - b.y),
+            _ => large_distance,
+        };
+
+        let same_order_distance =
+            distance(left, self.car_positions[0]) + distance(right, self.car_positions[1]);
+        let swap_order_distance =
+            distance(left, self.car_positions[1]) + distance(right, self.car_positions[0]);
+
+        if same_order_distance <= swap_order_distance {
+            self.car_positions[0] = left;
+            self.car_positions[1] = right;
+        } else {
+            self.car_positions[0] = right;
+            self.car_positions[1] = left;
+        }
+
+        &self.car_positions[..self.max_cars as usize]
+    }
+
+    fn track_frame_one_car(&mut self) -> Option<Car> {
+        // Find the median foreground pixel coordinate of the scaled image.
+        let (x_median_scaled, y_median_scaled) =
+            find_median_x_y(&self.fg, |_, _| true, &mut self.x_bins, &mut self.y_bins);
+
+        self.track_single_car(0, x_median_scaled, y_median_scaled)
+    }
+
+    fn track_frame_two_cars(&mut self) -> (Option<Car>, Option<Car>) {
+        // Find mean pixel coordiante.
+        let (x_mean, y_mean) = self.fg
+            .iter()
+            .fold((0, 0), |acc, &(x, y)| (acc.0 + x, acc.1 + y));
+        let (x_mean, y_mean) = (
+            x_mean as f64 / self.fg.len() as f64,
+            y_mean as f64 / self.fg.len() as f64,
+        );
+
+        // Find the direction of greatest variance. This is normal to the line dividing the cars.
+        let divider_normal = find_theta(&self.fg, x_mean as u32, y_mean as u32);
+
+        // Determine whether a pixel is to the "left" or "right" of the dividing line using its dot
+        // product with the line normal vector. The direction of "left" and "right" is arbitrary.
+        let left_of_divider = |x, y| {
+            let delta_pos = Vector2::new(x as f64 - x_mean as f64, y as f64 - y_mean as f64);
+            delta_pos.dot(&divider_normal) >= 0.0
+        };
+
+        // Find the median foreground pixel coordinate of the scaled image for the "left" car.
+        let (left_x_median_scaled, left_y_median_scaled) = find_median_x_y(
+            &self.fg,
+            |x, y| left_of_divider(x, y),
+            &mut self.x_bins,
+            &mut self.y_bins,
+        );
+
+        // Find the median foreground pixel coordinate of the scaled image for the "right" car.
+        let (right_x_median_scaled, right_y_median_scaled) = find_median_x_y(
+            &self.fg,
+            |x, y| !left_of_divider(x, y),
+            &mut self.x_bins,
+            &mut self.y_bins,
+        );
+
+        let left_pos = self.track_single_car(0, left_x_median_scaled, left_y_median_scaled);
+        let right_pos = self.track_single_car(1, right_x_median_scaled, right_y_median_scaled);
+
+        (left_pos, right_pos)
+    }
+
+    fn track_single_car(
+        &mut self,
+        i: usize,
+        x_median_scaled: u32,
+        y_median_scaled: u32,
+    ) -> Option<Car> {
         // Fill `fg` with the coordinates of foreground pixels.
         // Only pixels around the scaled image median are considered.
-        let search_radius = 200;
-        let x_min = x_median_scaled.saturating_sub(search_radius / 2);
-        let y_min = y_median_scaled.saturating_sub(search_radius / 2);
+        let search_width = 150;
+        let x_min = x_median_scaled.saturating_sub(search_width / 2);
+        let y_min = y_median_scaled.saturating_sub(search_width / 2);
         find_foreground_positions(
             &self.fg_thresh,
             self.x_bins.len() as u32,
-            Some((x_min, x_min + search_radius)),
-            Some((y_min, y_min + search_radius)),
+            Some((y_min, y_min + search_width)),
+            |_| Some((x_min, x_min + search_width)),
             1,
             &mut self.fg,
         );
 
         // Find the median foreground pixel coordinate of the restricted image.
-        let (x_median, y_median) = find_median_x_y(&self.fg, &mut self.x_bins, &mut self.y_bins);
+        let (x_median, y_median) =
+            find_median_x_y(&self.fg, |_, _| true, &mut self.x_bins, &mut self.y_bins);
 
         // Find the mean angle between the median coordinate and the other coordinates.
         let mut theta_vector = find_theta(&self.fg, x_median, y_median);
 
         // Prevent discontinuities in theta by assuming it never changes by more than 180deg in a
         // single frame.
-        if theta_vector.dot(&self.theta_vector_prev) < 0.0 {
+        if theta_vector.dot(&self.theta_vector_prev[i]) < 0.0 {
             theta_vector *= -1.0;
         }
         let theta = f64::atan2(theta_vector[1], theta_vector[0]);
-        self.theta_vector_prev = theta_vector;
+        self.theta_vector_prev[i] = theta_vector;
 
-        (x_median as float, y_median as float, theta)
+        // TODO: Return None if there is an unexpected number of foreground pixels.
+        Some(Car {
+            x: x_median as float,
+            y: y_median as float,
+            heading: theta,
+        })
     }
 }
 
@@ -123,11 +227,11 @@ fn background_sub_and_thresh(frame: &[u8], bg: &[u8], thresh: u8, fg_thresh: &mu
         .scalar_fill(fg_thresh);
 }
 
-fn find_foreground_positions(
+fn find_foreground_positions<F: FnMut(u32) -> Option<(u32, u32)>>(
     fg_thresh: &[u8],
     width: u32,
-    x_range: Option<(u32, u32)>,
     y_range: Option<(u32, u32)>,
+    mut x_range: F,
     scale_step: u32,
     fg: &mut Vec<(u32, u32)>,
 ) {
@@ -135,13 +239,9 @@ fn find_foreground_positions(
     let height = fg_thresh.len() / width;
     assert_eq!(width * height, fg_thresh.len());
 
-    let (x_min, x_max) = x_range
-        .map(|(l, u)| (l as usize, min(u as usize, width)))
-        .unwrap_or((0, width));
     let (y_min, y_max) = y_range
         .map(|(l, u)| (l as usize, min(u as usize, height)))
         .unwrap_or((0, height));
-    assert!(x_min <= x_max);
     assert!(y_min <= y_max);
 
     fg.truncate(0);
@@ -153,6 +253,11 @@ fn find_foreground_positions(
         .enumerate()
         .step_by(scale_step as usize)
     {
+        let (x_min, x_max) = x_range((y_min + y) as u32)
+            .map(|(l, u)| (l as usize, min(u as usize, width)))
+            .unwrap_or((0, width));
+        assert!(x_min <= x_max);
+
         // Exclude pixels outside x_range
         let row_x_range = &row[x_min..x_max];
         for (x, _) in row_x_range
@@ -166,16 +271,24 @@ fn find_foreground_positions(
     }
 }
 
-fn find_median_x_y(fg: &[(u32, u32)], x_bins: &mut [u32], y_bins: &mut [u32]) -> (u32, u32) {
+fn find_median_x_y<F: FnMut(u32, u32) -> bool>(
+    fg: &[(u32, u32)],
+    mut include_pixel: F,
+    x_bins: &mut [u32],
+    y_bins: &mut [u32],
+) -> (u32, u32) {
     x_bins.iter_mut().for_each(|v| *v = 0);
     y_bins.iter_mut().for_each(|v| *v = 0);
 
+    let mut n_inliers = 0;
     for &(x, y) in fg {
-        x_bins[x as usize] += 1;
-        y_bins[y as usize] += 1;
+        if include_pixel(x, y) {
+            x_bins[x as usize] += 1;
+            y_bins[y as usize] += 1;
+            n_inliers += 1;
+        }
     }
 
-    let mid = (fg.len() / 2) as u32;
     let (x_median, _) = x_bins
         .iter()
         .scan(0, |acc, &n| {
@@ -183,7 +296,7 @@ fn find_median_x_y(fg: &[(u32, u32)], x_bins: &mut [u32], y_bins: &mut [u32]) ->
             Some(*acc)
         })
         .enumerate()
-        .filter(|&(_, acc)| acc >= mid)
+        .filter(|&(_, acc)| acc >= n_inliers / 2)
         .next()
         .unwrap_or((0, 0));
 
@@ -194,7 +307,7 @@ fn find_median_x_y(fg: &[(u32, u32)], x_bins: &mut [u32], y_bins: &mut [u32]) ->
             Some(*acc)
         })
         .enumerate()
-        .filter(|&(_, acc)| acc >= mid)
+        .filter(|&(_, acc)| acc >= n_inliers / 2)
         .next()
         .unwrap_or((0, 0));
 
