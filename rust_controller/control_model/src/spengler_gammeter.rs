@@ -6,29 +6,6 @@ use {ControlModel, State};
 
 pub struct SpenglerGammeter;
 
-impl SpenglerGammeter {
-    fn vals(
-        x: &Vector<U4>,
-        u: &Vector<U2>,
-        p: &Vector<U6>,
-    ) -> (float, float, float, float, float, float, float, float, float, float) {
-        let phi = x[2];
-        let v = x[3];
-
-        let throttle = u[0];
-        let delta = u[1];
-
-        let C1 = p[0];
-        let C2 = p[1];
-        let Cm1 = p[2];
-        let Cm2 = p[3];
-        let Cr1 = p[4];
-        let Cr2 = p[5];
-
-        (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2)
-    }
-}
-
 impl ControlModel for SpenglerGammeter {
     type NS = U4;
     type NI = U2;
@@ -46,7 +23,7 @@ impl ControlModel for SpenglerGammeter {
     }
 
     fn state_equation(&self, x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U6>) -> Vector<U4> {
-        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2) = SpenglerGammeter::vals(x, u, p);
+        let [phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2] = unpack(x, u, p);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -68,8 +45,7 @@ impl ControlModel for SpenglerGammeter {
         u0: &Vector<U2>,
         p0: &Vector<U6>,
     ) -> (Matrix<U4, U4>, Matrix<U4, U2>) {
-        let (phi, v, throttle, delta, C1, C2, Cm1, Cm2, _Cr1, Cr2) =
-            SpenglerGammeter::vals(x0, u0, p0);
+        let [phi, v, throttle, delta, C1, C2, Cm1, Cm2, _Cr1, Cr2] = unpack(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -118,8 +94,7 @@ impl ControlModel for SpenglerGammeter {
         u0: &Vector<U2>,
         p0: &Vector<U6>,
     ) -> Matrix<U4, U6> {
-        let (phi, v, throttle, delta, C1, C2, _Cm1, _Cm2, _Cr1, _Cr2) =
-            SpenglerGammeter::vals(x0, u0, p0);
+        let [phi, v, throttle, delta, C1, C2, _Cm1, _Cm2, _Cr1, _Cr2] = unpack(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -175,4 +150,10 @@ impl ControlModel for SpenglerGammeter {
         let max = Vector2::new(INFINITY, 0.1);
         (min, max)
     }
+}
+
+#[inline(always)]
+fn unpack(x: &Vector<U4>, u: &Vector<U2>, p: &Vector<U6>) -> [float; 10] {
+    // [phi, v, throttle, delta, C1, C2, Cm1, Cm2, Cr1, Cr2]
+    [x[2], x[3], u[0], u[1], p[0], p[1], p[2], p[3], p[4], p[5]]
 }

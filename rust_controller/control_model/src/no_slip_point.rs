@@ -6,31 +6,6 @@ use {ControlModel, State};
 
 pub struct NoSlipPoint;
 
-impl NoSlipPoint {
-    fn vals(
-        x: &Vector<U5>,
-        u: &Vector<U2>,
-        p: &Vector<U7>,
-    ) -> (float, float, float, float, float, float, float, float, float, float, float, float) {
-        let phi = x[2];
-        let v = x[3];
-        let delta = x[4];
-
-        let throttle = u[0];
-        let delta_target = u[1];
-
-        let C1 = p[0];
-        let C2 = p[1];
-        let C3 = p[2];
-        let Cm1 = p[3];
-        let Cm2 = p[4];
-        let Cr1 = p[5];
-        let Cr2 = p[6];
-
-        (phi, v, delta, throttle, delta_target, C1, C2, C3, Cm1, Cm2, Cr1, Cr2)
-    }
-}
-
 impl ControlModel for NoSlipPoint {
     type NS = U5;
     type NI = U2;
@@ -48,8 +23,8 @@ impl ControlModel for NoSlipPoint {
     }
 
     fn state_equation(&self, x: &Vector<U5>, u: &Vector<U2>, p: &Vector<U7>) -> Vector<U5> {
-        let (phi, v, delta, throttle, delta_target, C1, C2, C3, Cm1, Cm2, Cr1, Cr2) =
-            NoSlipPoint::vals(x, u, p);
+        let [phi, v, delta, throttle, delta_target, C1, C2, C3, Cm1, Cm2, Cr1, Cr2] =
+            unpack(x, u, p);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -73,8 +48,8 @@ impl ControlModel for NoSlipPoint {
         u0: &Vector<U2>,
         p0: &Vector<U7>,
     ) -> (Matrix<U5, U5>, Matrix<U5, U2>) {
-        let (phi, v, delta, throttle, _delta_target, C1, C2, C3, Cm1, Cm2, _Cr1, Cr2) =
-            NoSlipPoint::vals(x0, u0, p0);
+        let [phi, v, delta, throttle, _delta_target, C1, C2, C3, Cm1, Cm2, _Cr1, Cr2] =
+            unpack(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -129,8 +104,8 @@ impl ControlModel for NoSlipPoint {
         u0: &Vector<U2>,
         p0: &Vector<U7>,
     ) -> Matrix<U5, U7> {
-        let (phi, v, delta, throttle, delta_target, C1, C2, _C3, _Cm1, _Cm2, _Cr1, _Cr2) =
-            NoSlipPoint::vals(x0, u0, p0);
+        let [phi, v, delta, throttle, delta_target, C1, C2, _C3, _Cm1, _Cm2, _Cr1, _Cr2] =
+            unpack(x0, u0, p0);
 
         let (sin_k, cos_k) = (phi + C1 * delta).sin_cos();
 
@@ -188,4 +163,12 @@ impl ControlModel for NoSlipPoint {
         let max = Vector2::new(INFINITY, 0.1);
         (min, max)
     }
+}
+
+#[inline(always)]
+fn unpack(x: &Vector<U5>, u: &Vector<U2>, p: &Vector<U7>) -> [float; 12] {
+    // [phi, v, delta, throttle, delta_target, C1, C2, C3, Cm1, Cm2, Cr1, Cr2]
+    [
+        x[2], x[3], x[4], u[0], u[1], p[0], p[1], p[2], p[3], p[4], p[5], p[6]
+    ]
 }

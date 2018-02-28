@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![feature(slice_patterns)]
 
 extern crate prelude;
 
