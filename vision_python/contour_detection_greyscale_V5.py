@@ -62,7 +62,6 @@ while True:
     for c in contours:
         # Looks like: ((centre_x, centre_y), (width, height), angle)
         rect = cv2.minAreaRect(c)
-
         length = max(rect[1])
         width = min(rect[1])
 
@@ -131,7 +130,7 @@ while True:
                     print(car_X, ",", car_Y, ",", car_rect[2])
                     cv2.drawContours(im2, [rect_corners], -1, (150, 0, 0), 5)
                     cv2.circle(im2, (cX, cY), 3, (50, 50, 50), -1)
-                    cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 2)
+                    cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                 elif car[2] == "car 2" and not car[0]:
                     car_rect = cv2.minAreaRect(car[1])
                     car_X, car_Y = np.int0(car_rect[0])
@@ -140,7 +139,7 @@ while True:
                     print(car_X, ",", car_Y, ",", car_rect[2])
                     cv2.drawContours(im2, [rect_corners], -1, (50, 0, 0), 5)
                     cv2.circle(im2, (cX, cY), 3, (50, 50, 50), -1)
-                    cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 2)
+                    cv2.putText(im2, "center", (cX - 30, cY - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
     if car_1_position_updated is False:
         print("car 1 position is not detected!")

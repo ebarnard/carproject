@@ -17,12 +17,20 @@ int main() {
     VideoCapture video("C:\\Users\\Nikolay Limonov\\Documents\\GitHub\\carproject\\video\\2_cars_with_markers_drive_"
                                "bump_demo.avi");
 
+//    for(int l=0;l<100;l++){
+//        Mat frame;
+//        if (!video.read(frame)) {
+//            cout << "could not read frame" << endl;
+//            return -1;
+//        };
+//    };
+
     // Read first frame
     Mat frame;
     if (!video.read(frame)) {
         cout << "could not read frame" << endl;
         return -1;
-    }
+    };
 
     Mat frame_track(frame.size(), CV_8UC1);
     cvtColor(frame, frame_track, CV_BGR2GRAY);
@@ -58,26 +66,26 @@ int main() {
 
         cvtColor(frame, imgray, CV_BGR2GRAY);
 
-        // takes around 3ms
         threshold(imgray, imgray, 60, 255, 0);
-        // CHECK LATER ON
 
         imgray.copyTo(imgray_2, track_mask);
         imgray_2.copyTo(imgray);
 
-        // takes around 3ms
         Mat_<int> kernel(5,5);
-        for(int i = 0; i < kernel.rows; i++)
-            for(int j = 0; j < kernel.cols; j++)
-                kernel(i,j) = 1;
+        for(int a = 0; a < kernel.rows; a++)
+            for(int b = 0; b < kernel.cols; b++)
+                kernel(a,b) = 1;
 
         // MORPH_OPEN = 2
         morphologyEx(imgray, imgray, 2, kernel);
 
+        for(int a = 0; a < kernel.rows; a++)
+            for(int b = 0; b < kernel.cols; b++)
+                kernel(a,b) = 1;
+
         // MORPH_CLOSE = 3
         morphologyEx(imgray, imgray, 3, kernel);
 
-        // takes around 1ms
         vector<Mat> contours;
         findContours(imgray, contours, RETR_TREE, CHAIN_APPROX_SIMPLE);
 
@@ -89,8 +97,8 @@ int main() {
         for(int j = 0; j < contours.size(); j += 1){
             RotatedRect rect = minAreaRect(contours[j]);
 
-            double length = rect.size.height;
-            double width = rect.size.width;
+            int length = max(int(rect.size.height), int(rect.size.width));
+            int width = min(int(rect.size.height), int(rect.size.width));
 
             int min_length = 50;
             int max_length = 120;
@@ -112,7 +120,7 @@ int main() {
                     double car_X = car_rect.center.x;
                     double car_Y = car_rect.center.y;
                     double distance = sqrt((car_X - cX) * (car_X - cX) + (car_Y - cY) * (car_Y - cY));
-                    if(distance < 70) {
+                    if(distance < 50) {
                         if(k==0) {
                             car_1_position_updated = true;
                         } else if (k==1){
@@ -150,17 +158,17 @@ int main() {
 
             i++;
             if(i == 1) {
-                for (int k = 0; k < 2; k++) {
-                    if (cars[k].empty == false) {
-                        RotatedRect car_rect = minAreaRect(cars[k].contour);
+                for (int m = 0; m < 2; m++) {
+                    if (cars[m].empty == false) {
+                        RotatedRect car_rect = minAreaRect(cars[m].contour);
                         double car_X = car_rect.center.x;
                         double car_Y = car_rect.center.y;
                         Point2f rect_corners[4];
                         car_rect.points(rect_corners);
-                        cout << "Coordinates of car " << (k + 1) << ":" << car_X << ", " << car_Y << ", "
+                        cout << "Coordinates of car " << (m + 1) << ":" << car_X << ", " << car_Y << ", "
                              << car_rect.angle << endl;
-                        for (int j = 0; j < 4; j++) {
-                            line(imgray, rect_corners[j], rect_corners[(j + 1) % 4], 50 + k * 100, 5, 8);
+                        for (int p = 0; p < 4; p++) {
+                            line(imgray, rect_corners[p], rect_corners[(p + 1) % 4], 50 + m * 100, 5, 8);
                         };
                         circle(imgray, rect.center, 3, (50, 50, 50), -1);
                         putText(imgray, "centre", rect.center, FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 2);
