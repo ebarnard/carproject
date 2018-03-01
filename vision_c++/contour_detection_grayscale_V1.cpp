@@ -14,8 +14,7 @@ struct Car{
 
 int main() {
     // Read video
-    VideoCapture video("C:\\Users\\Nikolay Limonov\\Documents\\GitHub\\carproject\\video\\2_cars_with_markers_drive_"
-                               "bump_demo.avi");
+    VideoCapture video("..\\..\\video\\2_cars_with_markers_drive_bump_demo.avi");
 
 //    for(int l=0;l<100;l++){
 //        Mat frame;
@@ -48,16 +47,18 @@ int main() {
 
     Mat imgray(frame.size(), CV_8UC1);
 
-    cvLoadImage("track_mask.png", CV_LOAD_IMAGE_ANYDEPTH);
     Mat track_mask(frame.size(), CV_8UC1);
-    track_mask = imread("track_mask.png", 0);
-    imwrite("track_mask_c++.png", track_mask);
+    track_mask = imread("..\\track_mask.png", 0);
+    imwrite("..\\track_mask_c++.png", track_mask);
     Mat imgray_2(frame.size(), CV_8UC1);
     Mat mask = (track_mask == 255);
 
-    while(true){
-        auto start = std::chrono::system_clock::now();
+    Mat_<int> kernel(5,5);
+    for(int a = 0; a < kernel.rows; a++)
+        for(int b = 0; b < kernel.cols; b++)
+            kernel(a,b) = 1;
 
+    while(true){
         // Read a new frame
         bool ok = video.read(frame);
         if (!ok){
@@ -66,25 +67,15 @@ int main() {
 
         cvtColor(frame, imgray, CV_BGR2GRAY);
 
+        auto start = std::chrono::high_resolution_clock::now();
+
         threshold(imgray, imgray, 60, 255, 0);
 
         imgray.copyTo(imgray_2, track_mask);
         imgray_2.copyTo(imgray);
 
-        Mat_<int> kernel(5,5);
-        for(int a = 0; a < kernel.rows; a++)
-            for(int b = 0; b < kernel.cols; b++)
-                kernel(a,b) = 1;
-
-        // MORPH_OPEN = 2
-        morphologyEx(imgray, imgray, 2, kernel);
-
-        for(int a = 0; a < kernel.rows; a++)
-            for(int b = 0; b < kernel.cols; b++)
-                kernel(a,b) = 1;
-
-        // MORPH_CLOSE = 3
-        morphologyEx(imgray, imgray, 3, kernel);
+        morphologyEx(imgray, imgray, MORPH_OPEN, kernel);
+        morphologyEx(imgray, imgray, MORPH_CLOSE, kernel);
 
         vector<Mat> contours;
         findContours(imgray, contours, RETR_TREE, CHAIN_APPROX_SIMPLE);
@@ -187,9 +178,9 @@ int main() {
         };
         fflush(stdout);
 
-        auto end = std::chrono::system_clock::now();
+        auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_seconds = end-start;
-        cout<<"time:"<<elapsed_seconds.count()<<endl;
+        cout << "time: " << elapsed_seconds.count() << endl;
 
         resize(imgray, imgray, Size(int(1280 * 0.7), int(1024 * 0.7)));
         imshow("Image", imgray);
