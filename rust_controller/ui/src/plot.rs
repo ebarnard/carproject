@@ -13,11 +13,13 @@ pub enum AxesRange {
     Fixed(f64, f64),
 }
 
+#[derive(Clone, Copy)]
 pub enum AxesScale {
     Same,
     Different,
 }
 
+#[derive(Clone)]
 pub struct Axes {
     x_range: AxesRange,
     y_range: AxesRange,
@@ -239,6 +241,7 @@ impl Ticks {
     }
 }
 
+#[derive(Clone)]
 pub struct Line {
     n: usize,
     vals: VecDeque<(f64, f64)>,
@@ -290,6 +293,7 @@ impl Line {
     }
 }
 
+#[derive(Clone)]
 pub struct SingleLineAxes {
     pub axes: Axes,
     pub line: Line,

@@ -54,6 +54,7 @@ fn run(mut record_tx: EventSender<Event>) {
             track: controller.track().clone(),
             horizon_len: N as usize,
             np: controller.np() as usize,
+            n_cars: 1,
         })
         .expect("visualisation window closed");
 
@@ -119,15 +120,18 @@ fn run(mut record_tx: EventSender<Event>) {
             .collect();
 
         record_tx
-            .send(Event::Record(Record {
-                t: i as float * optimise_dt,
-                predicted_state: res.current_state,
-                control,
-                params: res.params.to_vec(),
-                // TODO: pass real variances here once the plots are working again
-                param_var: res.params.to_vec(),
-                predicted_horizon: position_horizon,
-            }))
+            .send(Event::Record(
+                0,
+                Record {
+                    t: i as float * optimise_dt,
+                    predicted_state: res.current_state,
+                    control,
+                    params: res.params.to_vec(),
+                    // TODO: pass real variances here once the plots are working again
+                    param_var: res.params.to_vec(),
+                    predicted_horizon: position_horizon,
+                },
+            ))
             .expect("visualisation window closed");
 
         let step_elapsed = Instant::now() - step_start;

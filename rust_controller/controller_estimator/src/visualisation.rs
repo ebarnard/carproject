@@ -11,7 +11,7 @@ pub use ui::{EventSender, Window};
 
 pub fn new() -> (ui::Window, ui::EventSender<Event>) {
     let vis = Visualisation {
-        history: History::new(0, 0, 0),
+        history: Vec::new(),
         track_inner: Line::new(0, BLACK),
         track_outer: Line::new(0, BLACK),
     };
@@ -20,7 +20,7 @@ pub fn new() -> (ui::Window, ui::EventSender<Event>) {
 }
 
 struct Visualisation {
-    history: History,
+    history: Vec<History>,
     track_inner: Line,
     track_outer: Line,
 }
@@ -35,64 +35,66 @@ impl ui::State for Visualisation {
                 track,
                 horizon_len,
                 np,
+                n_cars,
             } => {
                 let (track_inner, track_outer) = track_inner_outer(&track, 1000);
                 self.track_inner = track_inner;
                 self.track_outer = track_outer;
-                self.history = History::new(n_history, horizon_len, np)
+                self.history = vec![History::new(n_history, horizon_len, np); n_cars as usize];
             }
-            Event::Record(record) => self.history.record(record),
+            Event::Record(car_idx, record) => self.history[car_idx as usize].record(record),
         }
     }
 
-    fn draw(&self, canvas: &mut ui::Canvas) {
-        let (w, h) = canvas.size();
+    fn draw(&self, c: &mut ui::Canvas) {
+        let (w, h) = c.size();
 
         // 2/3 height for track
-        canvas.subview([0.0, 0.0, w, h * 2.0 / 3.0], &mut |c| {
+        c.subview([0.0, 0.0, w, h * 2.0 / 3.0], &mut |c| {
             ui::pad_all(10.0, c, |c| {
                 let axes = Axes::new(
                     AxesRange::GrowShrink,
                     AxesRange::GrowShrink,
                     AxesScale::Same,
                 );
-                axes.draw(
-                    &[
-                        &self.track_inner,
-                        &self.track_outer,
-                        &self.history.position,
-                        &self.history.predicted_horizon,
-                    ],
-                    c,
-                );
+                let mut track_lines = Vec::with_capacity(2 + self.history.len() * 2);
+                track_lines.push(&self.track_inner);
+                track_lines.push(&self.track_outer);
+                for history in &self.history {
+                    track_lines.push(&history.position);
+                    track_lines.push(&history.predicted_horizon);
+                }
+                axes.draw(&track_lines, c);
             });
         });
 
         // 1/3 for everything else
-        canvas.subview([0.0, h * 2.0 / 3.0, w * 0.25, h * 1.0 / 3.0], &mut |c| {
-            ui::pad_all(10.0, c, |c| self.history.v.draw(c));
-        });
+        let n_cars = self.history.len();
+        for (i, history) in self.history.iter().enumerate() {
+            let subview_h = h / (3.0 * n_cars as f64);
+            let subview_top = h * 2.0 / 3.0 + i as f64 * subview_h;
 
-        canvas.subview(
-            [w * 0.25, h * 2.0 / 3.0, w * 0.25, h * 1.0 / 3.0],
-            &mut |c| {
-                ui::pad_all(10.0, c, |c| self.history.heading.draw(c));
-            },
-        );
+            c.subview([0.0, subview_top, w, subview_h], &mut |c| {
+                let (w, h) = c.size();
+                let plot_w = w / 4.0;
 
-        canvas.subview(
-            [w * 0.5, h * 2.0 / 3.0, w * 0.25, h * 1.0 / 3.0],
-            &mut |c| {
-                ui::pad_all(10.0, c, |c| self.history.throttle_position.draw(c));
-            },
-        );
+                c.subview([0.0 * plot_w, 0.0, plot_w, h], &mut |c| {
+                    ui::pad_all(10.0, c, |c| history.v.draw(c));
+                });
 
-        canvas.subview(
-            [w * 0.75, h * 2.0 / 3.0, w * 0.25, h * 1.0 / 3.0],
-            &mut |c| {
-                ui::pad_all(10.0, c, |c| self.history.steering_angle.draw(c));
-            },
-        );
+                c.subview([1.0 * plot_w, 0.0, plot_w, h], &mut |c| {
+                    ui::pad_all(10.0, c, |c| history.heading.draw(c));
+                });
+
+                c.subview([2.0 * plot_w, 0.0, plot_w, h], &mut |c| {
+                    ui::pad_all(10.0, c, |c| history.throttle_position.draw(c));
+                });
+
+                c.subview([3.0 * plot_w, 0.0, plot_w, h], &mut |c| {
+                    ui::pad_all(10.0, c, |c| history.steering_angle.draw(c));
+                });
+            });
+        }
     }
 }
 
@@ -113,6 +115,7 @@ fn track_inner_outer(track: &Track, n: usize) -> (Line, Line) {
     (track_inner, track_outer)
 }
 
+#[derive(Clone)]
 struct History {
     horizon_len: usize,
     np: usize,
@@ -131,8 +134,9 @@ pub enum Event {
         track: Arc<Track>,
         horizon_len: usize,
         np: usize,
+        n_cars: u32,
     },
-    Record(Record),
+    Record(u32, Record),
 }
 
 pub struct Record {
