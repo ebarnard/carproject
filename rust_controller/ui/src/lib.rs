@@ -11,7 +11,7 @@ pub use graphics::types::Color;
 use glium_graphics::{GlyphCache, TextureSettings};
 
 use std::cell::Cell;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
 mod canvas;
@@ -81,7 +81,7 @@ impl Window {
 
         let event_sender = EventSender {
             tx,
-            proxy: event_loop.create_proxy(),
+            proxy: Arc::new(event_loop.create_proxy()),
         };
 
         let winow = Window {
@@ -190,7 +190,17 @@ impl Window {
 
 pub struct EventSender<T> {
     tx: mpsc::Sender<T>,
-    proxy: glutin::EventsLoopProxy,
+    // TODO: Remove this Arc once we update glium
+    proxy: Arc<glutin::EventsLoopProxy>,
+}
+
+impl<T> Clone for EventSender<T> {
+    fn clone(&self) -> Self {
+        EventSender {
+            tx: self.tx.clone(),
+            proxy: self.proxy.clone(),
+        }
+    }
 }
 
 impl<T> EventSender<T> {

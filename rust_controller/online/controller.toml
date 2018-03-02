@@ -1,11 +1,31 @@
+track = "../data/tracks/office_desk_track_2500.csv"
+# Measurement variance
+R = [0.000004, 0.000004, 0.0009]
+
+# Car 0
+[[cars]]
 optimise_dt = 0.01
 horizon_dt = 0.04
-track = "../data/tracks/office_desk_track_2500.csv"
 N = 45
 model = "no_slip_point"
 controller = "mpc_distance"
-# Measurement variance
-R = [0.000004, 0.000004, 0.0009]
+initial_params = [0.07, 3.9, 10.0, 15.6, 9.9, 1.6, 0.0045]
+# State evolution variance
+Q_state = [0.00005, 0.00005, 0.0001, 0.001, 0.0001]
+# Initial parameter variance
+Q_initial_params = [0.005, 0.005, 1.0, 0.5, 0.5, 0.1, 0.0]
+# Q_params = Q_initial_params * Q_params_multiplier
+Q_params_multiplier = 0.0000000001
+u_min = [0.0, -0.8]
+u_max = [0.25, 0.8]
+
+# Car 1
+[[cars]]
+optimise_dt = 0.01
+horizon_dt = 0.04
+N = 45
+model = "no_slip_point"
+controller = "mpc_distance"
 initial_params = [0.07, 4.0, 10.0, 19.6, 9.9, 1.6, 0.0045]
 # State evolution variance
 Q_state = [0.00005, 0.00005, 0.0001, 0.001, 0.0001]
@@ -14,4 +34,4 @@ Q_initial_params = [0.0, 0.5, 1.0, 0.5, 0.5, 0.1, 0.0]
 # Q_params = Q_initial_params * Q_params_multiplier
 Q_params_multiplier = 0.0000000001
 u_min = [0.0, -0.8]
-u_max = [0.3, 0.8]
+u_max = [0.25, 0.8]

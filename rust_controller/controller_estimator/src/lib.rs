@@ -25,12 +25,12 @@ use control_model::ControlModel;
 use estimator::{Estimator, JointEKF};
 use track::Track;
 
-use config::ControllerConfig;
+use config::{CarConfig, ControllerConfig};
 
 pub use control_model::{Control, State};
 pub use estimator::Measurement;
 
-pub trait ControllerEstimator {
+pub trait ControllerEstimator: Send {
     fn optimise_dt(&self) -> float;
     fn horizon_dt(&self) -> float;
     fn N(&self) -> u32;
@@ -59,7 +59,7 @@ where
     M::NS: DimAdd<M::NP>,
     DimSum<M::NS, M::NP>: DimName,
 {
-    config: config::ControllerConfig,
+    config: CarConfig,
     track: Arc<Track>,
     model: M,
     controller: C,
@@ -74,19 +74,41 @@ where
     estimator_time: Duration,
 }
 
-pub fn controller_from_config() -> Box<ControllerEstimator> {
-    let config = config::ControllerConfig::load();
+// TODO: Remove this hacky impl once nalgebra uses const generics.
+unsafe impl<M: ControlModel, C: Controller<M>> Send for ControllerEstimatorImpl<M, C>
+where
+    DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
+        + Dims3<M::NS, M::NI, M::NP>
+        + Dims2<U3, DimSum<M::NS, M::NP>>,
+    M::NS: DimAdd<M::NP>,
+    DimSum<M::NS, M::NP>: DimName,
+{
+}
+
+pub fn controllers_from_config() -> (Arc<Track>, Vec<Box<ControllerEstimator>>) {
+    let config = ControllerConfig::load();
     let track = Arc::new(track::Track::load(&*config.track));
-    CONTROLLERS
-        .iter()
-        .find(|c| c.0() == config.model && c.1() == config.controller)
-        .expect("controller not found")
-        .2(config, track)
+    let R = Vector3::from_column_slice(&config.R);
+
+    let car_controllers = config
+        .cars
+        .into_iter()
+        .map(|car| {
+            CONTROLLERS
+                .iter()
+                .find(|c| c.0() == car.model && c.1() == car.controller)
+                .expect("controller not found")
+                .2(car, track.clone(), &R)
+        })
+        .collect();
+
+    (track, car_controllers)
 }
 
 fn new<M: 'static + ControlModel, C: 'static + Controller<M>>(
-    config: ControllerConfig,
+    config: CarConfig,
     track: Arc<Track>,
+    R: &Vector3<float>,
 ) -> Box<ControllerEstimator>
 where
     DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
@@ -109,7 +131,7 @@ where
         &config.Q_initial_params,
     ));
     let Q_params = &Q_initial_params * config.Q_params_multiplier;
-    let R = Matrix::from_diagonal(&Vector3::from_column_slice(&config.R));
+    let R = Matrix::from_diagonal(R);
 
     let state_estimator =
         JointEKF::<M>::new(initial_params, Q_state, Q_params, Q_initial_params, R);
@@ -285,7 +307,7 @@ macro_rules! controllers {
             (
                 fn() -> &'static str,
                 fn() -> &'static str,
-                fn(ControllerConfig, Arc<Track>) -> Box<ControllerEstimator>
+                fn(CarConfig, Arc<Track>, &Vector3<float>) -> Box<ControllerEstimator>
             )
         ] = expand_controllers!(($($model,)*); (); $($controllers,)*);
     };

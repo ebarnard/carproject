@@ -40,7 +40,12 @@ fn main() {
 }
 
 fn run(mut record_tx: EventSender<Event>) {
-    let mut controller = controller_estimator::controller_from_config();
+    let (track, mut controllers) = controller_estimator::controllers_from_config();
+    if controllers.len() != 1 {
+        panic!("simulator can only be run with one car");
+    }
+    let mut controller = controllers.remove(0);
+
     let optimise_dt = controller.optimise_dt();
     let N = controller.N();
 

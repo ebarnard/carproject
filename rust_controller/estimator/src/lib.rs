@@ -30,7 +30,7 @@ where
     fn param_covariance(&self) -> Matrix<M::NP, M::NP>;
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Measurement {
     pub position: (float, float),
     pub heading: float,
