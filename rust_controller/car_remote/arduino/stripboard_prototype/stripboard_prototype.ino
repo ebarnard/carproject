@@ -21,7 +21,7 @@ void setup() {
     pinMode(POT_CS_PINS[i], OUTPUT);
 
     // Set the POTs to middle range
-    send_command(0, 128, 128);
+    send_command(i, 128, 128);
   }
 
   // Start USB serial interface
@@ -233,6 +233,8 @@ void send_command(int car, int throttle, int steering) {
   // Enable POT_0 SPI interface.
   digitalWrite(POT_CS_PINS[car], LOW);
   // Wait at least 60ns for it to become enabled
+  __asm__("nop\n\t");
+  __asm__("nop\n\t");
   __asm__("nop\n\t");
 
   SPI.transfer(0x00);
