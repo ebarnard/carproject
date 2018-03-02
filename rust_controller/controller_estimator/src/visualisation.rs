@@ -9,14 +9,12 @@ use track::Track;
 
 pub use ui::{EventSender, Window};
 
-pub fn new() -> (ui::Window, ui::EventSender<Event>) {
-    let vis = Visualisation {
+pub fn new() -> (Window, EventSender<Event>) {
+    Window::new(Visualisation {
         history: Vec::new(),
         track_inner: Line::new(0, BLACK),
         track_outer: Line::new(0, BLACK),
-    };
-
-    ui::Window::new(vis)
+    })
 }
 
 struct Visualisation {
