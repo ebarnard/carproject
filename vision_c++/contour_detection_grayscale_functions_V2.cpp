@@ -31,13 +31,6 @@ vector<CarPosition> position_update (Car* cars, Mat image, int number_of_cars) {
             cars[k].position.y = car_Y;
             cars[k].position.heading = car_rect.angle;
             positions.push_back(cars[k].position);
-            Point2f rect_corners[4];
-            car_rect.points(rect_corners);
-            for (int p = 0; p < 4; p++) {
-                line(image, rect_corners[p], rect_corners[(p + 1) % 4], 50 + k * 100, 5, 8);
-            };
-            circle(image, car_rect.center, 5, (50, 50, 50), -1);
-            putText(image, "centre", car_rect.center, FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2);
         };
     };
     return positions;
@@ -155,10 +148,6 @@ public:
             cars[1].empty = true;
         };
 
-        resize(imgray, imgray, Size(int(1280 * 0.7), int(1024 * 0.7)));
-        imshow("Image", imgray);
-        waitKey(1);
-
         return positions;
     };
 };
@@ -183,9 +172,14 @@ int main () {
         if (!ok) {
             break;
         };
+
+        auto start = std::chrono::high_resolution_clock::now();
+
         positions = tracker.car_position_detecting(&frame);
-//        cout<<"Position of car 1: "<<positions[0].x<<", "<<positions[0].y<<", "<<positions[0].heading<<endl;
-//        cout<<"Position of car 2: "<<positions[1].x<<", "<<positions[1].y<<", "<<positions[1].heading<<endl;
+
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        cout << "time: " << elapsed_seconds.count() << endl;
     };
     return 0;
 }
