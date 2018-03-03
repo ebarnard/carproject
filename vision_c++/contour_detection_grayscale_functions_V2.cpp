@@ -36,8 +36,8 @@ vector<CarPosition> position_update (Car* cars, int number_of_cars) {
     return positions;
 };
 
-void car_contour_filtering (Car* cars, int number_of_cars, Mat* contour) {
-    RotatedRect rect = minAreaRect(*contour);
+void car_contour_filtering (Car* cars, int number_of_cars, Mat contour) {
+    RotatedRect rect = minAreaRect(contour);
 
     int length = max(int(rect.size.height), int(rect.size.width));
     int width = min(int(rect.size.height), int(rect.size.width));
@@ -60,7 +60,7 @@ void car_contour_filtering (Car* cars, int number_of_cars, Mat* contour) {
             double distance = sqrt((car_X - cX) * (car_X - cX) + (car_Y - cY) * (car_Y - cY));
             if (distance < 50) {
                 cars[k].position_updated = true;
-                cars[k].contour = *contour;
+                cars[k].contour = contour;
                 cars[k].empty = false;
             };
         } else if (cars[k].empty) {
@@ -85,13 +85,13 @@ void car_contour_filtering (Car* cars, int number_of_cars, Mat* contour) {
                 };
                 cars[k].position_updated = true;
             };
-            cars[k].contour = *contour;
+            cars[k].contour = contour;
             cars[k].empty = false;
         };
     };
 };
 
-Mat frame_filtering (Mat& image, Mat track_mask, Mat_<int> kernel) {
+Mat frame_filtering (Mat image, Mat track_mask, Mat_<int> kernel) {
     threshold(image, image, 60, 255, 0);
 
     Mat imgray_2(image.size(), CV_8UC1);
@@ -108,12 +108,14 @@ class Tracker {
 public:
     Car cars[2];
     Mat imgray;
-    Mat track_mask = imread("..\\track_mask.png", 0);
+    Mat track_mask;
     Mat_<int> kernel;
     vector<Mat> contours;
 
-    Tracker (Mat frame) {
-        Mat imgray(frame.size(), CV_8UC1);
+    Tracker (Mat mask) {
+        Mat imgray(mask.size(), CV_8UC1);
+
+        track_mask = mask;
         for(int a = 0; a < kernel.rows; a++) {
             for (int b = 0; b < kernel.cols; b++) {
                 kernel(a, b) = 1;
@@ -122,9 +124,9 @@ public:
 
     };
 
-    vector<CarPosition> car_position_detecting (Mat* frame) {
+    vector<CarPosition> car_position_detecting (Mat frame) {
         vector<CarPosition> positions;
-        cvtColor(*frame, imgray, CV_BGR2GRAY);
+        cvtColor(frame, imgray, CV_BGR2GRAY);
 
         imgray = frame_filtering(imgray, track_mask, kernel);
 
@@ -133,7 +135,7 @@ public:
         cars[0].position_updated = false;
         cars[1].position_updated = false;
         for(int j = 0; j < contours.size(); j += 1) {
-            car_contour_filtering(cars, 2, &contours[j]);
+            car_contour_filtering(cars, 2, contours[j]);
             if (j == (contours.size()-1)) {
                 positions = position_update(cars, 2);
             };
@@ -163,8 +165,9 @@ int main () {
     };
 
     vector<CarPosition> positions;
-
-    Tracker tracker(frame);
+    Mat track_mask;
+    track_mask = imread("..\\track_mask.png", 0);
+    Tracker tracker(track_mask);
 
     while (true) {
         // Read a new frame
@@ -175,11 +178,16 @@ int main () {
 
         auto start = std::chrono::high_resolution_clock::now();
 
-        positions = tracker.car_position_detecting(&frame);
+        positions = tracker.car_position_detecting(frame);
 
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_seconds = end-start;
         cout << "time: " << elapsed_seconds.count() << endl;
+
+        for (int i=0;i<positions.size();i++) {
+            cout<<"Position of car "<<(i+1)<<": "<<positions[i].x<<", "<<positions[i].y<<", "
+                <<positions[i].heading<<endl;
+        };
     };
     return 0;
 }
