@@ -20,7 +20,7 @@ struct Car {
     CarPosition position;
 };
 
-vector<CarPosition> position_update (Car* cars, Mat image, int number_of_cars) {
+vector<CarPosition> position_update (Car* cars, int number_of_cars) {
     vector<CarPosition> positions;
     for (int k = 0; k < number_of_cars; k++) {
         if (!cars[k].empty) {
@@ -135,7 +135,7 @@ public:
         for(int j = 0; j < contours.size(); j += 1) {
             car_contour_filtering(cars, 2, &contours[j]);
             if (j == (contours.size()-1)) {
-                positions = position_update(cars, imgray, 2);
+                positions = position_update(cars, 2);
             };
         };
 
