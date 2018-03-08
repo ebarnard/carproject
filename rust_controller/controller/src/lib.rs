@@ -9,6 +9,7 @@ extern crate sparse;
 extern crate track;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use prelude::*;
 use control_model::ControlModel;
@@ -49,5 +50,6 @@ where
         x: &Vector<M::NS>,
         u: &Matrix<M::NI, Dy>,
         p: &Vector<M::NP>,
+        time_limit: Duration,
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>);
 }

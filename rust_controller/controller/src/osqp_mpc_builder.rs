@@ -2,6 +2,7 @@ use log::Level::Debug;
 use nalgebra::{Dynamic as Dy, MatrixMN, U1};
 use osqp::{Problem, Settings, Status};
 use std::iter::{once, repeat};
+use std::time::{Duration, Instant};
 
 use prelude::*;
 use sparse;
@@ -280,7 +281,13 @@ where
             .copy_from(s.stage_ineq_max);
     }
 
-    pub fn solve(&mut self, u_prev: Vector<NI>) -> Result<Solution<NS, NI>, ()> {
+    pub fn solve(
+        &mut self,
+        u_prev: Vector<NI>,
+        time_limit: Duration,
+    ) -> Result<Solution<NS, NI>, ()> {
+        let solve_start = Instant::now();
+
         let N = self.N;
         let ns = NS::dim();
         let n_virtual_states = self.n_virtual_states;
@@ -311,6 +318,11 @@ where
         self.problem
             .update_bounds(self.l.as_slice(), self.u.as_slice());
         self.problem.update_A(&self.A);
+
+        let solve_time_limit = time_limit
+            .checked_sub(solve_start.elapsed())
+            .unwrap_or_default();
+        self.problem.update_time_limit(Some(solve_time_limit));
 
         // Work around the lack of NLL in Rust
         // TODO: Remove this workaround once NLL is released (next three blocks)
@@ -351,7 +363,8 @@ where
         let primal_infeasible = match self.problem.solve() {
             Status::Solved(solution)
             | Status::SolvedInaccurate(solution)
-            | Status::MaxIterationsReached(solution) => {
+            | Status::MaxIterationsReached(solution)
+            | Status::TimeLimitReached(solution) => {
                 // Update soft constraint multipliers
                 let lambda_max = solution
                     .y()
@@ -411,6 +424,10 @@ where
                 Status::Solved(solution) | Status::SolvedInaccurate(solution) => solution,
                 Status::MaxIterationsReached(solution) => {
                     println!("max iterations reached on soft constrained problem");
+                    solution
+                }
+                Status::TimeLimitReached(solution) => {
+                    println!("time limit reached on soft constrained problem");
                     solution
                 }
                 Status::PrimalInfeasible(_) | Status::PrimalInfeasibleInaccurate(_) => {

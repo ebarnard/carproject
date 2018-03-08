@@ -17,7 +17,7 @@ pub mod visualisation;
 
 use nalgebra::{self, DimAdd, DimSum, MatrixMN, U0, U3, Vector3};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use prelude::*;
 use controller::Controller;
@@ -218,6 +218,8 @@ where
 
     // `control_application_time` is the time at which the returned control input will be applied.
     fn step(&mut self, control_application_time: Duration) -> StepResult {
+        let step_start = Instant::now();
+
         // Calculate how far in the future the control will be applied.
         let control_application_delay = control_application_time
             .checked_sub(self.estimator_time)
@@ -243,12 +245,16 @@ where
         );
 
         // Optimise control inputs.
+        let controller_time_limit = control_application_delay
+            .checked_sub(step_start.elapsed())
+            .unwrap_or_default();
         let (horizon_ctrl, horizon_state) = self.controller.step(
             &mut self.model,
             self.config.horizon_dt,
             &control_application_state,
             &self.u,
             &predicted_params,
+            controller_time_limit,
         );
         self.u
             .columns_mut(0, self.config.N as usize)

@@ -2,6 +2,7 @@ use flame;
 use log::Level::Debug;
 use nalgebra::{self, MatrixMN, U1, U2};
 use std::sync::Arc;
+use std::time::Duration;
 
 use prelude::*;
 use control_model::ControlModel;
@@ -63,6 +64,7 @@ where
         x: &Vector<M::NS>,
         u: &Matrix<M::NI, Dy>,
         p: &Vector<M::NP>,
+        time_limit: Duration,
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>) {
         let v_target = dt * 0.5;
         let mut s_target = flame::span_of("centreline distance lookup", || {
@@ -70,7 +72,7 @@ where
         });
 
         let track = &self.track;
-        self.base.step(model, dt, x, u, p, |_i, x_i, _u_i, stage| {
+        self.base.step(model, dt, x, u, p, time_limit, |_i, x_i, _u_i, stage| {
             // Find track point
             s_target += v_target;
             let target = flame::span_of("centreline point lookup", || {

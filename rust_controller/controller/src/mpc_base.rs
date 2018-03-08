@@ -1,5 +1,6 @@
 use flame;
 use nalgebra::{MatrixMN, U1};
+use std::time::Duration;
 
 use prelude::*;
 use control_model::{discretise, discretise_sparsity, ControlModel};
@@ -100,6 +101,7 @@ where
         x: &Vector<M::NS>,
         u: &Matrix<M::NI, Dy>,
         p: &Vector<M::NP>,
+        time_limit: Duration,
         mut f: F,
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>)
     where
@@ -146,7 +148,7 @@ where
 
         let guard = flame::start_guard("mpc solve");
         let solution = self.mpc
-            .solve(u.column(0).into_owned())
+            .solve(u.column(0).into_owned(), time_limit)
             .expect("solve failed");
         guard.end();
 

@@ -5,6 +5,7 @@ extern crate sparse;
 use flame;
 use self::osqp_inner::Problem as InnerProblem;
 pub use self::osqp_inner::*;
+use std::time::Duration;
 
 use prelude::*;
 
@@ -55,6 +56,10 @@ impl Problem {
     pub fn update_A(&mut self, A: &sparse::CscMatrix) {
         let _guard = flame::start_guard("osqp update_A");
         self.inner.update_A(convert_sparse(A))
+    }
+
+    pub fn update_time_limit(&mut self, time_limit: Option<Duration>) {
+        self.inner.update_time_limit(time_limit)
     }
 
     pub fn solve(&mut self) -> Status {
