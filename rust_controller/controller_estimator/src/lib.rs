@@ -119,6 +119,7 @@ where
 {
     let model = M::new();
     let N = config.N;
+    let optimise_dt = config.optimise_dt;
 
     let mut controller = C::new(&model, N, &track);
     let u_min = Vector::<M::NI>::from_column_slice(&config.u_min);
@@ -132,22 +133,38 @@ where
     ));
     let Q_params = &Q_initial_params * config.Q_params_multiplier;
     let R = Matrix::from_diagonal(R);
+    let estimator = JointEKF::<M>::new(initial_params, Q_state, Q_params, Q_initial_params, R);
 
-    let state_estimator =
-        JointEKF::<M>::new(initial_params, Q_state, Q_params, Q_initial_params, R);
+    let mut u = MatrixMN::zeros_generic(<M::NI as DimName>::name(), Dy::new(N as usize + 1));
+    // Start with non-zero inputs to avoid strange initial solve behaviour.
+    u.row_mut(0).fill(config.u_max[0] * 1e-2);
+    for i in 0..u.shape().1 {
+        u[(1, i)] = 1e-2 * if i % 2 == 0 {
+            config.u_min[1]
+        } else {
+            config.u_max[1]
+        };
+    }
 
-    Box::new(ControllerEstimatorImpl {
+    let mut controller = Box::new(ControllerEstimatorImpl {
         config,
         track,
         model,
-        controller: controller,
-        estimator: state_estimator,
-        u: MatrixMN::zeros_generic(<M::NI as DimName>::name(), Dy::new(N as usize + 1)),
+        controller,
+        estimator,
+        u,
         horizon: vec![Default::default(); N as usize],
         u_target_time: Duration::from_secs(0),
         current_control: Vector::<M::NI>::zeros(),
         estimator_time: Duration::from_secs(0),
-    })
+    });
+
+    // Run the controller a few time to initialise rho.
+    for _ in 0..100 {
+        controller.step(secs_to_duration(optimise_dt));
+    }
+
+    controller
 }
 
 impl<M: 'static + ControlModel, C: Controller<M>> ControllerEstimator

@@ -18,8 +18,8 @@ extern crate track;
 mod config;
 mod simulation_model;
 
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::Instant;
 
 use prelude::*;
 use controller_estimator::{Control, Measurement};
@@ -64,13 +64,10 @@ fn run(mut record_tx: EventSender<Event>) {
         .expect("visualisation window closed");
 
     let n_steps = (sim_config.t / optimise_dt) as usize;
-    let dt_duration = Duration::new(
-        optimise_dt.floor() as u64,
-        (optimise_dt.fract() * 1e9) as u32,
-    );
+    let dt_duration = secs_to_duration(optimise_dt);
     let mut stats = stats::OnlineStats::new();
 
-    let initial_position = controller.track().nearest_centreline_point(0.0);
+    let initial_position = track.nearest_centreline_point(0.0);
     let mut sim_state = sim_model.init_state(
         initial_position.x,
         initial_position.y,

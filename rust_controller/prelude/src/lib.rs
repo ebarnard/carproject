@@ -40,6 +40,10 @@ pub fn duration_to_secs(d: Duration) -> float {
     d.as_secs() as f64 + d.subsec_nanos() as f64 * 1e-9
 }
 
+pub fn secs_to_duration(secs: float) -> Duration {
+    Duration::new(secs.floor() as u64, (secs.fract() * 1e9) as u32)
+}
+
 pub type Matrix<R, C> = nalgebra::MatrixMN<float, R, C>;
 pub type Vector<N> = nalgebra::VectorN<float, N>;
 

@@ -451,20 +451,21 @@ where
         }
 
         // Validate input constraints
+        let mut u_not_within_constraints = false;
         for i in 0..N {
-            let u = self.u_mpc.column(i);
-            let a = u.iter()
-                .zip(self.u_max.iter())
-                .all(|(&val, &max)| val <= max + 0.1);
-            let b = u.iter()
-                .zip(self.u_min.iter())
-                .all(|(&val, &min)| val >= min - 0.1);
-            if !(a && b) {
-                println!("u: {}", self.u_mpc);
-                println!("u_min: {}", &self.l.rows(N * (ns + ni), N * ni));
-                println!("u_max: {}", &self.u.rows(N * (ns + ni), N * ni));
-                println!("u not within constraints");
+            let mut u = self.u_mpc.column_mut(i);
+            for ((u, &u_min), &u_max) in u.iter_mut().zip(&self.u_min).zip(&self.u_max) {
+                if *u < u_min - 1e-2 {
+                    *u = u_min;
+                    u_not_within_constraints = true;
+                } else if *u > u_max + 1e-2 {
+                    *u = u_max;
+                    u_not_within_constraints = true;
+                }
             }
+        }
+        if u_not_within_constraints {
+            println!("u not within constraints");
         }
 
         Ok(Solution {
