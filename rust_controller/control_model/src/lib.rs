@@ -122,16 +122,16 @@ where
     fn input_delta_bounds(&self) -> (Vector<Self::NI>, Vector<Self::NI>);
 }
 
-pub fn discretise<NS: DimName, NI: DimName>(
+pub fn discretise<NA: DimName, NB: DimName>(
     dt: float,
-    A: &Matrix<NS, NS>,
-    B: &Matrix<NS, NI>,
-) -> (Matrix<NS, NS>, Matrix<NS, NI>)
+    A: &Matrix<NA, NA>,
+    B: &Matrix<NA, NB>,
+) -> (Matrix<NA, NA>, Matrix<NA, NB>)
 where
-    DefaultAllocator: Dims2<NS, NI>,
+    DefaultAllocator: Dims2<NA, NB>,
 {
     // Second order taylor approximation for matrix exponential exp(x)
-    let I = Matrix::<NS, NS>::identity();
+    let I = Matrix::<NA, NA>::identity();
 
     let A_d = &I + (A * dt) + (A * A * dt * dt / 2.0);
     let B_d = ((I * dt) + (A * dt * dt / 2.0)) * B;
@@ -139,12 +139,12 @@ where
     (A_d, B_d)
 }
 
-pub fn discretise_sparsity<NS: DimName, NI: DimName>(
-    A: &MatrixMN<bool, NS, NS>,
-    B: &MatrixMN<bool, NS, NI>,
-) -> (MatrixMN<bool, NS, NS>, MatrixMN<bool, NS, NI>)
+pub fn discretise_sparsity<NA: DimName, NB: DimName>(
+    A: &MatrixMN<bool, NA, NA>,
+    B: &MatrixMN<bool, NA, NB>,
+) -> (MatrixMN<bool, NA, NA>, MatrixMN<bool, NA, NB>)
 where
-    DefaultAllocator: Dims2<NS, NI>,
+    DefaultAllocator: Dims2<NA, NB>,
 {
     let A = A.map(|_| 1.0);
     let B = B.map(|_| 1.0);
