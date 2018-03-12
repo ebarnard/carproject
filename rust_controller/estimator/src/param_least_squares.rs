@@ -8,7 +8,7 @@ use control_model::{discretise, ControlModel};
 
 pub struct ParamLeastSquares<M: ControlModel>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     problem: Problem,
     params: Vector<M::NP>,
@@ -25,7 +25,7 @@ where
 
 impl<M: ControlModel> ParamLeastSquares<M>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     pub fn new(delta_p_max: Vector<M::NP>, params: Vector<M::NP>) -> ParamLeastSquares<M> {
         // TODO: Choose this more carefully based on parameter scales.

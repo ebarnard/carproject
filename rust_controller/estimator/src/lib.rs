@@ -7,17 +7,21 @@ extern crate osqp;
 extern crate prelude;
 extern crate sparse;
 
+use nalgebra::U3;
+
 use prelude::*;
 use control_model::ControlModel;
 
 mod ekf;
-pub use ekf::{JointEKF, EKF};
+pub use ekf::JointEKF;
 
 mod param_least_squares;
 
+type NM = U3;
+
 pub trait Estimator<M: ControlModel>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     fn step(
         &mut self,

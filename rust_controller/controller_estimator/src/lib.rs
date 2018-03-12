@@ -15,7 +15,7 @@ extern crate ui;
 mod config;
 pub mod visualisation;
 
-use nalgebra::{self, DimAdd, DimSum, MatrixMN, U0, U3, Vector3};
+use nalgebra::{self, MatrixMN, Vector3};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -53,11 +53,7 @@ pub struct StepResult<'a> {
 
 pub struct ControllerEstimatorImpl<M: ControlModel, C: Controller<M>>
 where
-    DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
-        + Dims3<M::NS, M::NI, M::NP>
-        + Dims2<U3, DimSum<M::NS, M::NP>>,
-    M::NS: DimAdd<M::NP>,
-    DimSum<M::NS, M::NP>: DimName,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     config: CarConfig,
     track: Arc<Track>,
@@ -77,11 +73,7 @@ where
 // TODO: Remove this hacky impl once nalgebra uses const generics.
 unsafe impl<M: ControlModel, C: Controller<M>> Send for ControllerEstimatorImpl<M, C>
 where
-    DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
-        + Dims3<M::NS, M::NI, M::NP>
-        + Dims2<U3, DimSum<M::NS, M::NP>>,
-    M::NS: DimAdd<M::NP>,
-    DimSum<M::NS, M::NP>: DimName,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
 }
 
@@ -111,11 +103,7 @@ fn new<M: 'static + ControlModel, C: 'static + Controller<M>>(
     R: &Vector3<float>,
 ) -> Box<ControllerEstimator>
 where
-    DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
-        + Dims3<M::NS, M::NI, M::NP>
-        + Dims2<U3, DimSum<M::NS, M::NP>>,
-    M::NS: DimAdd<M::NP>,
-    DimSum<M::NS, M::NP>: DimName,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     let model = M::new();
     let N = config.N;
@@ -170,11 +158,7 @@ where
 impl<M: 'static + ControlModel, C: Controller<M>> ControllerEstimator
     for ControllerEstimatorImpl<M, C>
 where
-    DefaultAllocator: Dims3<DimSum<M::NS, M::NP>, M::NI, U0>
-        + Dims3<M::NS, M::NI, M::NP>
-        + Dims2<U3, DimSum<M::NS, M::NP>>,
-    M::NS: DimAdd<M::NP>,
-    DimSum<M::NS, M::NP>: DimName,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     fn optimise_dt(&self) -> float {
         self.config.optimise_dt

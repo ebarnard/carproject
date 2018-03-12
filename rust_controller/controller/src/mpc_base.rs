@@ -8,7 +8,7 @@ use {MpcStage, OsqpMpc};
 
 pub struct MpcBase<M: ControlModel>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     horizon: u32,
     mpc: OsqpMpc<M::NS, M::NI>,
@@ -37,7 +37,7 @@ impl MpcBaseStage {
 
 impl<M: ControlModel> MpcBase<M>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     pub fn new(
         model: &M,

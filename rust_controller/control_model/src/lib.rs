@@ -15,9 +15,6 @@ pub use spengler_gammeter::SpenglerGammeter;
 mod no_slip_point;
 pub use no_slip_point::NoSlipPoint;
 
-mod combine_state;
-pub use combine_state::CombineState;
-
 #[derive(Clone, Copy, Debug, Default)]
 pub struct State {
     pub position: (float, float),
@@ -33,11 +30,11 @@ pub struct Control {
 
 pub trait ControlModel
 where
-    DefaultAllocator: Dims3<Self::NS, Self::NI, Self::NP>,
+    DefaultAllocator: ModelDims<Self::NS, Self::NI, Self::NP>,
 {
     type NS: DimName;
-    type NI: DimName;
-    type NP: DimName;
+    type NI: DimNameAdd<Self::NS>;
+    type NP: DimNameAdd<Self::NS>;
 
     fn new() -> Self
     where

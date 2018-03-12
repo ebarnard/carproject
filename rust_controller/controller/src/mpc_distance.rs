@@ -10,7 +10,7 @@ use {Controller, MpcBase};
 
 pub struct MpcDistance<M: ControlModel>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     base: MpcBase<M>,
     track: Arc<Track>,
@@ -18,7 +18,7 @@ where
 
 impl<M: ControlModel> Controller<M> for MpcDistance<M>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     fn new(model: &M, N: u32, track: &Arc<Track>) -> MpcDistance<M> {
         let ns = M::NS::dim();

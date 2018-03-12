@@ -47,18 +47,25 @@ pub fn secs_to_duration(secs: float) -> Duration {
 pub type Matrix<R, C> = nalgebra::MatrixMN<float, R, C>;
 pub type Vector<N> = nalgebra::VectorN<float, N>;
 
-use nalgebra::{Dim, Scalar, U1};
+use nalgebra::{Dim, DimNameSum, Scalar, U1, U3};
 pub use nalgebra::allocator::Allocator;
-pub use nalgebra::{DefaultAllocator, DimName, Dynamic as Dy};
+pub use nalgebra::{DefaultAllocator, DimName, DimNameAdd, Dynamic as Dy};
 
-pub trait Dims3<A: Dim, B: Dim, C: Dim>: Dims2<A, B> + Dims2<A, C> + Dims2<B, C> {}
+pub trait ModelDims<A: DimName, B: DimNameAdd<A>, C: DimNameAdd<A>>
+    : Dims2<A, B> + Dims2<A, C> + Dims2<B, C> + Dims2<DimNameSum<B, A>, C> + Dims2<DimNameSum<C, A>, B>
+    {
+}
 
-impl<A, B, C> Dims3<A, B, C> for DefaultAllocator
+impl<A, B, C> ModelDims<A, B, C> for DefaultAllocator
 where
-    A: Dim,
-    B: Dim,
-    C: Dim,
-    DefaultAllocator: Dims2<A, B> + Dims2<A, C> + Dims2<B, C>,
+    A: DimName,
+    B: DimNameAdd<A>,
+    C: DimNameAdd<A>,
+    DefaultAllocator: Dims2<A, B>
+        + Dims2<A, C>
+        + Dims2<B, C>
+        + Dims2<DimNameSum<B, A>, C>
+        + Dims2<DimNameSum<C, A>, B>,
 {
 }
 
@@ -82,7 +89,11 @@ pub trait Dims2N<N: Scalar, A: Dim, B: Dim>
     + Allocator<N, A>
     + Allocator<N, B>
     + Allocator<N, U1, A>
-    + Allocator<N, U1, B> {
+    + Allocator<N, U1, B>
+    + Allocator<N, A, U3>
+    + Allocator<N, B, U3>
+    + Allocator<N, U3, A>
+    + Allocator<N, U3, B> {
 }
 
 impl<N, A, B> Dims2N<N, A, B> for DefaultAllocator
@@ -97,6 +108,10 @@ where
         + Allocator<N, A>
         + Allocator<N, B>
         + Allocator<N, U1, A>
-        + Allocator<N, U1, B>,
+        + Allocator<N, U1, B>
+        + Allocator<N, A, U3>
+        + Allocator<N, B, U3>
+        + Allocator<N, U3, A>
+        + Allocator<N, U3, B>,
 {
 }

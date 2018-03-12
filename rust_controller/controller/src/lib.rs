@@ -29,7 +29,7 @@ pub use osqp_mpc_builder::{MpcStage, OsqpMpc};
 
 pub trait Controller<M: ControlModel>
 where
-    DefaultAllocator: Dims3<M::NS, M::NI, M::NP>,
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     fn new(model: &M, N: u32, track: &Arc<Track>) -> Self
     where
