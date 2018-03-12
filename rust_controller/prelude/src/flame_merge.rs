@@ -3,7 +3,7 @@ use std::fs::File;
 use std::mem;
 
 pub fn write_flame() {
-    let mut spans = flame::threads().into_iter().next().unwrap().spans;
+    let mut spans = flame::threads().into_iter().flat_map(|t| t.spans).collect();
     merge_spans(&mut spans);
     flame::dump_html_custom(&mut File::create("flame-graph.html").unwrap(), &spans).unwrap();
 }
