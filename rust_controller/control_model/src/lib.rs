@@ -3,7 +3,7 @@
 
 extern crate prelude;
 
-use nalgebra::MatrixMN;
+use nalgebra::{DimNameSum, MatrixMN};
 use prelude::*;
 
 mod directvelocity;
@@ -14,6 +14,8 @@ pub use spengler_gammeter::SpenglerGammeter;
 
 mod no_slip_point;
 pub use no_slip_point::NoSlipPoint;
+
+mod expm;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct State {
@@ -119,29 +121,33 @@ where
     fn input_delta_bounds(&self) -> (Vector<Self::NI>, Vector<Self::NI>);
 }
 
-pub fn discretise<NA: DimName, NB: DimName>(
+pub fn discretise<NA: DimName, NB: DimNameAdd<NA>>(
     dt: float,
     A: &Matrix<NA, NA>,
     B: &Matrix<NA, NB>,
 ) -> (Matrix<NA, NA>, Matrix<NA, NB>)
 where
-    DefaultAllocator: Dims2<NA, NB>,
+    DefaultAllocator: Dims2<NA, NB> + Dims2<DimNameSum<NB, NA>, DimNameSum<NB, NA>>,
 {
-    // Second order taylor approximation for matrix exponential exp(x)
-    let I = Matrix::<NA, NA>::identity();
+    let mut C = Matrix::<DimNameSum<NB, NA>, DimNameSum<NB, NA>>::zeros();
+    C.fixed_slice_mut::<NA, NA>(0, 0).copy_from(A);
+    C.fixed_slice_mut::<NA, NB>(0, NA::dim()).copy_from(B);
+    C *= dt;
 
-    let A_d = &I + (A * dt) + (A * A * dt * dt / 2.0);
-    let B_d = ((I * dt) + (A * dt * dt / 2.0)) * B;
+    let C_d = expm::expm(&C);
+
+    let A_d = C_d.fixed_slice::<NA, NA>(0, 0).into_owned();
+    let B_d = C_d.fixed_slice::<NA, NB>(0, NA::dim()).into_owned();
 
     (A_d, B_d)
 }
 
-pub fn discretise_sparsity<NA: DimName, NB: DimName>(
+pub fn discretise_sparsity<NA: DimName, NB: DimNameAdd<NA>>(
     A: &MatrixMN<bool, NA, NA>,
     B: &MatrixMN<bool, NA, NB>,
 ) -> (MatrixMN<bool, NA, NA>, MatrixMN<bool, NA, NB>)
 where
-    DefaultAllocator: Dims2<NA, NB>,
+    DefaultAllocator: Dims2<NA, NB> + Dims2<DimNameSum<NB, NA>, DimNameSum<NB, NA>>,
 {
     let A = A.map(|_| 1.0);
     let B = B.map(|_| 1.0);
