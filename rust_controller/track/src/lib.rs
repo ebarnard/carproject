@@ -191,6 +191,7 @@ impl Track {
                 track_outer_pixels,
                 track_inner_pixels,
                 prev_track_inner_pixels,
+                255,
             );
             draw_tri(
                 &mut mask,
@@ -198,6 +199,7 @@ impl Track {
                 track_outer_pixels,
                 prev_track_outer_pixels,
                 prev_track_inner_pixels,
+                255,
             );
 
             prev_track_outer_pixels = track_outer_pixels;
@@ -263,12 +265,13 @@ impl KdtreePointTrait for IndexedPoint {
 // A wild triangle rasterisation algorithm appears. This probably isn't the best place for it.
 // It is based on the triangle drawing algorithm from:
 // http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
-fn draw_tri(
-    image: &mut [u8],
+fn draw_tri<T: Copy>(
+    image: &mut [T],
     width: usize,
     v1: (float, float),
     v2: (float, float),
     v3: (float, float),
+    colour: T,
 ) {
     assert!(image.len() % width == 0);
     let height = image.len() / width;
@@ -310,7 +313,7 @@ fn draw_tri(
             let scan_x_left = min(min(x_left as usize, x_right as usize), width);
             let scan_x_right = min(max(x_left as usize, x_right as usize), width);
             for i in scan_x_left..scan_x_right {
-                image[scan_y as usize * width + i] = 255;
+                image[scan_y as usize * width + i] = colour;
             }
         }
 
