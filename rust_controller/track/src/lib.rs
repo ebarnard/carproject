@@ -55,32 +55,35 @@ impl Track {
     /// Panics if track points are not equally spaced.
     pub fn from_track(x: &[float], y: &[float], width: &[float]) -> Track {
         let n = x.len();
+        assert_eq!(n, y.len());
+        assert_eq!(n, width.len());
 
-        let x_spline = CubicSpline::periodic(x);
-        let y_spline = CubicSpline::periodic(y);
-
-        let x0 = x_spline.evaluate(0.0).0;
-        let y0 = y_spline.evaluate(0.0).0;
-
-        let ds_dt: Vec<_> = (0..n)
-            .map(|i| (i + 1) as float)
-            .map(|t| (x_spline.evaluate(t).0, y_spline.evaluate(t).0))
-            .scan((x0, y0), |acc, (x, y)| {
-                let ds = float::hypot(x - acc.0, y - acc.1);
-                *acc = (x, y);
-                Some(ds)
-            })
-            .collect();
-
-        let cumulative_distance: Vec<_> = ds_dt
-            .iter()
-            .scan(0.0, |s, ds| {
-                *s += ds;
-                Some(*s)
+        let cumulative_distance: Vec<_> = (1..n + 1)
+            .scan((0.0, x[0], y[0]), |acc, t| {
+                let t = t % n;
+                let (x, y) = (x[t], y[t]);
+                let s = acc.0 + float::hypot(x - acc.1, y - acc.2);
+                *acc = (s, x, y);
+                Some(s)
             })
             .collect();
 
         let total_distance = cumulative_distance[n - 1];
+        let dt_ds = n as float / total_distance;
+
+        let x_spline = CubicSpline::periodic(x);
+        let y_spline = CubicSpline::periodic(y);
+
+        // Check points are equally spaced
+        for t in 0..n {
+            let t = t as float;
+            let (dx_dt, dy_dt) = (x_spline.evaluate(t).1, y_spline.evaluate(t).1);
+            let ds = float::hypot(dx_dt * dt_ds, dy_dt * dt_ds);
+            assert!(
+                (ds - 1.0).abs() < 1e05,
+                "track points are not equally spaced"
+            );
+        }
 
         // Build KD tree for nearest centreline point lookup
         let mut kd_points = x.iter()
@@ -90,27 +93,15 @@ impl Track {
             .collect::<Vec<_>>();
         let kd = Kdtree::new(&mut kd_points);
 
-        let track = Track {
+        Track {
             total_distance,
             cumulative_distance,
             x_spline,
             y_spline,
             widths: width.to_vec(),
-            dt_ds: n as float / ds_dt.iter().sum::<float>(),
+            dt_ds,
             kd,
-        };
-
-        // TODO: Combine this check with ds_dt calculation.
-        for &s in &track.cumulative_distance {
-            let p = track.nearest_centreline_point(s);
-            let d = float::hypot(p.dx_ds, p.dy_ds);
-            assert!(
-                (d - 1.0).abs() < 1e05,
-                "track points are not equally spaced"
-            );
         }
-
-        track
     }
 
     pub fn total_distance(&self) -> float {
