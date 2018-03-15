@@ -5,7 +5,7 @@ use ui::plot::{Axes, AxesRange, AxesScale, Line, SingleLineAxes};
 
 use prelude::*;
 use control_model::{Control, State as ControllerState};
-use track::Track;
+use track::TrackAndLookup;
 
 pub use ui::{EventSender, Window};
 
@@ -96,8 +96,8 @@ impl ui::State for Visualisation {
     }
 }
 
-fn track_inner_outer(track: &Track, n: usize) -> (Line, Line) {
-    let total_s = track.total_distance();
+fn track_inner_outer(track: &TrackAndLookup, n: usize) -> (Line, Line) {
+    let total_s = track.track.total_distance();
     let mut track_inner = Line::new(n, BLUE);
     let mut track_outer = Line::new(n, BLUE);
 
@@ -129,7 +129,7 @@ struct History {
 pub enum Event {
     Reset {
         n_history: usize,
-        track: Arc<Track>,
+        track: Arc<TrackAndLookup>,
         horizon_len: usize,
         np: usize,
         n_cars: u32,

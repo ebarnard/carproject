@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use prelude::*;
 use control_model::ControlModel;
-use track::Track;
+use track::TrackAndLookup;
 
 mod mpc_base;
 use mpc_base::MpcBase;
@@ -31,7 +31,7 @@ pub trait Controller<M: ControlModel>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
-    fn new(model: &M, N: u32, track: &Arc<Track>) -> Self
+    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>) -> Self
     where
         Self: Sized;
 

@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use prelude::*;
 use control_model::ControlModel;
-use track::Track;
+use track::TrackAndLookup;
 use {Controller, MpcBase};
 
 pub struct MpcPosition<M: ControlModel>
@@ -14,14 +14,14 @@ where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     base: MpcBase<M>,
-    track: Arc<Track>,
+    track: Arc<TrackAndLookup>,
 }
 
 impl<M: ControlModel> Controller<M> for MpcPosition<M>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
-    fn new(model: &M, N: u32, track: &Arc<Track>) -> MpcPosition<M> {
+    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>) -> MpcPosition<M> {
         let ns_dim = Dy::new(M::NS::dim());
 
         // State penalties
@@ -68,11 +68,14 @@ where
     ) -> (&Matrix<M::NI, Dy>, &Matrix<M::NS, Dy>) {
         let v_target = dt * 0.5;
         let mut s_target = flame::span_of("centreline distance lookup", || {
-            self.track.centreline_distance(x[0], x[1])
+            self.track
+                .centreline_distance(x[0], x[1])
+                .expect("car outside track bounds")
         });
 
         let track = &self.track;
-        self.base.step(model, dt, x, u, p, time_limit, |_i, x_i, _u_i, stage| {
+        let base = &mut self.base;
+        base.step(model, dt, x, u, p, time_limit, |_i, x_i, _u_i, stage| {
             // Find track point
             s_target += v_target;
             let target = flame::span_of("centreline point lookup", || {
@@ -99,19 +102,24 @@ where
             stage.x_target[2] = theta;
 
             // Track bounds inequality.
-            let s = track.centreline_distance(x_i[0], x_i[1]);
-            let centreline_point = track.nearest_centreline_point(s);
-            let a_i = centreline_point.a(x_i[0], x_i[1]);
-            let J = centreline_point.jacobian(a_i);
-            let max_car_dimension = 0.2;
-            let a_max = (centreline_point.track_width - max_car_dimension) / 2.0;
+            if let Some(s) = track.centreline_distance(x_i[0], x_i[1]) {
+                let centreline_point = track.nearest_centreline_point(s);
+                let a_i = centreline_point.a(x_i[0], x_i[1]);
+                let J = centreline_point.jacobian(a_i);
+                let max_car_dimension = 0.2;
+                let a_max = (centreline_point.track_width - max_car_dimension) / 2.0;
 
-            stage
-                .stage_ineq
-                .fixed_slice_mut::<U1, U2>(0, 0)
-                .copy_from(&J.row(1));
-            stage.stage_ineq_min[0] = -a_max - a_i;
-            stage.stage_ineq_max[0] = a_max - a_i;
+                stage
+                    .stage_ineq
+                    .fixed_slice_mut::<U1, U2>(0, 0)
+                    .copy_from(&J.row(1));
+                stage.stage_ineq_min[0] = -a_max - a_i;
+                stage.stage_ineq_max[0] = a_max - a_i;
+            } else {
+                // Relax the constraint if the horizon point is outside the track.
+                stage.stage_ineq_min[0] = NEG_INFINITY;
+                stage.stage_ineq_max[0] = INFINITY;
+            }
         })
     }
 }

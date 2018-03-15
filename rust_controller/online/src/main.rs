@@ -57,7 +57,7 @@ fn run(mut record_tx: EventSender<Event>) {
     let H_inv = H_inv / H_inv[(2, 2)];
 
     // Generate a bitmap mask of the track in image coordinates.
-    let track_mask = track.bitmap_mask(&H, w, h);
+    let track_mask = track.track.bitmap_mask(&H, w, h);
 
     let mut tracker =
         car_tracker::Tracker::new(n_cars, w, h, &track_mask, capture.latest_frame().1);
@@ -166,7 +166,7 @@ fn track_latest_frame(
     start_time: Instant,
     tracker: &mut car_tracker::Tracker,
     H_inv: &Matrix3<float>,
-    track: &track::Track,
+    track: &track::TrackAndLookup,
     measurements: &mut [Option<Measurement>],
 ) -> Duration {
     // Get the latest frame from the camera.
@@ -179,31 +179,27 @@ fn track_latest_frame(
     assert_eq!(car_image_positions.len(), measurements.len());
 
     for (maybe_p, measurement) in car_image_positions.iter().zip(measurements) {
-        if let &Some(p) = maybe_p {
+        *measurement = maybe_p.and_then(|p| {
             info!("car at pixel {} {}", p.x, p.y);
             // Transform car position from image to world coordinates.
             let mut m = image_to_world(&H_inv, p.x, p.y, p.heading);
 
-            let s = track.centreline_distance(m.position.0, m.position.1);
-            let cp = track.nearest_centreline_point(s);
+            if let Some(s) = track.centreline_distance(m.position.0, m.position.1) {
+                let cp = track.nearest_centreline_point(s);
 
-            // Exclude any measurements outside the track bounds.s
-            if cp.a(m.position.0, m.position.1) > cp.track_width {
-                *measurement = None;
-                continue;
+                // Assume car is pointing in the direction of the track.
+                // TODO: Find the actual heading of the car.
+                if m.heading.cos() * cp.dx_ds + m.heading.sin() * cp.dy_ds < 0.0 {
+                    m.heading += ::std::f64::consts::PI;
+                }
+
+                info!("car at {:?}", m);
+                Some(m)
+            } else {
+                // Exclude any measurements outside the track bounds.
+                None
             }
-
-            // Assume car is pointing in the direction of the track.
-            // TODO: Find the actual heading of the car.
-            if m.heading.cos() * cp.dx_ds + m.heading.sin() * cp.dy_ds < 0.0 {
-                m.heading += ::std::f64::consts::PI;
-            }
-
-            info!("car at {:?}", m);
-            *measurement = Some(m)
-        } else {
-            *measurement = None;
-        }
+        });
     }
     frame_time
 }

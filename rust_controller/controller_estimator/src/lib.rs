@@ -23,7 +23,7 @@ use prelude::*;
 use controller::Controller;
 use control_model::ControlModel;
 use estimator::{Estimator, JointEKF};
-use track::Track;
+use track::TrackAndLookup;
 
 use config::{CarConfig, ControllerConfig};
 
@@ -35,7 +35,7 @@ pub trait ControllerEstimator: Send {
     fn horizon_dt(&self) -> float;
     fn N(&self) -> u32;
     fn np(&self) -> u32;
-    fn track(&self) -> &Arc<Track>;
+    fn track(&self) -> &Arc<TrackAndLookup>;
 
     fn control_applied(&mut self, control: Control, control_time: Duration);
 
@@ -56,7 +56,7 @@ where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     config: CarConfig,
-    track: Arc<Track>,
+    track: Arc<TrackAndLookup>,
     model: M,
     controller: C,
     estimator: JointEKF<M>,
@@ -77,9 +77,11 @@ where
 {
 }
 
-pub fn controllers_from_config() -> (Arc<Track>, Vec<Box<ControllerEstimator>>) {
+pub fn controllers_from_config() -> (Arc<TrackAndLookup>, Vec<Box<ControllerEstimator>>) {
     let config = ControllerConfig::load();
-    let track = Arc::new(track::Track::load(&*config.track));
+    let track = track::Track::load(&*config.track);
+    // TODO: Init w & h from camera
+    let track = Arc::new(TrackAndLookup::new(track, 1280 * 2, 1024 * 2));
     let R = Vector3::from_column_slice(&config.R);
 
     let car_controllers = config
@@ -99,7 +101,7 @@ pub fn controllers_from_config() -> (Arc<Track>, Vec<Box<ControllerEstimator>>) 
 
 fn new<M: 'static + ControlModel, C: 'static + Controller<M>>(
     config: CarConfig,
-    track: Arc<Track>,
+    track: Arc<TrackAndLookup>,
     R: &Vector3<float>,
 ) -> Box<ControllerEstimator>
 where
@@ -176,7 +178,7 @@ where
         M::NP::dim() as u32
     }
 
-    fn track(&self) -> &Arc<Track> {
+    fn track(&self) -> &Arc<TrackAndLookup> {
         &self.track
     }
 
@@ -314,7 +316,7 @@ macro_rules! controllers {
             (
                 fn() -> &'static str,
                 fn() -> &'static str,
-                fn(CarConfig, Arc<Track>, &Vector3<float>) -> Box<ControllerEstimator>
+                fn(CarConfig, Arc<TrackAndLookup>, &Vector3<float>) -> Box<ControllerEstimator>
             )
         ] = expand_controllers!(($($model,)*); (); $($controllers,)*);
     };

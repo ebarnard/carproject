@@ -6,6 +6,5 @@ authors = ["Edward Barnard <eabarnard@gmail.com>"]
 [dependencies]
 csv = "1.0.0-beta.5"
 cubic_spline = { path = "../cubic_spline" }
-fux_kdtree = "0.2.0"
 log = "0.4.1"
 prelude = { path = "../prelude" }

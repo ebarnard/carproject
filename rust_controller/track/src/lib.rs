@@ -2,15 +2,13 @@
 
 extern crate csv;
 extern crate cubic_spline;
-extern crate kdtree;
 #[macro_use]
 extern crate log;
 extern crate prelude;
 
 use cubic_spline::CubicSpline;
-use kdtree::kdtree::{Kdtree, KdtreePointTrait};
 use nalgebra::{Matrix2, Matrix3, Vector3};
-use std::iter::once;
+use std::cell::Cell;
 use std::path::Path;
 
 use prelude::*;
@@ -23,7 +21,6 @@ pub struct Track {
     y_spline: CubicSpline,
     widths: Vec<float>,
     dt_ds: float,
-    kd: Kdtree<IndexedPoint>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -85,14 +82,6 @@ impl Track {
             );
         }
 
-        // Build KD tree for nearest centreline point lookup
-        let mut kd_points = x.iter()
-            .zip(y)
-            .zip(once(&0.0).chain(&cumulative_distance))
-            .map(|((&x, &y), &s)| IndexedPoint(s, [x, y]))
-            .collect::<Vec<_>>();
-        let kd = Kdtree::new(&mut kd_points);
-
         Track {
             total_distance,
             cumulative_distance,
@@ -100,7 +89,6 @@ impl Track {
             y_spline,
             widths: width.to_vec(),
             dt_ds,
-            kd,
         }
     }
 
@@ -141,16 +129,6 @@ impl Track {
         point
     }
 
-    pub fn centreline_distance(&self, x: float, y: float) -> float {
-        let nn = self.kd
-            .nearest_search(&IndexedPoint(0.0, [x as f64, y as f64]));
-        debug!(
-            "closest centreline point to ({}, {}) is ({}, {}) with s {}",
-            x, y, nn.1[0], nn.1[1], nn.0
-        );
-        nn.0
-    }
-
     /// Returns a bitmap mask of the track projected onto a camera frame.
     /// H is a homography mapping world into pixel coordinates.
     pub fn bitmap_mask(&self, H: &Matrix3<float>, width: u32, height: u32) -> Vec<u8> {
@@ -164,40 +142,37 @@ impl Track {
             (image_pos[0], image_pos[1])
         };
 
-        let point = self.nearest_centreline_point(0.0);
-        let mut prev_track_outer_pixels = world_to_pixels(point.at_a(point.track_width / 2.0));
-        let mut prev_track_inner_pixels = world_to_pixels(point.at_a(-point.track_width / 2.0));
+        self.visit_track_quads(|_, prev_outer, prev_inner, outer, inner| {
+            let prev_outer = world_to_pixels(prev_outer);
+            let prev_inner = world_to_pixels(prev_inner);
+            let outer = world_to_pixels(outer);
+            let inner = world_to_pixels(inner);
 
-        for &s in &self.cumulative_distance {
-            let point = self.nearest_centreline_point(s);
-
-            // Transform world coordinates into pixel positions
-            // Inner and outer may be swapped
-            let track_outer_pixels = world_to_pixels(point.at_a(point.track_width / 2.0));
-            let track_inner_pixels = world_to_pixels(point.at_a(-point.track_width / 2.0));
-
-            draw_tri(
-                &mut mask,
-                width,
-                track_outer_pixels,
-                track_inner_pixels,
-                prev_track_inner_pixels,
-                255,
-            );
-            draw_tri(
-                &mut mask,
-                width,
-                track_outer_pixels,
-                prev_track_outer_pixels,
-                prev_track_inner_pixels,
-                255,
-            );
-
-            prev_track_outer_pixels = track_outer_pixels;
-            prev_track_inner_pixels = track_inner_pixels;
-        }
+            draw_tri(&mut mask, width, outer, inner, prev_inner, 255);
+            draw_tri(&mut mask, width, outer, prev_outer, prev_inner, 255);
+        });
 
         mask
+    }
+
+    fn visit_track_quads<F>(&self, mut f: F)
+    where
+        F: FnMut(usize, (float, float), (float, float), (float, float), (float, float)),
+    {
+        let point = self.nearest_centreline_point(0.0);
+        let mut prev_outer = point.at_a(point.track_width / 2.0);
+        let mut prev_inner = point.at_a(-point.track_width / 2.0);
+
+        for (i, &s) in self.cumulative_distance.iter().enumerate() {
+            let point = self.nearest_centreline_point(s);
+            let outer = point.at_a(point.track_width / 2.0);
+            let inner = point.at_a(-point.track_width / 2.0);
+
+            f(i, prev_outer, prev_inner, outer, inner);
+
+            prev_outer = outer;
+            prev_inner = inner;
+        }
     }
 }
 
@@ -244,12 +219,100 @@ impl CentrelinePoint {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct IndexedPoint(float, [f64; 2]);
+pub struct Lookup {
+    image: Vec<u16>,
+    width: usize,
+    height: usize,
+    x_min: float,
+    x_max: float,
+    y_min: float,
+    y_max: float,
+}
 
-impl KdtreePointTrait for IndexedPoint {
-    fn dims(&self) -> &[f64] {
-        &self.1[..]
+impl Lookup {
+    pub fn new(track: &Track, width: usize, height: usize) -> Lookup {
+        // Find track bounds
+        let x_min = Cell::new(INFINITY);
+        let x_max = Cell::new(NEG_INFINITY);
+        let y_min = Cell::new(INFINITY);
+        let y_max = Cell::new(NEG_INFINITY);
+        let min_max = |(x, y)| {
+            x_min.set(min(x_min.get(), x));
+            x_max.set(max(x_max.get(), x));
+            y_min.set(min(y_min.get(), y));
+            y_max.set(max(y_max.get(), y));
+        };
+        for &s in &track.cumulative_distance {
+            let p = track.nearest_centreline_point(s);
+            min_max(p.at_a(p.track_width / 2.0));
+            min_max(p.at_a(-p.track_width / 2.0));
+        }
+
+        let mut lookup = Lookup {
+            image: vec![u16::max_value(); width * height],
+            width,
+            height,
+            x_min: x_min.get(),
+            x_max: x_max.get(),
+            y_min: y_min.get(),
+            y_max: y_max.get(),
+        };
+
+        track.visit_track_quads(|i, prev_outer, prev_inner, outer, inner| {
+            let i = i as u16;
+            let prev_outer = lookup.world_to_pixels(prev_outer);
+            let prev_inner = lookup.world_to_pixels(prev_inner);
+            let outer = lookup.world_to_pixels(outer);
+            let inner = lookup.world_to_pixels(inner);
+            draw_tri(&mut lookup.image, width, outer, inner, prev_inner, i);
+            draw_tri(&mut lookup.image, width, outer, prev_outer, prev_inner, i);
+        });
+
+        lookup
+    }
+
+    pub fn centreline_distance(&self, track: &Track, x: float, y: float) -> Option<float> {
+        if x < self.x_min || x > self.x_max || y < self.y_min || y > self.y_max {
+            return None;
+        }
+        let (x_pixel, y_pixel) = self.world_to_pixels((x, y));
+
+        let i = self.image[y_pixel as usize * self.width + x_pixel as usize];
+        if i == u16::max_value() {
+            return None;
+        }
+
+        let s = track.cumulative_distance[i as usize];
+        debug!("track distance at ({}, {}) is {}", x, y, s);
+        Some(s)
+    }
+
+    fn world_to_pixels(&self, (x, y): (float, float)) -> (float, float) {
+        let x_pixel = (self.width - 1) as float * (x - self.x_min) / (self.x_max - self.x_min);
+        let y_pixel = (self.height - 1) as float * (y - self.y_min) / (self.y_max - self.y_min);
+        (x_pixel, y_pixel)
+    }
+}
+
+pub struct TrackAndLookup {
+    pub track: Track,
+    pub lookup: Lookup,
+}
+
+impl TrackAndLookup {
+    pub fn new(track: Track, lookup_width: usize, lookup_height: usize) -> TrackAndLookup {
+        let lookup = Lookup::new(&track, lookup_width, lookup_height);
+        TrackAndLookup { track, lookup }
+    }
+}
+
+impl TrackAndLookup {
+    pub fn nearest_centreline_point(&self, s: float) -> CentrelinePoint {
+        self.track.nearest_centreline_point(s)
+    }
+
+    pub fn centreline_distance(&self, x: float, y: float) -> Option<float> {
+        self.lookup.centreline_distance(&self.track, x, y)
     }
 }
 
