@@ -5,5 +5,5 @@ authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
 flame = { git = "https://github.com/TyOverby/flame", rev = "983199a2af26ca1f8c5bdd31115933fef16628fa" }
-nalgebra = "0.14.0"
+nalgebra = "0.14.1"
 rand = "0.4.2"
