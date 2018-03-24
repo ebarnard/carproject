@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::f64::{INFINITY, NEG_INFINITY};
 use std::fmt::Write;
 
-use {max, min, Canvas, Color, TextAlign};
+use {max, min, Canvas, Color, TextXAlign, TextYAlign};
 use colors::BLACK;
 
 #[derive(Clone, Copy)]
@@ -117,7 +117,8 @@ impl Axes {
                     canvas.text(
                         BLACK,
                         12,
-                        TextAlign::Centre,
+                        TextXAlign::Centre,
+                        TextYAlign::Bottom,
                         &tick_str,
                         [tick_x, AXIS_DEPTH],
                     );
@@ -144,7 +145,8 @@ impl Axes {
                 canvas.text(
                     BLACK,
                     12,
-                    TextAlign::Right,
+                    TextXAlign::Right,
+                    TextYAlign::Middle,
                     &tick_str,
                     [AXIS_DEPTH - TICK_LENGTH, h - tick_y],
                 );

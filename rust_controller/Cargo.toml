@@ -1,2 +1,5 @@
 [workspace]
 members = ["online", "simulator"]
+
+[patch.crates-io]
+"winit" = { git = 'https://github.com/ebarnard/winit', rev = "91c914015c0d8f1e22232cc3bad13252d4176fc0" }
