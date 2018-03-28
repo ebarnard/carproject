@@ -7,7 +7,7 @@ pub fn draw_car_positions(positions: &[Option<car_tracker::Car>], frame: &mut cv
             cv::Rect::new(p.x as i32 - 5, p.y as i32 - 5, 10, 10),
             cv::Scalar::all(127),
             5,
-            cv::LineTypes::Filled,
+            cv::LineType::Filled,
         );
 
         let x = (p.heading.cos() * 55.0 + p.x) as i32;
@@ -17,7 +17,7 @@ pub fn draw_car_positions(positions: &[Option<car_tracker::Car>], frame: &mut cv
             cv::Point2i::new(x, y),
             cv::Scalar::all(127),
             3,
-            cv::LineTypes::Filled,
+            cv::LineType::Filled,
             0,
         );
     }

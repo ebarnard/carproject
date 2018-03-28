@@ -4,6 +4,7 @@ extern crate image;
 
 mod utils;
 
+use cv::highgui::Show;
 use std::env;
 use std::time::Instant;
 
