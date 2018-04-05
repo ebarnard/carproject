@@ -287,8 +287,8 @@ dependencies = [
 
 [[package]]
 name = "coresimd"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.0.4-1"
+source = "git+https://github.com/AdamNiederer/stdsimd?branch=fix-bft-build#d6874383653c8b93832d53092078a41b146be941"
 
 [[package]]
 name = "csv"
@@ -399,9 +399,9 @@ dependencies = [
 [[package]]
 name = "faster"
 version = "0.4.3"
-source = "git+https://github.com/AdamNiederer/faster.git#e652940dfa323689a36cf2a31c6294c8b18377e3"
+source = "git+https://github.com/AdamNiederer/faster.git#b689196027243773984e981be51054e0af08dbb2"
 dependencies = [
- "stdsimd 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stdsimd 0.0.4-1 (git+https://github.com/AdamNiederer/stdsimd?branch=fix-bft-build)",
 ]
 
 [[package]]
@@ -1092,10 +1092,10 @@ dependencies = [
 
 [[package]]
 name = "stdsimd"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.0.4-1"
+source = "git+https://github.com/AdamNiederer/stdsimd?branch=fix-bft-build#d6874383653c8b93832d53092078a41b146be941"
 dependencies = [
- "coresimd 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "coresimd 0.0.4-1 (git+https://github.com/AdamNiederer/stdsimd?branch=fix-bft-build)",
 ]
 
 [[package]]
@@ -1481,7 +1481,7 @@ dependencies = [
 "checksum core-foundation 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "286e0b41c3a20da26536c6000a280585d519fd07b3956b43aed8a79e9edce980"
 "checksum core-foundation-sys 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "716c271e8613ace48344f723b60b900a93150271e5be206212d052bbc0883efa"
 "checksum core-graphics 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fb0ed45fdc32f9ab426238fba9407dfead7bacd7900c9b4dd3f396f46eafdae3"
-"checksum coresimd 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "29af9481e43dc29b5d29e424dcee3cbcd90af9c63d7037aa1bef9bb6490f6a9b"
+"checksum coresimd 0.0.4-1 (git+https://github.com/AdamNiederer/stdsimd?branch=fix-bft-build)" = "<none>"
 "checksum csv 1.0.0-beta.5 (registry+https://github.com/rust-lang/crates.io-index)" = "e7a9e063dcebdb56c306f23e672bfd31df3da8ec5f6d696b35f2c29c2a9572f0"
 "checksum csv-core 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "4dd8e6d86f7ba48b4276ef1317edc8cc36167546d8972feb4a2b5fec0b374105"
 "checksum cv 0.2.1 (git+https://github.com/nebgnahz/cv-rs.git)" = "<none>"
@@ -1569,7 +1569,7 @@ dependencies = [
 "checksum serialport 2.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "426edd50ed1192f9fb2405b713583567b85ac801fafb7476252ad7d7b1509453"
 "checksum shared_library 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "8254bf098ce4d8d7cc7cc6de438c5488adc5297e5b7ffef88816c0a91bd289c1"
 "checksum smallvec 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "44db0ecb22921ef790d17ae13a3f6d15784183ff5f2a01aa32098c7498d2b4b9"
-"checksum stdsimd 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "73569e0041d14c5e48852a433501370199b0fe038d0d98f06a68f6a28fd61712"
+"checksum stdsimd 0.0.4-1 (git+https://github.com/AdamNiederer/stdsimd?branch=fix-bft-build)" = "<none>"
 "checksum streaming-stats 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)" = "dbc32bf233385fb1ae0c4cf13a8dfd11efec71f6a9de95feac8c870788bc8b25"
 "checksum strsim 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bb4f380125926a99e52bc279241539c018323fab05ad6368b56f93d9369ff550"
 "checksum syn 0.11.11 (registry+https://github.com/rust-lang/crates.io-index)" = "d3b891b9015c88c576343b9b3e41c2c11a51c219ef067b264bd9c8aa9b441dad"
