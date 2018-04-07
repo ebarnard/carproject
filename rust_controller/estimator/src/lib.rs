@@ -9,8 +9,8 @@ extern crate sparse;
 
 use nalgebra::U3;
 
-use prelude::*;
 use control_model::ControlModel;
+use prelude::*;
 
 mod ekf;
 pub use ekf::JointEKF;

@@ -22,8 +22,8 @@ mod simulation_model;
 use std::thread;
 use std::time::Instant;
 
-use prelude::*;
 use controller_estimator::{Control, Measurement};
+use prelude::*;
 use visualisation::{Event, EventSender, Record};
 
 fn main() {

@@ -1,7 +1,7 @@
 use nalgebra::{self, DimNameSum, Vector3};
 
-use prelude::*;
 use control_model::{discretise, ControlModel};
+use prelude::*;
 use {Estimator, Measurement, NM};
 
 pub struct JointEKF<M: ControlModel>

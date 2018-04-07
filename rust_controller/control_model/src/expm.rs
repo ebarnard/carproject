@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
-use nalgebra::{DefaultAllocator, Dim, Dynamic as Dy, Matrix, MatrixMN, MatrixVec};
 use nalgebra::allocator::Allocator;
 use nalgebra::storage::Storage;
+use nalgebra::{DefaultAllocator, Dim, Dynamic as Dy, Matrix, MatrixMN, MatrixVec};
 
 // Algorithm from: Higham, Nicholas J. The Scaling and Squaring Method for the Matrix Exponential
 // Revisited.

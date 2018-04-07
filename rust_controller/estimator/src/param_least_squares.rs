@@ -3,8 +3,8 @@ use nalgebra::{self, MatrixMN};
 use osqp::{Problem, Settings};
 use sparse;
 
-use prelude::*;
 use control_model::{discretise, ControlModel};
+use prelude::*;
 
 pub struct ParamLeastSquares<M: ControlModel>
 where

@@ -5,8 +5,8 @@ extern crate ui;
 
 use std::sync::Arc;
 
-use prelude::*;
 use control_model::{Control, State as ControllerState};
+use prelude::*;
 use track::TrackAndLookup;
 use ui::colors::*;
 use ui::plot::{Axes, AxesRange, AxesScale, Line, SingleLineAxes};

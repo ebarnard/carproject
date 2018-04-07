@@ -3,15 +3,15 @@ extern crate glium;
 extern crate imgui;
 extern crate imgui_glium_renderer;
 
-use imgui::{ImGui, ImGuiCond};
-use imgui_glium_renderer::Renderer;
 use glium::Surface;
 use glium::glutin::{self, ElementState, Event, MouseButton, MouseScrollDelta, TouchPhase,
                     VirtualKeyCode as Key, WindowEvent};
+use imgui::{ImGui, ImGuiCond};
+use imgui_glium_renderer::Renderer;
 use std::cell::Cell;
 use std::sync::{mpsc, Arc};
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::{Duration, Instant};
 
 mod canvas;
 pub mod colors;

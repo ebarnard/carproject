@@ -6,8 +6,8 @@ pub mod flame_merge;
 
 #[allow(non_camel_case_types)]
 pub type float = f64;
-pub use std::f64::{INFINITY, NEG_INFINITY};
 pub use std::f64::consts::PI;
+pub use std::f64::{INFINITY, NEG_INFINITY};
 
 pub fn min<T: Copy + PartialOrd>(a: T, b: T) -> T {
     *nalgebra::partial_min(&a, &b).expect("NaN")
@@ -47,13 +47,17 @@ pub fn secs_to_duration(secs: float) -> Duration {
 pub type Matrix<R, C> = nalgebra::MatrixMN<float, R, C>;
 pub type Vector<N> = nalgebra::VectorN<float, N>;
 
-use nalgebra::{Dim, DimNameSum, Scalar, U1, U3};
 pub use nalgebra::allocator::Allocator;
 pub use nalgebra::{DefaultAllocator, DimName, DimNameAdd, Dynamic as Dy};
+use nalgebra::{Dim, DimNameSum, Scalar, U1, U3};
 
-pub trait ModelDims<A: DimName, B: DimNameAdd<A>, C: DimNameAdd<A>>
-    : Dims2<A, B> + Dims2<A, C> + Dims2<B, C> + Dims2<DimNameSum<B, A>, C> + Dims2<DimNameSum<C, A>, B>
-    {
+pub trait ModelDims<A: DimName, B: DimNameAdd<A>, C: DimNameAdd<A>>:
+    Dims2<A, B>
+    + Dims2<A, C>
+    + Dims2<B, C>
+    + Dims2<DimNameSum<B, A>, C>
+    + Dims2<DimNameSum<C, A>, B>
+{
 }
 
 impl<A, B, C> ModelDims<A, B, C> for DefaultAllocator
@@ -69,8 +73,9 @@ where
 {
 }
 
-pub trait Dims2<A: Dim, B: Dim>
-    : Dims2N<float, A, B> + Dims2N<usize, A, B> + Dims2N<bool, A, B> {
+pub trait Dims2<A: Dim, B: Dim>:
+    Dims2N<float, A, B> + Dims2N<usize, A, B> + Dims2N<bool, A, B>
+{
 }
 
 impl<A, B> Dims2<A, B> for DefaultAllocator
@@ -81,8 +86,8 @@ where
 {
 }
 
-pub trait Dims2N<N: Scalar, A: Dim, B: Dim>
-    : Allocator<N, A, A>
+pub trait Dims2N<N: Scalar, A: Dim, B: Dim>:
+    Allocator<N, A, A>
     + Allocator<N, B, B>
     + Allocator<N, A, B>
     + Allocator<N, B, A>
@@ -93,7 +98,8 @@ pub trait Dims2N<N: Scalar, A: Dim, B: Dim>
     + Allocator<N, A, U3>
     + Allocator<N, B, U3>
     + Allocator<N, U3, A>
-    + Allocator<N, U3, B> {
+    + Allocator<N, U3, B>
+{
 }
 
 impl<N, A, B> Dims2N<N, A, B> for DefaultAllocator

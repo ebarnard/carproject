@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 use std::f64::{INFINITY, NEG_INFINITY};
 use std::fmt::Write;
 
-use {max, min, Canvas, Color, TextXAlign, TextYAlign};
 use colors::BLACK;
+use {max, min, Canvas, Color, TextXAlign, TextYAlign};
 
 #[derive(Clone, Copy)]
 pub enum AxesRange {

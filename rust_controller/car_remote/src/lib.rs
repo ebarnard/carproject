@@ -1,7 +1,7 @@
 extern crate serialport;
 
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::{Duration, Instant};
 
 // WCH USB to serial chip from Arduino Nano ripoff
 const USB_VID: u16 = 6790;

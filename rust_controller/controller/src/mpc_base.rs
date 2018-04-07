@@ -2,8 +2,8 @@ use flame;
 use nalgebra::{MatrixMN, U1};
 use std::time::Duration;
 
-use prelude::*;
 use control_model::{discretise, discretise_sparsity, ControlModel};
+use prelude::*;
 use {MpcStage, OsqpMpc};
 
 pub struct MpcBase<M: ControlModel>

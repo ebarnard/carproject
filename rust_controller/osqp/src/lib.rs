@@ -3,9 +3,10 @@ extern crate prelude;
 extern crate sparse;
 
 use flame;
+use std::time::Duration;
+
 use self::osqp_inner::Problem as InnerProblem;
 pub use self::osqp_inner::*;
-use std::time::Duration;
 
 use prelude::*;
 

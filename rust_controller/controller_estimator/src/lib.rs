@@ -17,10 +17,10 @@ use nalgebra::{self, MatrixMN, Vector3};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use prelude::*;
-use controller::Controller;
 use control_model::ControlModel;
+use controller::Controller;
 use estimator::{Estimator, JointEKF};
+use prelude::*;
 use track::TrackAndLookup;
 
 use config::{CarConfig, ControllerConfig};
@@ -280,7 +280,9 @@ where
 use control_model::*;
 
 macro_rules! as_expr {
-    ($e:expr) => {$e};
+    ($e:expr) => {
+        $e
+    };
 }
 
 macro_rules! expand_controllers {

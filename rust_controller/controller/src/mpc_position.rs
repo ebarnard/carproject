@@ -4,8 +4,8 @@ use nalgebra::{self, MatrixMN, U1, U2};
 use std::sync::Arc;
 use std::time::Duration;
 
-use prelude::*;
 use control_model::ControlModel;
+use prelude::*;
 use track::TrackAndLookup;
 use {Controller, MpcBase};
 

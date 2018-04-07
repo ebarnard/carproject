@@ -1,5 +1,5 @@
-use prelude::*;
 use control_model::{self, Control, ControlModel, State};
+use prelude::*;
 
 use config::SimulatorConfig;
 
@@ -40,11 +40,12 @@ macro_rules! simulation_control_model_impl {
         impl SimulationModel for $name {
             fn new(params: &[float]) -> Self
             where
-                Self: Sized
+                Self: Sized,
             {
                 $name {
-                    params: Vector::<<control_model::$name as ControlModel>::NP>
-                        ::from_column_slice(params),
+                    params: Vector::<<control_model::$name as ControlModel>::NP>::from_column_slice(
+                        params,
+                    ),
                     model: <control_model::$name as ControlModel>::new(),
                 }
             }
@@ -62,14 +63,16 @@ macro_rules! simulation_control_model_impl {
             }
 
             fn inspect_state(&self, state: &SimState) -> State {
-                let x = Vector::<<control_model::$name as ControlModel>::NS>
-                    ::from_column_slice(&state.0);
+                let x = Vector::<<control_model::$name as ControlModel>::NS>::from_column_slice(
+                    &state.0,
+                );
                 self.model.x_to_state(&x)
             }
 
             fn step(&mut self, dt: float, mut state: SimState, control: &Control) -> SimState {
-                let x = Vector::<<control_model::$name as ControlModel>::NS>
-                    ::from_column_slice(&state.0);
+                let x = Vector::<<control_model::$name as ControlModel>::NS>::from_column_slice(
+                    &state.0,
+                );
                 let u = self.model.u_from_control(control);
                 let x_dt = self.model.step(dt, &x, &u, &self.params);
                 state.0.copy_from_slice(x_dt.as_slice());

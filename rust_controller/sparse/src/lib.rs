@@ -4,8 +4,8 @@ extern crate nalgebra;
 mod erased_into_iter;
 
 use itertools::Itertools;
-use nalgebra::{DefaultAllocator, Dim, Dynamic as Dy, MatrixMN, MatrixSlice};
 use nalgebra::allocator::Allocator;
+use nalgebra::{DefaultAllocator, Dim, Dynamic as Dy, MatrixMN, MatrixSlice};
 use std::convert::AsRef;
 use std::iter::once;
 use std::marker::PhantomData;

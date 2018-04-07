@@ -16,13 +16,13 @@ extern crate visualisation;
 
 use nalgebra::{Matrix3, Vector3};
 use std::io;
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
-use prelude::*;
 use controller_estimator::{Control, ControllerEstimator, Measurement};
+use prelude::*;
 use visualisation::{Event, EventSender, Record};
 
 fn main() {

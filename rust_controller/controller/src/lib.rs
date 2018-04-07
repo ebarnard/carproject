@@ -11,8 +11,8 @@ extern crate track;
 use std::sync::Arc;
 use std::time::Duration;
 
-use prelude::*;
 use control_model::ControlModel;
+use prelude::*;
 use track::TrackAndLookup;
 
 mod mpc_base;

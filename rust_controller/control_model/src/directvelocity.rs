@@ -1,5 +1,5 @@
-use nalgebra::{self, Matrix3, Matrix3x2, Vector2, Vector3};
 use nalgebra::dimension::{U0, U2, U3};
+use nalgebra::{self, Matrix3, Matrix3x2, Vector2, Vector3};
 
 use prelude::*;
 use {ControlModel, State};
