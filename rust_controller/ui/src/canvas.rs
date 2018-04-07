@@ -4,57 +4,50 @@ use {pack_color, Color};
 
 pub struct Canvas<'a, 'ui: 'a> {
     // x, y, width, height
-    viewport: [u32; 4],
-    // Ratio of framebuffer resolution to window size. 1 normally, 2 for a retina display.
-    hidpi_factor: f64,
-    //ui: &'a Ui<'a>,
+    viewport: [f32; 4],
     draw_list: &'a mut WindowDrawList<'ui>,
 }
 
 impl<'a, 'ui: 'a> Canvas<'a, 'ui> {
-    pub fn draw(viewport: [u32; 4], ui: &Ui, f: &mut FnMut(&mut Canvas)) {
+    pub fn draw(ui: &Ui, f: &mut FnMut(&mut Canvas)) {
+        let mut window_pos = ImVec2::new(0.0, 0.0);
+        let mut window_size = ImVec2::new(0.0, 0.0);
+        unsafe {
+            imgui::sys::igGetWindowPos(&mut window_pos);
+            imgui::sys::igGetWindowSize(&mut window_size);
+        }
+        let viewport = [window_pos.x, window_pos.y, window_size.x, window_size.y];
+
         ui.with_window_draw_list(|draw_list| {
             f(&mut Canvas {
                 viewport,
-                hidpi_factor: 1.0,
-                //ui,
                 draw_list,
             });
         });
     }
 
     pub fn size(&self) -> (f64, f64) {
-        (
-            self.viewport[2] as f64 / self.hidpi_factor,
-            self.viewport[3] as f64 / self.hidpi_factor,
-        )
+        (self.viewport[2] as f64, self.viewport[3] as f64)
     }
 
     pub fn subview(&mut self, viewport: [f64; 4], f: &mut FnMut(&mut Canvas)) {
-        assert!(
-            viewport.iter().all(|&v| v >= 0.0),
-            "all viewport values must be positive"
-        );
+        if viewport[0] < 0.0 || viewport[1] < 0.0 {
+            //println!("viewport x and y must be positive");
+            return;
+        }
 
-        /*assert!(
-            self.viewport[2] as f64 >= (viewport[0] + viewport[2]) * self.hidpi_factor,
-            "subview cannot extend outside current viewport in x direction"
-        );
-        assert!(
-            self.viewport[1] as f64 >= (viewport[1] + viewport[3]) * self.hidpi_factor,
-            "subview cannot extend outside current viewport in y direction"
-        );*/
+        if viewport[2] <= 0.0 || viewport[3] <= 0.0 {
+            return;
+        }
 
         let mut canvas = Canvas {
-            // Clipping rectangle has (0, 0) in bottom left corner
+            // Clipping rectangle has (0, 0) in top left corner
             viewport: [
-                self.viewport[0] + (viewport[0] * self.hidpi_factor).floor() as u32,
-                self.viewport[1] + (viewport[1] * self.hidpi_factor).floor() as u32,
-                (viewport[2] * self.hidpi_factor).floor() as u32,
-                (viewport[3] * self.hidpi_factor).floor() as u32,
+                self.viewport[0] + viewport[0] as f32,
+                self.viewport[1] + viewport[1] as f32,
+                viewport[2] as f32,
+                viewport[3] as f32,
             ],
-            hidpi_factor: self.hidpi_factor,
-            //ui: &*self.ui,
             draw_list: self.draw_list,
         };
 
@@ -64,12 +57,12 @@ impl<'a, 'ui: 'a> Canvas<'a, 'ui> {
     pub fn line(&mut self, color: Color, radius: f64, line: [f64; 4]) {
         self.draw_list.add_line(
             ImVec2::new(
-                self.viewport[0] as f32 + line[0] as f32,
-                self.viewport[1] as f32 + line[1] as f32,
+                self.viewport[0] + line[0] as f32,
+                self.viewport[1] + line[1] as f32,
             ),
             ImVec2::new(
-                self.viewport[0] as f32 + line[2] as f32,
-                self.viewport[1] as f32 + line[3] as f32,
+                self.viewport[0] + line[2] as f32,
+                self.viewport[1] + line[3] as f32,
             ),
             pack_color(color),
             radius as f32,
@@ -101,10 +94,7 @@ impl<'a, 'ui: 'a> Canvas<'a, 'ui> {
         };
 
         self.draw_list.add_text(
-            ImVec2::new(
-                self.viewport[0] as f32 + x_pos,
-                self.viewport[1] as f32 + y_pos,
-            ),
+            ImVec2::new(self.viewport[0] + x_pos, self.viewport[1] + y_pos),
             pack_color(color),
             text,
         );

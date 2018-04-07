@@ -251,16 +251,15 @@ impl Window {
                 let ui = imgui.frame(size_points, size_pixels, delta_s);
 
                 ui.window(im_str!("Car"))
-                    .position((0.0, 0.0), ImGuiCond::Always)
+                    .position((0.0, 0.0), ImGuiCond::FirstUseEver)
                     .size(
                         (size_points.0 as f32, size_points.1 as f32),
-                        ImGuiCond::Always,
+                        ImGuiCond::FirstUseEver,
                     )
                     .title_bar(false)
                     .collapsible(false)
                     .build(|| {
-                        let viewport = [0, 0, size_points.0, size_points.1];
-                        Canvas::draw(viewport, &ui, &mut |canvas| self.state.draw(canvas));
+                        Canvas::draw(&ui, &mut |canvas| self.state.draw(canvas));
                     });
 
                 let mut frame = display.draw();
