@@ -14,6 +14,7 @@ extern crate control_model;
 extern crate controller_estimator;
 extern crate prelude;
 extern crate track;
+extern crate visualisation;
 
 mod config;
 mod simulation_model;
@@ -23,7 +24,7 @@ use std::time::Instant;
 
 use prelude::*;
 use controller_estimator::{Control, Measurement};
-use controller_estimator::visualisation::{self, Event, EventSender, Record};
+use visualisation::{Event, EventSender, Record};
 
 fn main() {
     env_logger::init();

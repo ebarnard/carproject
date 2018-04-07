@@ -1,14 +1,10 @@
 [package]
-name = "controller_estimator"
+name = "visualisation"
 version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
-serde = "1.0"
-serde_derive = "1.0"
-toml = "0.4.5"
-controller = { path = "../controller" }
 control_model = { path = "../control_model" }
-estimator = { path = "../estimator" }
 prelude = { path = "../prelude" }
 track = { path = "../track" }
+ui = { path = "../ui" }

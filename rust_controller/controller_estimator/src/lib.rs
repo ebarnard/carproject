@@ -10,10 +10,8 @@ extern crate controller;
 extern crate estimator;
 extern crate prelude;
 extern crate track;
-extern crate ui;
 
 mod config;
-pub mod visualisation;
 
 use nalgebra::{self, MatrixMN, Vector3};
 use std::sync::Arc;

@@ -12,6 +12,7 @@ extern crate controller_estimator;
 extern crate prelude;
 extern crate track;
 extern crate track_aruco;
+extern crate visualisation;
 
 use nalgebra::{Matrix3, Vector3};
 use std::io;
@@ -22,7 +23,7 @@ use std::thread;
 
 use prelude::*;
 use controller_estimator::{Control, ControllerEstimator, Measurement};
-use controller_estimator::visualisation::{self, Event, EventSender, Record};
+use visualisation::{Event, EventSender, Record};
 
 fn main() {
     env_logger::init();

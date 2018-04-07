@@ -13,3 +13,4 @@ controller_estimator = { path = "../controller_estimator" }
 prelude = { path = "../prelude" }
 track = { path = "../track" }
 track_aruco = { path = "../track_aruco" }
+visualisation = { path = "../visualisation" }
