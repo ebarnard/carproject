@@ -79,7 +79,7 @@ where
 
             let (F_A, F_P) = discretise(dt, &A_c, &P_c);
 
-            let mut F = Matrix::<DimNameSum<M::NP, M::NS>, DimNameSum<M::NP, M::NS>>::zeros();
+            let mut F = Matrix::<DimNameSum<M::NP, M::NS>, DimNameSum<M::NP, M::NS>>::identity();
             F.fixed_slice_mut::<M::NS, M::NS>(0, 0).copy_from(&F_A);
             F.fixed_slice_mut::<M::NS, M::NP>(0, M::NS::dim())
                 .copy_from(&F_P);
