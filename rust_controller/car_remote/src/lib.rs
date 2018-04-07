@@ -40,7 +40,7 @@ impl Connection {
 
         // Arduino boards always reset on serial connect
         // TODO: Make const
-        let READY_TIMEOUT = Duration::from_secs(2);
+        const READY_TIMEOUT: Duration = Duration::from_secs(2);
         let start_time = Instant::now();
 
         // Wait for the device to be ready
