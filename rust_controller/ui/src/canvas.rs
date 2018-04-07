@@ -1,6 +1,31 @@
-use imgui::{self, ImVec2, Ui, WindowDrawList};
+use imgui::{self, ImGuiCond, ImVec2, Ui, WindowDrawList};
 
 use {pack_color, Color};
+
+pub struct Display<'a> {
+    pub(crate) ui: imgui::Ui<'a>,
+}
+
+impl<'a> Display<'a> {
+    pub fn draw_canvas_window(
+        &mut self,
+        name: &str,
+        default_size: (f64, f64),
+        f: &mut FnMut(&mut Canvas),
+    ) {
+        self.ui
+            .window(im_str!("{}", name))
+            .size(
+                (default_size.0 as f32, default_size.1 as f32),
+                ImGuiCond::FirstUseEver,
+            )
+            .title_bar(false)
+            .collapsible(false)
+            .build(|| {
+                Canvas::draw(&self.ui, f);
+            });
+    }
+}
 
 pub struct Canvas<'a, 'ui: 'a> {
     // x, y, width, height

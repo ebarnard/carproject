@@ -6,7 +6,7 @@ extern crate imgui_glium_renderer;
 use glium::Surface;
 use glium::glutin::{self, ElementState, Event, MouseButton, MouseScrollDelta, TouchPhase,
                     VirtualKeyCode as Key, WindowEvent};
-use imgui::{ImGui, ImGuiCond};
+use imgui::ImGui;
 use imgui_glium_renderer::Renderer;
 use std::cell::Cell;
 use std::sync::{mpsc, Arc};
@@ -17,7 +17,7 @@ mod canvas;
 pub mod colors;
 pub mod plot;
 
-pub use canvas::{Canvas, TextXAlign, TextYAlign};
+pub use canvas::{Canvas, Display, TextXAlign, TextYAlign};
 pub use colors::Color;
 use colors::pack_color;
 
@@ -40,7 +40,7 @@ pub fn max<T: Copy + PartialOrd>(a: T, b: T) -> T {
 pub trait State: 'static {
     type Event: Send;
     fn update(&mut self, event: Self::Event);
-    fn draw(&self, canvas: &mut Canvas);
+    fn draw(&self, display: &mut Display);
 }
 
 struct StateEraser<T: State> {
@@ -50,7 +50,7 @@ struct StateEraser<T: State> {
 
 trait ErasedState {
     fn update(&mut self);
-    fn draw(&self, canvas: &mut Canvas);
+    fn draw(&self, display: &mut Display);
 }
 
 impl<T: State> ErasedState for StateEraser<T> {
@@ -60,8 +60,8 @@ impl<T: State> ErasedState for StateEraser<T> {
         }
     }
 
-    fn draw(&self, canvas: &mut Canvas) {
-        self.state.draw(canvas)
+    fn draw(&self, display: &mut Display) {
+        self.state.draw(display)
     }
 }
 
@@ -250,22 +250,13 @@ impl Window {
 
                 let ui = imgui.frame(size_points, size_pixels, delta_s);
 
-                ui.window(im_str!("Car"))
-                    .position((0.0, 0.0), ImGuiCond::FirstUseEver)
-                    .size(
-                        (size_points.0 as f32, size_points.1 as f32),
-                        ImGuiCond::FirstUseEver,
-                    )
-                    .title_bar(false)
-                    .collapsible(false)
-                    .build(|| {
-                        Canvas::draw(&ui, &mut |canvas| self.state.draw(canvas));
-                    });
+                let mut canvas_display = canvas::Display { ui };
+                self.state.draw(&mut canvas_display);
 
                 let mut frame = display.draw();
                 frame.clear_color(1.0, 1.0, 1.0, 1.0);
                 renderer
-                    .render(&mut frame, ui)
+                    .render(&mut frame, canvas_display.ui)
                     .expect("imgui rendering failed");
                 frame.finish().expect("failed to draw frame");
             }

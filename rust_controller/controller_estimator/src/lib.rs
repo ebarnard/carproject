@@ -47,6 +47,7 @@ pub struct StepResult<'a> {
     pub control_application_state: State,
     pub control_horizon: &'a [(Control, State)],
     pub params: &'a [float],
+    pub param_var: &'a [float],
 }
 
 pub struct ControllerEstimatorImpl<M: ControlModel, C: Controller<M>>
@@ -66,6 +67,8 @@ where
     current_control: Vector<M::NI>,
     /// The current time of the estimator.
     estimator_time: Duration,
+    /// Parameter covariance. Cached here to avoid copies.
+    param_var: Vector<M::NP>,
 }
 
 // TODO: Remove this hacky impl once nalgebra uses const generics.
@@ -145,6 +148,7 @@ where
         u_target_time: Duration::from_secs(0),
         current_control: Vector::<M::NI>::zeros(),
         estimator_time: Duration::from_secs(0),
+        param_var: Vector::<M::NP>::zeros(),
     });
 
     // Run the controller a few time to initialise rho.
@@ -188,7 +192,7 @@ where
             .checked_sub(self.estimator_time)
             .expect("control must be applied after the previous control or measurement");
 
-        let (_, _) = self.estimator.step(
+        let _ = self.estimator.step(
             &mut self.model,
             duration_to_secs(current_control_applied_duration),
             &self.current_control,
@@ -207,7 +211,7 @@ where
             .checked_sub(self.estimator_time)
             .expect("measurement must be applied after the previous control or measurement");
 
-        let (_, _) = self.estimator.step(
+        let _ = self.estimator.step(
             &mut self.model,
             duration_to_secs(current_control_applied_duration),
             &self.current_control,
@@ -229,7 +233,7 @@ where
         self.u_target_time = control_application_time;
 
         // Get current predicted state and parameters
-        let (predicted_state, predicted_params) =
+        let (predicted_state, predicted_params, predicted_cov) =
             self.estimator
                 .step(&mut self.model, 0.0, &self.current_control, None);
 
@@ -268,11 +272,15 @@ where
             self.horizon[i] = (control, state);
         }
 
+        self.param_var.copy_from(&predicted_cov
+            .fixed_slice::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
+            .diagonal());
         StepResult {
             current_state: self.model.x_to_state(&predicted_state),
             control_application_state: self.model.x_to_state(&control_application_state),
             control_horizon: &self.horizon,
             params: predicted_params.as_slice(),
+            param_var: self.param_var.as_slice(),
         }
     }
 }

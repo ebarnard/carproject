@@ -7,7 +7,7 @@ extern crate osqp;
 extern crate prelude;
 extern crate sparse;
 
-use nalgebra::U3;
+use nalgebra::{DimNameSum, U3};
 
 use control_model::ControlModel;
 use prelude::*;
@@ -29,9 +29,11 @@ where
         dt: float,
         u: &Vector<M::NI>,
         measure: Option<Measurement>,
-    ) -> (&Vector<M::NS>, &Vector<M::NP>);
-
-    fn param_covariance(&self) -> Matrix<M::NP, M::NP>;
+    ) -> (
+        &Vector<M::NS>,
+        &Vector<M::NP>,
+        &Matrix<DimNameSum<M::NP, M::NS>, DimNameSum<M::NP, M::NS>>,
+    );
 }
 
 #[derive(Clone, Copy, Debug)]

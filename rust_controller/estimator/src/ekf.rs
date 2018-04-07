@@ -57,14 +57,18 @@ where
         dt: float,
         u: &Vector<M::NI>,
         measure: Option<Measurement>,
-    ) -> (&Vector<M::NS>, &Vector<M::NP>) {
+    ) -> (
+        &Vector<M::NS>,
+        &Vector<M::NP>,
+        &Matrix<DimNameSum<M::NP, M::NS>, DimNameSum<M::NP, M::NS>>,
+    ) {
         if self.initial {
             if let Some(m) = measure {
                 let m = Vector3::new(m.position.0, m.position.1, m.heading);
                 self.x_hat.fixed_rows_mut::<NM>(0).copy_from(&m);
                 self.initial = false;
             }
-            return (&self.x_hat, &self.p_hat);
+            return (&self.x_hat, &self.p_hat, &self.P);
         }
 
         // Predict
@@ -122,12 +126,6 @@ where
             self.P = P_predict;
         }
 
-        (&self.x_hat, &self.p_hat)
-    }
-
-    fn param_covariance(&self) -> Matrix<M::NP, M::NP> {
-        self.P
-            .fixed_slice::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
-            .into_owned()
+        (&self.x_hat, &self.p_hat, &self.P)
     }
 }

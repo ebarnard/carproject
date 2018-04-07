@@ -298,8 +298,7 @@ fn controller_loop(
                     predicted_state: res.current_state,
                     control,
                     params: res.params.to_vec(),
-                    // TODO: pass real variances here once the plots are working again
-                    param_var: res.params.to_vec(),
+                    param_var: res.param_var.to_vec(),
                     predicted_horizon: position_horizon,
                 },
             ))
