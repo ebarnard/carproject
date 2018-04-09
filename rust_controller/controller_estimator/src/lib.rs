@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 
 use control_model::ControlModel;
 use controller::Controller;
-use estimator::{Estimator, JointEKF};
+use estimator::{Estimator, NM};
 use prelude::*;
 use track::TrackAndLookup;
 
@@ -50,15 +50,15 @@ pub struct StepResult<'a> {
     pub param_var: &'a [float],
 }
 
-pub struct ControllerEstimatorImpl<M: ControlModel, C: Controller<M>>
+pub struct ControllerEstimatorImpl<M: ControlModel>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
     config: CarConfig,
     track: Arc<TrackAndLookup>,
     model: M,
-    controller: C,
-    estimator: JointEKF<M>,
+    controller: Box<Controller<M>>,
+    estimator: Box<Estimator<M>>,
     u: Matrix<M::NI, Dy>,
     horizon: Vec<(Control, State)>,
     /// The time at which the first input of `u` will be applied
@@ -72,7 +72,7 @@ where
 }
 
 // TODO: Remove this hacky impl once nalgebra uses const generics.
-unsafe impl<M: ControlModel, C: Controller<M>> Send for ControllerEstimatorImpl<M, C>
+unsafe impl<M: ControlModel> Send for ControllerEstimatorImpl<M>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
@@ -89,18 +89,18 @@ pub fn controllers_from_config() -> (Arc<TrackAndLookup>, Vec<Box<ControllerEsti
         .cars
         .into_iter()
         .map(|car| {
-            CONTROLLERS
+            MODELS
                 .iter()
-                .find(|c| c.0() == car.model && c.1() == car.controller)
-                .expect("controller not found")
-                .2(car, track.clone(), &R)
+                .find(|c| c.0() == car.model)
+                .expect("model not found")
+                .1(car, track.clone(), &R)
         })
         .collect();
 
     (track, car_controllers)
 }
 
-fn new<M: 'static + ControlModel, C: 'static + Controller<M>>(
+fn new<M: ControlModelCtor>(
     config: CarConfig,
     track: Arc<TrackAndLookup>,
     R: &Vector3<float>,
@@ -112,7 +112,11 @@ where
     let N = config.N;
     let optimise_dt = config.optimise_dt;
 
-    let mut controller = C::new(&model, N, &track);
+    let mut controller = M::CONTROLLERS
+        .iter()
+        .find(|c| c.0() == config.controller)
+        .expect("controller not found")
+        .1(&model, N, &track);
     let u_min = Vector::<M::NI>::from_column_slice(&config.u_min);
     let u_max = Vector::<M::NI>::from_column_slice(&config.u_max);
     controller.update_input_bounds(u_min, u_max);
@@ -124,7 +128,11 @@ where
     ));
     let Q_params = &Q_initial_params * config.Q_params_multiplier;
     let R = Matrix::from_diagonal(R);
-    let estimator = JointEKF::<M>::new(initial_params, Q_state, Q_params, Q_initial_params, R);
+    let estimator = M::ESTIMATORS
+        .iter()
+        .find(|e| e.0() == config.estimator)
+        .expect("estimator not found")
+        .1(initial_params, Q_state, Q_params, Q_initial_params, R);
 
     let mut u = MatrixMN::zeros_generic(<M::NI as DimName>::name(), Dy::new(N as usize + 1));
     // Start with non-zero inputs to avoid strange initial solve behaviour.
@@ -159,8 +167,7 @@ where
     controller
 }
 
-impl<M: 'static + ControlModel, C: Controller<M>> ControllerEstimator
-    for ControllerEstimatorImpl<M, C>
+impl<M: ControlModel> ControllerEstimator for ControllerEstimatorImpl<M>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
@@ -285,52 +292,97 @@ where
     }
 }
 
-use control_model::*;
+trait ControlModelCtor: ControlModel + 'static
+where
+    DefaultAllocator: ModelDims<Self::NS, Self::NI, Self::NP>,
+{
+    const CONTROLLERS: &'static [(
+        fn() -> &'static str,
+        fn(&Self, u32, &Arc<TrackAndLookup>) -> Box<Controller<Self>>,
+    )];
 
-macro_rules! as_expr {
-    ($e:expr) => {
-        $e
-    };
+    const ESTIMATORS: &'static [(
+        fn() -> &'static str,
+        fn(
+            Vector<Self::NP>,
+            Matrix<Self::NS, Self::NS>,
+            Matrix<Self::NP, Self::NP>,
+            Matrix<Self::NP, Self::NP>,
+            Matrix<NM, NM>,
+        ) -> Box<Estimator<Self>>,
+    )];
 }
 
 macro_rules! expand_controllers {
-    ($models:tt; ($($ex:tt)*);) => {
-        as_expr!(&[$($ex,)*])
-    };
-
-    (($($model:ident,)*); ($($ex:tt)*); $controller:ident, $($tail:tt)*) => {
-        expand_controllers!(
-            ($($model,)*);
-            ($($ex)* $((
-                control_model::$model::name,
-                controller::$controller::<$model>::name,
-                new::<control_model::$model, controller::$controller<control_model::$model>>
-            ))*);
-            $($tail)*
-        )
-    };
+    ($model:ident, {$($controller:ident),*}) => {
+        &[$((
+            controller::$controller::<control_model::$model>::name,
+            |a, b, c| Box::new(controller::$controller::<control_model::$model>::new(a, b, c)),
+        )),*];
+    }
 }
 
-macro_rules! controllers {
+macro_rules! expand_estimators {
+    ($model:ident, {$($estimator:ident),*}) => {
+        &[$((
+            estimator::$estimator::<control_model::$model>::name,
+            |a, b, c, d, e| {
+                Box::new(estimator::$estimator::<control_model::$model>::new(a, b, c, d, e))
+            },
+        )),*];
+    }
+}
+
+macro_rules! models {
     (
         models {
             $($model:ident,)*
         }
         controllers {
-            $($controllers:ident,)*
+            $($controller:ident,)*
+        }
+        estimators {
+            $($estimator:ident,)*
         }
     ) => {
-        static CONTROLLERS: &'static [
-            (
-                fn() -> &'static str,
-                fn() -> &'static str,
-                fn(CarConfig, Arc<TrackAndLookup>, &Vector3<float>) -> Box<ControllerEstimator>
-            )
-        ] = expand_controllers!(($($model,)*); (); $($controllers,)*);
+        models!({$($model),*}, {$($controller),*}, {$($estimator),*});
+    };
+
+    ({$($model:ident),*}, $controllers:tt, $estimators:tt) => {
+        static MODELS: &'static [(
+            fn() -> &'static str,
+            fn(CarConfig, Arc<TrackAndLookup>, &Vector3<float>) -> Box<ControllerEstimator>
+        )] = &[$((
+            control_model::$model::name,
+            new::<control_model::$model>
+        )),*];
+
+        $(
+            impl ControlModelCtor for control_model::$model
+            where
+                DefaultAllocator: ModelDims<Self::NS, Self::NI, Self::NP>,
+            {
+                const CONTROLLERS: &'static [(
+                    fn() -> &'static str,
+                    fn(&Self, u32, &Arc<TrackAndLookup>) -> Box<Controller<Self>>,
+                )] = expand_controllers!($model, $controllers);
+
+                const ESTIMATORS: &'static [(
+                    fn() -> &'static str,
+                    fn(
+                        Vector<Self::NP>,
+                        Matrix<Self::NS, Self::NS>,
+                        Matrix<Self::NP, Self::NP>,
+                        Matrix<Self::NP, Self::NP>,
+                        Matrix<NM, NM>,
+                    ) -> Box<Estimator<Self>>,
+                )] = expand_estimators!($model, $estimators);
+            }
+        )*
     };
 }
 
-controllers! {
+models! {
     models {
         DirectVelocity,
         NoSlipPoint,
@@ -339,5 +391,10 @@ controllers! {
     controllers {
         MpcDistance,
         MpcPosition,
+    }
+
+    estimators {
+        JointEkf,
+        JointUkf,
     }
 }

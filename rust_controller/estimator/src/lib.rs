@@ -13,16 +13,34 @@ use control_model::ControlModel;
 use prelude::*;
 
 mod ekf;
-pub use ekf::JointEKF;
+pub use ekf::JointEkf;
+
+mod ukf;
+pub use ukf::JointUkf;
 
 mod param_least_squares;
 
-type NM = U3;
+pub type NM = U3;
 
 pub trait Estimator<M: ControlModel>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
+    fn new(
+        initial_params: Vector<M::NP>,
+        Q_state: Matrix<M::NS, M::NS>,
+        Q_params: Matrix<M::NP, M::NP>,
+        Q_initial_params: Matrix<M::NP, M::NP>,
+        R: Matrix<NM, NM>,
+    ) -> Self
+    where
+        Self: Sized;
+
+    // TODO: Make an associated const once stable
+    fn name() -> &'static str
+    where
+        Self: Sized;
+
     fn step(
         &mut self,
         model: &M,

@@ -2,7 +2,9 @@
 
 use nalgebra::allocator::Allocator;
 use nalgebra::storage::Storage;
-use nalgebra::{DefaultAllocator, Dim, Dynamic as Dy, Matrix, MatrixMN, MatrixVec};
+use nalgebra::{DefaultAllocator, Dim, Matrix, MatrixMN};
+
+use prelude::{from_dynamic, to_dynamic};
 
 // Algorithm from: Higham, Nicholas J. The Scaling and Squaring Method for the Matrix Exponential
 // Revisited.
@@ -198,29 +200,6 @@ where
     let tmp = B[12] * &A6 + B[10] * &A4 + B[8] * &A2;
     let V = &A6 * tmp + B[6] * A6 + B[4] * A4 + B[2] * A2 + B[0] * I;
     (U, V)
-}
-
-fn to_dynamic<M: Dim, N: Dim>(mat: &MatrixMN<f64, M, N>) -> MatrixMN<f64, Dy, Dy>
-where
-    DefaultAllocator: Allocator<f64, M, N>,
-{
-    let (nrows, ncols) = mat.shape();
-    let data = mat.as_slice().to_owned();
-    let data = MatrixVec::new(Dy::new(nrows), Dy::new(ncols), data);
-    Matrix::from_data(data)
-}
-
-fn from_dynamic<M: Dim, N: Dim>(m: M, n: N, mat: &MatrixMN<f64, Dy, Dy>) -> MatrixMN<f64, M, N>
-where
-    DefaultAllocator: Allocator<f64, M, N>,
-{
-    let (nrows, ncols) = mat.shape();
-    assert_eq!(nrows, m.value());
-    assert_eq!(ncols, n.value());
-
-    let mut new_mat = MatrixMN::<f64, M, N>::zeros_generic(m, n);
-    new_mat.as_mut_slice().copy_from_slice(mat.as_slice());
-    new_mat
 }
 
 #[cfg(test)]

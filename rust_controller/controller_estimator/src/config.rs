@@ -22,6 +22,7 @@ pub struct CarConfig {
     pub N: u32,
     pub model: String,
     pub controller: String,
+    pub estimator: String,
     pub Q_state: Vec<float>,
     pub Q_initial_params: Vec<float>,
     pub Q_params_multiplier: float,

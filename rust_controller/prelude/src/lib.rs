@@ -121,3 +121,40 @@ where
         + Allocator<N, U3, B>,
 {
 }
+
+use nalgebra::{MatrixMN, MatrixVec, VectorN};
+
+pub fn to_dynamic<M: Dim, N: Dim>(mat: &MatrixMN<f64, M, N>) -> MatrixMN<f64, Dy, Dy>
+where
+    DefaultAllocator: Allocator<f64, M, N>,
+{
+    let (nrows, ncols) = mat.shape();
+    let data = mat.as_slice().to_owned();
+    let data = MatrixVec::new(Dy::new(nrows), Dy::new(ncols), data);
+    nalgebra::Matrix::from_data(data)
+}
+
+pub fn from_dynamic<M: Dim, N: Dim>(m: M, n: N, mat: &MatrixMN<f64, Dy, Dy>) -> MatrixMN<f64, M, N>
+where
+    DefaultAllocator: Allocator<f64, M, N>,
+{
+    let (nrows, ncols) = mat.shape();
+    assert_eq!(nrows, m.value());
+    assert_eq!(ncols, n.value());
+
+    let mut new_mat = MatrixMN::<f64, M, N>::zeros_generic(m, n);
+    new_mat.as_mut_slice().copy_from_slice(mat.as_slice());
+    new_mat
+}
+
+pub fn from_dynamic_vec<M: Dim>(m: M, mat: &VectorN<f64, Dy>) -> VectorN<f64, M>
+where
+    DefaultAllocator: Allocator<f64, M>,
+{
+    let (nrows, _) = mat.shape();
+    assert_eq!(nrows, m.value());
+
+    let mut new_mat = MatrixMN::<f64, M, U1>::zeros_generic(m, U1);
+    new_mat.as_mut_slice().copy_from_slice(mat.as_slice());
+    new_mat
+}

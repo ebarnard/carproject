@@ -9,6 +9,7 @@ N = 45
 model = "no_slip_point"
 controller = "mpc_distance"
 initial_params = [0.07, 3.9, 10.0, 19.6, 14.2, 1.8, 0.0045]
+estimator = "joint_ukf"
 # State evolution variance
 Q_state = [0.00002, 0.00002, 0.0001, 0.0002, 0.0001]
 # Initial parameter variance
