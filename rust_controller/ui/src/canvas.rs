@@ -2,11 +2,11 @@ use imgui::{self, ImGuiCond, ImVec2, Ui, WindowDrawList};
 
 use {pack_color, Color};
 
-pub struct Display<'a> {
-    pub(crate) ui: imgui::Ui<'a>,
+pub struct Display<'ui> {
+    pub(crate) ui: imgui::Ui<'ui>,
 }
 
-impl<'a> Display<'a> {
+impl<'ui> Display<'ui> {
     pub fn draw_canvas_window(
         &mut self,
         name: &str,
@@ -22,7 +22,8 @@ impl<'a> Display<'a> {
             .title_bar(false)
             .collapsible(false)
             .build(|| {
-                Canvas::draw(&self.ui, f);
+                let mut draw_list = self.ui.get_window_draw_list();
+                Canvas::draw(&self.ui, &mut draw_list, f);
             });
     }
 }
@@ -30,11 +31,16 @@ impl<'a> Display<'a> {
 pub struct Canvas<'a, 'ui: 'a> {
     // x, y, width, height
     viewport: [f32; 4],
+    ui: &'a Ui<'ui>,
     draw_list: &'a mut WindowDrawList<'ui>,
 }
 
 impl<'a, 'ui: 'a> Canvas<'a, 'ui> {
-    pub fn draw(ui: &Ui, f: &mut FnMut(&mut Canvas)) {
+    pub fn draw(
+        ui: &'a Ui<'ui>,
+        draw_list: &'a mut WindowDrawList<'ui>,
+        f: &mut FnMut(&mut Canvas),
+    ) {
         let mut window_pos = ImVec2::new(0.0, 0.0);
         let mut window_size = ImVec2::new(0.0, 0.0);
         unsafe {
@@ -43,11 +49,10 @@ impl<'a, 'ui: 'a> Canvas<'a, 'ui> {
         }
         let viewport = [window_pos.x, window_pos.y, window_size.x, window_size.y];
 
-        ui.with_window_draw_list(|draw_list| {
-            f(&mut Canvas {
-                viewport,
-                draw_list,
-            });
+        f(&mut Canvas {
+            viewport,
+            ui,
+            draw_list,
         });
     }
 
@@ -73,6 +78,7 @@ impl<'a, 'ui: 'a> Canvas<'a, 'ui> {
                 viewport[2] as f32,
                 viewport[3] as f32,
             ],
+            ui: self.ui,
             draw_list: self.draw_list,
         };
 
@@ -80,18 +86,20 @@ impl<'a, 'ui: 'a> Canvas<'a, 'ui> {
     }
 
     pub fn line(&mut self, color: Color, radius: f64, line: [f64; 4]) {
-        self.draw_list.add_line(
-            ImVec2::new(
-                self.viewport[0] + line[0] as f32,
-                self.viewport[1] + line[1] as f32,
-            ),
-            ImVec2::new(
-                self.viewport[0] + line[2] as f32,
-                self.viewport[1] + line[3] as f32,
-            ),
-            pack_color(color),
-            radius as f32,
-        );
+        self.draw_list
+            .add_line(
+                (
+                    self.viewport[0] + line[0] as f32,
+                    self.viewport[1] + line[1] as f32,
+                ),
+                (
+                    self.viewport[0] + line[2] as f32,
+                    self.viewport[1] + line[3] as f32,
+                ),
+                pack_color(color),
+            )
+            .thickness(radius as f32)
+            .build();
     }
 
     pub fn text(
@@ -118,11 +126,17 @@ impl<'a, 'ui: 'a> Canvas<'a, 'ui> {
             TextYAlign::Middle => pos[1] as f32 - 0.5 * text_size.y,
         };
 
-        self.draw_list.add_text(
-            ImVec2::new(self.viewport[0] + x_pos, self.viewport[1] + y_pos),
-            pack_color(color),
-            text,
-        );
+        unsafe {
+            let start = text.as_ptr();
+            let end = start.offset(text.len() as isize);
+            imgui::sys::ImDrawList_AddText(
+                imgui::sys::igGetWindowDrawList(),
+                ImVec2::new(self.viewport[0] + x_pos, self.viewport[1] + y_pos),
+                pack_color(color),
+                start as *const i8,
+                end as *const i8,
+            );
+        }
     }
 }
 
