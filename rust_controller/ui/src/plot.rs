@@ -44,7 +44,7 @@ impl Axes {
     }
 
     pub fn draw(&self, lines: &[&Line], canvas: &mut Canvas) {
-        const AXIS_DEPTH: f64 = 20.0;
+        const AXIS_DEPTH: f64 = 25.0;
         const TICK_LENGTH: f64 = 5.0;
         const TICK_DENSITY: f64 = 0.02;
 
