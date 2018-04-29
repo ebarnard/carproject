@@ -7,16 +7,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug",
-            "program": "${workspaceRoot}/target/debug/rust_controller",
+            "name": "Simulator Debug",
+            "program": "${workspaceRoot}/target/debug/simulator",
             "args": [],
             "cwd": "${workspaceRoot}"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Release",
-            "program": "${workspaceRoot}/target/release/rust_controller",
+            "name": "Simulator Release",
+            "program": "${workspaceRoot}/target/release/simulator",
             "args": [],
             "cwd": "${workspaceRoot}"
         }
