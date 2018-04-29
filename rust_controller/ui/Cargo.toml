@@ -5,5 +5,5 @@ authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
 glium = "0.21.0"
-imgui = { git = "https://github.com/malikolivier/imgui-rs.git", rev = "454e98037ec0b4083999d9a3f92f8f12863ff0c2" }
-imgui-glium-renderer = { git = "https://github.com/malikolivier/imgui-rs.git", rev = "454e98037ec0b4083999d9a3f92f8f12863ff0c2" }
+imgui = { git = "https://github.com/Gekkio/imgui-rs.git" }
+imgui-glium-renderer = { git = "https://github.com/Gekkio/imgui-rs.git" }

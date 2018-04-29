@@ -539,25 +539,25 @@ dependencies = [
 [[package]]
 name = "imgui"
 version = "0.0.19-pre"
-source = "git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2#454e98037ec0b4083999d9a3f92f8f12863ff0c2"
+source = "git+https://github.com/Gekkio/imgui-rs.git#1bdb2226d2862e11bfba496df7408482376a6e63"
 dependencies = [
- "imgui-sys 0.0.19-pre (git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2)",
+ "imgui-sys 0.0.19-pre (git+https://github.com/Gekkio/imgui-rs.git)",
 ]
 
 [[package]]
 name = "imgui-glium-renderer"
 version = "0.0.19-pre"
-source = "git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2#454e98037ec0b4083999d9a3f92f8f12863ff0c2"
+source = "git+https://github.com/Gekkio/imgui-rs.git#1bdb2226d2862e11bfba496df7408482376a6e63"
 dependencies = [
  "glium 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "imgui 0.0.19-pre (git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2)",
- "imgui-sys 0.0.19-pre (git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2)",
+ "imgui 0.0.19-pre (git+https://github.com/Gekkio/imgui-rs.git)",
+ "imgui-sys 0.0.19-pre (git+https://github.com/Gekkio/imgui-rs.git)",
 ]
 
 [[package]]
 name = "imgui-sys"
 version = "0.0.19-pre"
-source = "git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2#454e98037ec0b4083999d9a3f92f8f12863ff0c2"
+source = "git+https://github.com/Gekkio/imgui-rs.git#1bdb2226d2862e11bfba496df7408482376a6e63"
 dependencies = [
  "bitflags 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1255,8 +1255,8 @@ name = "ui"
 version = "0.1.0"
 dependencies = [
  "glium 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "imgui 0.0.19-pre (git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2)",
- "imgui-glium-renderer 0.0.19-pre (git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2)",
+ "imgui 0.0.19-pre (git+https://github.com/Gekkio/imgui-rs.git)",
+ "imgui-glium-renderer 0.0.19-pre (git+https://github.com/Gekkio/imgui-rs.git)",
 ]
 
 [[package]]
@@ -1509,9 +1509,9 @@ dependencies = [
 "checksum glutin 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5ed2d11d21384aa2e0ad027105a26d93d5ca22c73da4000ddd0ecede89571cf0"
 "checksum humantime 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0484fda3e7007f2a4a0d9c3a703ca38c71c54c55602ce4660c419fd32e188c9e"
 "checksum image 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)" = "545f000e8aa4e569e93f49c446987133452e0091c2494ac3efd3606aa3d309f2"
-"checksum imgui 0.0.19-pre (git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2)" = "<none>"
-"checksum imgui-glium-renderer 0.0.19-pre (git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2)" = "<none>"
-"checksum imgui-sys 0.0.19-pre (git+https://github.com/malikolivier/imgui-rs.git?rev=454e98037ec0b4083999d9a3f92f8f12863ff0c2)" = "<none>"
+"checksum imgui 0.0.19-pre (git+https://github.com/Gekkio/imgui-rs.git)" = "<none>"
+"checksum imgui-glium-renderer 0.0.19-pre (git+https://github.com/Gekkio/imgui-rs.git)" = "<none>"
+"checksum imgui-sys 0.0.19-pre (git+https://github.com/Gekkio/imgui-rs.git)" = "<none>"
 "checksum iovec 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "dbe6e417e7d0975db6512b90796e8ce223145ac4e33c377e4a42882a0e88bb08"
 "checksum itertools 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)" = "f58856976b776fedd95533137617a02fb25719f40e7d9b01c7043cd65474f450"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
