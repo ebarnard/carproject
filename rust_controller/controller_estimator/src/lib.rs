@@ -386,6 +386,7 @@ models! {
     models {
         DirectVelocity,
         NoSlipPoint,
+        KinematicBicycle,
     }
 
     controllers {

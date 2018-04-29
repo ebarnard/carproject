@@ -15,6 +15,9 @@ pub use spengler_gammeter::SpenglerGammeter;
 mod no_slip_point;
 pub use no_slip_point::NoSlipPoint;
 
+mod kinematic_bicycle;
+pub use kinematic_bicycle::KinematicBicycle;
+
 mod expm;
 
 #[derive(Clone, Copy, Debug, Default)]

@@ -96,4 +96,5 @@ simulation_control_models! {
     DirectVelocity,
     SpenglerGammeter,
     NoSlipPoint,
+    KinematicBicycle,
 }
