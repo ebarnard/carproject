@@ -51,6 +51,13 @@ fn run(mut record_tx: EventSender<Event>) {
     let N = controller.N();
 
     let sim_config = config::SimulatorConfig::load();
+    let R_sd: Vec<_> = sim_config.R.iter().cloned().map(float::sqrt).collect();
+    let Q_state_sd: Vec<_> = sim_config
+        .Q_state
+        .iter()
+        .cloned()
+        .map(float::sqrt)
+        .collect();
 
     let mut sim_model = simulation_model::model_from_config(&sim_config);
 
@@ -88,14 +95,19 @@ fn run(mut record_tx: EventSender<Event>) {
         // Run simulation
         sim_state = sim_model.step(optimise_dt, sim_state, &control);
 
+        // Add noise to state
+        for (x, &sd) in sim_state.0.iter_mut().zip(&Q_state_sd) {
+            *x += randn() * sd;
+        }
+
         // Add noise to measurement
         let state = sim_model.inspect_state(&sim_state);
         let mut measurement = Measurement {
             position: (
-                state.position.0 + randn() * 0.002,
-                state.position.1 + randn() * 0.002,
+                state.position.0 + randn() * R_sd[0],
+                state.position.1 + randn() * R_sd[1],
             ),
-            heading: state.heading + randn() * 0.03,
+            heading: state.heading + randn() * R_sd[2],
         };
         let measurement_time = dt_duration * i as u32;
         controller.measurement(Some(measurement), measurement_time);

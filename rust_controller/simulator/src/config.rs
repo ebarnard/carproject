@@ -12,6 +12,8 @@ pub struct SimulatorConfig {
     pub real_time: bool,
     pub model: String,
     pub params: Vec<float>,
+    pub R: Vec<float>,
+    pub Q_state: Vec<float>,
 }
 
 impl SimulatorConfig {

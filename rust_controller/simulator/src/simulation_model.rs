@@ -4,7 +4,7 @@ use prelude::*;
 use config::SimulatorConfig;
 
 #[derive(Clone)]
-pub struct SimState(Vec<float>);
+pub struct SimState(pub Vec<float>);
 
 pub trait SimulationModel {
     fn new(params: &[float]) -> Self
