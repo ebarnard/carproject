@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
-faster = { git = "https://github.com/AdamNiederer/faster.git" }
 libdc1394-sys = { version = "0.2.0", path = "libdc1394-sys" }
 prelude = { path = "../prelude" }
 triple_buffer = { version = "2.0.0", features = ["raw"] }

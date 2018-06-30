@@ -1,9 +1,7 @@
 #![feature(iterator_step_by)]
 
-extern crate faster;
 extern crate prelude;
 
-use faster::*;
 use nalgebra::{Matrix2, Vector2};
 
 use prelude::*;
@@ -124,7 +122,8 @@ impl Tracker {
 
     fn track_frame_two_cars(&mut self) -> (Option<Car>, Option<Car>) {
         // Find mean pixel coordiante.
-        let (x_mean, y_mean) = self.fg
+        let (x_mean, y_mean) = self
+            .fg
             .iter()
             .fold((0, 0), |acc, &(x, y)| (acc.0 + x, acc.1 + y));
         let (x_mean, y_mean) = (
@@ -212,19 +211,66 @@ fn background_sub_and_thresh(frame: &[u8], bg: &[u8], thresh: u8, fg_thresh: &mu
     assert_eq!(frame.len(), bg.len());
     assert_eq!(frame.len(), fg_thresh.len());
 
-    // This simpler code optimises very poorly so we use explicit SIMD.
-    //for ((&a, &b), out) in frame.iter().zip(&self.bg).zip(&mut self.fg_thresh) {
-    //    *out = a <= b || a - b <= thresh
-    //    if  {
-    //        *out = 0;
-    //    } else {
-    //        *out = 1;
-    //    }
-    //}
-    (frame.simd_iter(u8s(0)), bg.simd_iter(u8s(0)))
-        .zip()
-        .simd_map(|(a, b)| a.saturating_sub(b).gt(u8s(thresh)).as_u8s())
-        .scalar_fill(fg_thresh);
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("sse2") {
+            unsafe {
+                return background_sub_and_thresh_sse2(frame, bg, thresh, fg_thresh);
+            };
+        }
+    }
+
+    background_sub_and_thresh_fallback(frame, bg, thresh, fg_thresh);
+}
+
+fn background_sub_and_thresh_fallback(frame: &[u8], bg: &[u8], thresh: u8, fg_thresh: &mut [u8]) {
+    for ((&frame_pixel, &bg_pixel), out) in frame.iter().zip(bg).zip(fg_thresh) {
+        if frame_pixel.checked_sub(bg_pixel).unwrap_or(0) > thresh {
+            *out = 255;
+        } else {
+            *out = 0;
+        }
+    }
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "sse2")]
+unsafe fn background_sub_and_thresh_sse2(
+    mut frame: &[u8],
+    mut bg: &[u8],
+    thresh: u8,
+    fg_thresh: &mut [u8],
+) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{_mm_loadu_si128, _mm_set1_epi8, _mm_storeu_si128, _mm_subs_epu8};
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{_mm_loadu_si128, _mm_set1_epi8, _mm_storeu_si128, _mm_subs_epu8};
+
+    let thresh_vec = _mm_set1_epi8(thresh as i8);
+
+    let mut i = 0;
+    while frame.len() >= 16 {
+        let frame_vec = _mm_loadu_si128(frame.as_ptr() as *const _);
+        // TODO: Ensure bg slice is aligned and use _mm_load_si128
+        let bg_vec = _mm_loadu_si128(bg.as_ptr() as *const _);
+        let diff_vec = _mm_subs_epu8(frame_vec, bg_vec);
+        // SSE2 does not have unsigned comparison instructions so instead we perform another
+        // saturating subtraction and exploit the fact that we only check that the resulting value
+        // is not equal to zero.
+        let fg_thresh_vec = _mm_subs_epu8(diff_vec, thresh_vec);
+        // TODO: Ensure fg_thresh slice is aligned and use _mm_store_si128
+        _mm_storeu_si128(
+            fg_thresh.as_mut_ptr().offset(i as isize) as *mut _,
+            fg_thresh_vec,
+        );
+
+        frame = &frame[16..];
+        bg = &bg[16..];
+        i += 16;
+    }
+
+    // Process any remaining pixels if frame.len() is not a multiple of 16.
+    background_sub_and_thresh_fallback(frame, bg, thresh, &mut fg_thresh[i..]);
 }
 
 fn find_foreground_positions<F: FnMut(u32) -> Option<(u32, u32)>>(
