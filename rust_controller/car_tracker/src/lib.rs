@@ -80,7 +80,7 @@ impl Tracker {
         // Don't bother looking for cars if there are no foreground pixels.
         if self.fg.len() == 0 {
             self.car_positions.iter_mut().for_each(|p| *p = None);
-            return &self.car_positions;
+            return &self.car_positions[..self.max_cars as usize];
         }
 
         let (left, right) = match self.max_cars {
