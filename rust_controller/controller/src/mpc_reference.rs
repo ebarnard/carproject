@@ -9,7 +9,7 @@ use prelude::*;
 use track::TrackAndLookup;
 use {Controller, MpcBase};
 
-pub struct MpcPosition<M: ControlModel>
+pub struct MpcReference<M: ControlModel>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
@@ -17,11 +17,11 @@ where
     track: Arc<TrackAndLookup>,
 }
 
-impl<M: ControlModel> Controller<M> for MpcPosition<M>
+impl<M: ControlModel> Controller<M> for MpcReference<M>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
-    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>) -> MpcPosition<M> {
+    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>) -> MpcReference<M> {
         let ns_dim = Dy::new(M::NS::dim());
 
         // State penalties
@@ -43,14 +43,14 @@ where
         ineq_sparsity[(0, 0)] = true;
         ineq_sparsity[(0, 1)] = true;
 
-        MpcPosition {
+        MpcReference {
             base: MpcBase::new(model, N, Q, Q_terminal, R, &ineq_sparsity),
             track: track.clone(),
         }
     }
 
     fn name() -> &'static str {
-        "mpc_position"
+        "mpc_reference"
     }
 
     fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>) {

@@ -8,9 +8,9 @@ optimise_dt = 0.01
 horizon_dt = 0.04
 N = 45
 model = "no_slip_point"
-controller = "mpc_distance"
 estimator = "joint_ekf"
 initial_params = [0.07, 3.9, 10.0, 15.6, 9.9, 1.6, 0.0045]
+controller = "mpc_min_time"
 # State evolution variance
 Q_state = [0.00005, 0.00005, 0.0001, 0.001, 0.0001]
 # Initial parameter variance
@@ -26,9 +26,9 @@ optimise_dt = 0.01
 horizon_dt = 0.04
 N = 45
 model = "no_slip_point"
-controller = "mpc_distance"
 estimator = "joint_ekf"
 initial_params = [0.07, 4.0, 10.0, 19.6, 9.9, 1.6, 0.0045]
+controller = "mpc_min_time"
 # State evolution variance
 Q_state = [0.00005, 0.00005, 0.0001, 0.001, 0.0001]
 # Initial parameter variance

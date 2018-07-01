@@ -18,11 +18,11 @@ use track::TrackAndLookup;
 mod mpc_base;
 use mpc_base::MpcBase;
 
-mod mpc_position;
-pub use mpc_position::MpcPosition;
+mod mpc_reference;
+pub use mpc_reference::MpcReference;
 
-mod mpc_distance;
-pub use mpc_distance::MpcDistance;
+mod mpc_min_time;
+pub use mpc_min_time::MpcMinTime;
 
 mod osqp_mpc_builder;
 pub use osqp_mpc_builder::{MpcStage, OsqpMpc};

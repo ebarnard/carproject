@@ -390,8 +390,8 @@ models! {
     }
 
     controllers {
-        MpcDistance,
-        MpcPosition,
+        MpcReference,
+        MpcMinTime,
     }
 
     estimators {
