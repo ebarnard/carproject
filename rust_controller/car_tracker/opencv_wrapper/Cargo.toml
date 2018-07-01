@@ -1,0 +1,9 @@
+[package]
+name = "opencv_wrapper"
+version = "0.1.0"
+authors = ["Edward Barnard <eabarnard@gmail.com>"]
+
+[dependencies]
+
+[build-dependencies]
+cmake = "0.1.29"

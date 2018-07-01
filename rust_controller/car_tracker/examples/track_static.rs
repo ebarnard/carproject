@@ -1,10 +1,7 @@
 extern crate car_tracker;
-extern crate cv;
 extern crate image;
+extern crate opencv_wrapper;
 
-mod utils;
-
-use cv::highgui::Show;
 use std::time::Instant;
 
 fn main() {
@@ -23,7 +20,7 @@ fn main() {
         .unwrap()
         .to_luma()
         .into_raw();
-    let frame = frame.into_raw();
+    let mut frame = frame.into_raw();
 
     let mut tracker = car_tracker::Tracker::new(1, width, height, &track_mask, &bg);
 
@@ -36,7 +33,8 @@ fn main() {
         dur.as_secs() as f64 * 1e3 + dur.subsec_nanos() as f64 * 1e-6
     );
 
-    let mut fg = cv::Mat::from_buffer(height as i32, width as i32, 0, &frame);
-    utils::draw_car_positions(car_positions, &mut fg);
-    fg.show("win", 0).unwrap();
+    for p in car_positions.iter().filter_map(Option::as_ref) {
+        opencv_wrapper::draw_car_position(&mut frame, width, height, p.x, p.y, p.heading);
+    }
+    opencv_wrapper::show_greyscale_image(&frame, width, height, 0);
 }
