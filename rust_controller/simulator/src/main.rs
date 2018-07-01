@@ -64,10 +64,8 @@ fn run(mut record_tx: EventSender<Event>) {
     record_tx
         .send(Event::Reset {
             n_history: 250,
-            track: controller.track().clone(),
-            horizon_len: N as usize,
-            np: controller.np() as usize,
-            n_cars: 1,
+            track: track.clone(),
+            cars: vec![(controller.N(), controller.np())],
         })
         .expect("visualisation window closed");
 

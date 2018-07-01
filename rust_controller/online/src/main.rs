@@ -71,9 +71,7 @@ fn run(mut record_tx: EventSender<Event>) {
         .send(Event::Reset {
             n_history: 250,
             track: track.clone(),
-            horizon_len: 45, //controller.N() as usize,
-            np: 7,           //controller.np() as usize,
-            n_cars,
+            cars: controllers.iter().map(|c| (c.N(), c.np())).collect(),
         })
         .expect("visualisation window closed");
 
@@ -283,9 +281,10 @@ fn controller_loop(
         info!("Controller took {} ms", controller_millis);
         info!("State {:?}", res.current_state);
         info!("Control {:?}", control);
-        println!("params {:?}", res.params);
+        info!("Params {:?}", res.params);
 
-        let position_horizon = res.control_horizon
+        let position_horizon = res
+            .control_horizon
             .iter()
             .map(|&(_, state)| state.position)
             .collect();

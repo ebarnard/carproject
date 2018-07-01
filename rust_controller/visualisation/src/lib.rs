@@ -35,14 +35,17 @@ impl ui::State for Visualisation {
             Event::Reset {
                 n_history,
                 track,
-                horizon_len,
-                np,
-                n_cars,
+                cars,
             } => {
                 let (track_inner, track_outer) = track_inner_outer(&track, 1000);
                 self.track_inner = track_inner;
                 self.track_outer = track_outer;
-                self.history = vec![History::new(n_history, horizon_len, np); n_cars as usize];
+                self.history = cars
+                    .into_iter()
+                    .map(|(horizon_len, np)| {
+                        History::new(n_history as usize, horizon_len as usize, np as usize)
+                    })
+                    .collect();
             }
             Event::Record(car_idx, record) => self.history[car_idx as usize].record(record),
         }
@@ -191,11 +194,10 @@ impl ParamHistory {
 
 pub enum Event {
     Reset {
-        n_history: usize,
+        n_history: u32,
         track: Arc<TrackAndLookup>,
-        horizon_len: usize,
-        np: usize,
-        n_cars: u32,
+        /// (hoirzon_len, np)
+        cars: Vec<(u32, u32)>,
     },
     Record(u32, Record),
 }
