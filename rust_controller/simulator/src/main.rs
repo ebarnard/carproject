@@ -72,6 +72,11 @@ fn run(mut record_tx: EventSender<Event>) {
     let n_steps = (sim_config.t / optimise_dt) as usize;
     let dt_duration = secs_to_duration(optimise_dt);
     let mut stats = stats::OnlineStats::new();
+    let mut solve_time = Vec::with_capacity(n_steps);
+
+    let mut s_prev = 0.0;
+    let mut lap_start = 0;
+    let mut lap_time_stats = stats::OnlineStats::new();
 
     let initial_position = track.nearest_centreline_point(0.0);
     let mut sim_state = sim_model.init_state(
@@ -100,6 +105,23 @@ fn run(mut record_tx: EventSender<Event>) {
 
         // Add noise to measurement
         let state = sim_model.inspect_state(&sim_state);
+
+        let s = track
+            .centreline_distance(state.position.0, state.position.1)
+            .unwrap();
+        if s < s_prev {
+            let lap_time = (i - lap_start) as float * optimise_dt * 1e3;
+            if lap_time > 200.0 {
+                println!("lap in {} ms", lap_time);
+                if lap_start != 0 {
+                    //break;
+                }
+                lap_start = i;
+                lap_time_stats.add(lap_time);
+            }
+        }
+        s_prev = s;
+
         let mut measurement = Measurement {
             position: (
                 state.position.0 + randn() * R_sd[0],
@@ -120,6 +142,7 @@ fn run(mut record_tx: EventSender<Event>) {
         // Stop timer
         let controller_millis = duration_to_secs(controller_start.elapsed()) * 1e3;
         stats.add(controller_millis);
+        solve_time.push(controller_millis);
 
         control = res.control_horizon[0].0;
 
@@ -127,7 +150,8 @@ fn run(mut record_tx: EventSender<Event>) {
         info!("State {:?}", res.current_state);
         info!("Control {:?}", control);
 
-        let position_horizon = res.control_horizon
+        let position_horizon = res
+            .control_horizon
             .iter()
             .map(|&(_, state)| state.position)
             .collect();
@@ -159,5 +183,12 @@ fn run(mut record_tx: EventSender<Event>) {
         }
     }
 
-    println!("Running stats (mean/ms, stdev/ms): {:?}", stats);
+    solve_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    println!(
+        "Running stats (mean/ms +/- stdev/ms, 99%/ms): {:?}, {}",
+        stats,
+        solve_time[(n_steps as float * 0.99) as usize]
+    );
+
+    println!("Lap times (mean/ms, stdev/ms): {:?}", lap_time_stats);
 }
