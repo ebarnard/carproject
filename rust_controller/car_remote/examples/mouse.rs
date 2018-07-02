@@ -21,24 +21,21 @@ fn main() {
         .build(&events_loop)
         .expect("could not create window");
 
-    let mut throttle = 0.0;
-    let mut steering = 0.0;
+    let mut throttle = 0.0f64;
+    let mut steering = 0.0f64;
 
-    let (w, h) = window.get_inner_size().expect("zero sized window");
+    let (w, h): (f64, f64) = window.get_inner_size().expect("zero sized window").into();
     let (w, h) = (Cell::new(w), Cell::new(h));
-    let hidpi_factor = window.hidpi_factor() as f64;
 
     events_loop.run_forever(|event| {
         match event {
             Event::WindowEvent {
-                event:
-                    WindowEvent::MouseMoved {
-                        position: (x, y), ..
-                    },
+                event: WindowEvent::CursorMoved { position, .. },
                 ..
             } => {
-                throttle = 1.0 - (y as f64) / (hidpi_factor * h.get() as f64 / 2.0);
-                steering = 1.0 - (x as f64) / (hidpi_factor * w.get() as f64 / 2.0);
+                let (x, y): (f64, f64) = position.into();
+                throttle = 1.0 - y / (h.get() / 2.0);
+                steering = 1.0 - x / (w.get() / 2.0);
             }
             _ => (),
         }

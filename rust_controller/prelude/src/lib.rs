@@ -1,6 +1,5 @@
 pub extern crate flame;
 pub extern crate nalgebra;
-extern crate rand;
 
 pub mod flame_merge;
 
@@ -28,11 +27,6 @@ pub fn phase_unwrap(a: float, mut b: float) -> float {
         b += 2.0 * PI;
     }
     b
-}
-
-pub fn randn() -> float {
-    let rand::distributions::normal::StandardNormal(n) = rand::random();
-    n
 }
 
 use std::time::Duration;

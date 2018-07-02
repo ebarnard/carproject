@@ -4,6 +4,7 @@
 extern crate env_logger;
 #[macro_use]
 extern crate log;
+extern crate rand;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -191,4 +192,9 @@ fn run(mut record_tx: EventSender<Event>) {
     );
 
     println!("Lap times (mean/ms, stdev/ms): {:?}", lap_time_stats);
+}
+
+fn randn() -> float {
+    use rand::Rng;
+    rand::thread_rng().sample(rand::distributions::StandardNormal)
 }

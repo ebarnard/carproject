@@ -9,5 +9,5 @@ prelude = { path = "../prelude" }
 triple_buffer = { version = "2.0.0", features = ["raw"] }
 
 [dev-dependencies]
-image = { version = "0.18.0", default-features = false, features = ["tiff"] }
+image = { version = "0.19.0", default-features = false, features = ["tiff"] }
 opencv_wrapper = { path = "opencv_wrapper" }

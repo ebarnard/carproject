@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
-csv = "1.0.0-beta.5"
+csv = "1.0.0"
 cubic_spline = { path = "../cubic_spline" }
 log = "0.4.1"
 prelude = { path = "../prelude" }
