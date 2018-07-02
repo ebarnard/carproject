@@ -21,6 +21,9 @@ use mpc_base::MpcBase;
 mod mpc_reference;
 pub use mpc_reference::MpcReference;
 
+mod mpc_raceline;
+pub use mpc_raceline::MpcRaceline;
+
 mod mpc_min_time;
 pub use mpc_min_time::MpcMinTime;
 

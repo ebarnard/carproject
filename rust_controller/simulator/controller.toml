@@ -1,4 +1,4 @@
-track = "../data/tracks/office_desk_track_2500.csv"
+track = "../data/tracks/big_track_2500.csv"
 # Measurement variance
 R = [0.000004, 0.000004, 0.0009]
 
@@ -8,7 +8,7 @@ horizon_dt = 0.04
 N = 45
 model = "no_slip_point"
 initial_params = [0.07, 3.9, 10.0, 19.6, 14.2, 1.8, 0.0045]
-controller = "mpc_min_time"
+controller = "mpc_raceline"
 estimator = "joint_ukf"
 # State evolution variance
 Q_state = [0.00002, 0.00002, 0.0001, 0.0002, 0.0001]

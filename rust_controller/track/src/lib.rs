@@ -9,11 +9,12 @@ extern crate prelude;
 use cubic_spline::CubicSpline;
 use nalgebra::{Matrix2, Matrix3, Vector3};
 use std::cell::Cell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use prelude::*;
 
 pub struct Track {
+    path: PathBuf,
     total_distance: float,
     /// Distance to the end of each spline segment
     cumulative_distance: Vec<float>,
@@ -25,6 +26,8 @@ pub struct Track {
 
 #[derive(Clone, Copy, Debug)]
 pub struct CentrelinePoint {
+    t: float,
+    dt_ds: float,
     pub x: float,
     pub y: float,
     pub dx_ds: float,
@@ -37,20 +40,20 @@ pub struct CentrelinePoint {
 impl Track {
     pub fn load<P: AsRef<Path>>(path: P) -> Track {
         let (mut xs, mut ys, mut widths) = (Vec::new(), Vec::new(), Vec::new());
-        let mut reader = csv::Reader::from_path(path).expect("unable to open track");
+        let mut reader = csv::Reader::from_path(path.as_ref()).expect("unable to open track");
         for row in reader.deserialize() {
             let (x, y, width): (float, float, float) = row.expect("error reading track");
             xs.push(x);
             ys.push(y);
             widths.push(width);
         }
-        Track::from_track(&xs, &ys, &widths)
+        Track::from_track(path.as_ref().to_owned(), &xs, &ys, &widths)
     }
 
     /// Creates a spline track model from a given track.
     ///
     /// Panics if track points are not equally spaced.
-    pub fn from_track(x: &[float], y: &[float], width: &[float]) -> Track {
+    fn from_track(path: PathBuf, x: &[float], y: &[float], width: &[float]) -> Track {
         let n = x.len();
         assert_eq!(n, y.len());
         assert_eq!(n, width.len());
@@ -83,6 +86,7 @@ impl Track {
         }
 
         Track {
+            path,
             total_distance,
             cumulative_distance,
             x_spline,
@@ -98,7 +102,8 @@ impl Track {
 
     pub fn nearest_centreline_point(&self, s: float) -> CentrelinePoint {
         let s = s % self.total_distance;
-        let i = self.cumulative_distance
+        let i = self
+            .cumulative_distance
             .binary_search_by(|probe| probe.partial_cmp(&s).unwrap())
             .unwrap_or_else(|i| i);
 
@@ -115,6 +120,8 @@ impl Track {
         let (y, dy_dt, dy_dt2) = self.y_spline.evaluate(t);
 
         let point = CentrelinePoint {
+            t,
+            dt_ds: self.dt_ds,
             x,
             y,
             dx_ds: dx_dt * self.dt_ds,
@@ -313,6 +320,44 @@ impl TrackAndLookup {
 
     pub fn centreline_distance(&self, x: float, y: float) -> Option<float> {
         self.lookup.centreline_distance(&self.track, x, y)
+    }
+}
+
+pub struct Raceline {
+    a: CubicSpline,
+}
+
+pub struct RacelinePoint {
+    pub a: float,
+    pub da_ds: float,
+}
+
+impl Raceline {
+    pub fn load_for_track(track: &Track) -> Raceline {
+        let track_name = track.path.file_stem().expect("track file name invalid");
+        let raceline_file_name = format!("{}_raceline.csv", track_name.to_string_lossy());
+        let raceline_path = track.path.with_file_name(raceline_file_name);
+        Raceline::load(raceline_path)
+    }
+
+    fn load<P: AsRef<Path>>(path: P) -> Raceline {
+        let mut as_ = Vec::new();
+        let mut reader = csv::Reader::from_path(path).expect("unable to open raceline file");
+        for row in reader.deserialize() {
+            let a: (float) = row.expect("error reading raceline file");
+            as_.push(a);
+        }
+        Raceline {
+            a: CubicSpline::periodic(&as_),
+        }
+    }
+
+    pub fn at(&self, point: &CentrelinePoint) -> RacelinePoint {
+        let (a, da_dt, _) = self.a.evaluate(point.t);
+        RacelinePoint {
+            a,
+            da_ds: da_dt * point.dt_ds,
+        }
     }
 }
 

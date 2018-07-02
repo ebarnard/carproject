@@ -72,11 +72,9 @@ where
 }
 
 // TODO: Remove this hacky impl once nalgebra uses const generics.
-unsafe impl<M: ControlModel> Send for ControllerEstimatorImpl<M>
-where
-    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
-{
-}
+unsafe impl<M: ControlModel> Send for ControllerEstimatorImpl<M> where
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>
+{}
 
 pub fn controllers_from_config() -> (Arc<TrackAndLookup>, Vec<Box<ControllerEstimator>>) {
     let config = ControllerConfig::load();
@@ -273,15 +271,18 @@ where
             .copy_from(horizon_ctrl);
 
         for i in 0..(self.config.N as usize) {
-            let control = self.model
+            let control = self
+                .model
                 .u_to_control(&horizon_ctrl.column(i).into_owned());
             let state = self.model.x_to_state(&horizon_state.column(i).into_owned());
             self.horizon[i] = (control, state);
         }
 
-        self.param_var.copy_from(&predicted_cov
-            .fixed_slice::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
-            .diagonal());
+        self.param_var.copy_from(
+            &predicted_cov
+                .fixed_slice::<M::NP, M::NP>(M::NS::dim(), M::NS::dim())
+                .diagonal(),
+        );
         StepResult {
             current_state: self.model.x_to_state(&predicted_state),
             control_application_state: self.model.x_to_state(&control_application_state),
@@ -391,6 +392,7 @@ models! {
 
     controllers {
         MpcReference,
+        MpcRaceline,
         MpcMinTime,
     }
 
