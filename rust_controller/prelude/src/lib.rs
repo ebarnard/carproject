@@ -64,8 +64,7 @@ where
         + Dims2<B, C>
         + Dims2<DimNameSum<B, A>, C>
         + Dims2<DimNameSum<C, A>, B>,
-{
-}
+{}
 
 pub trait Dims2<A: Dim, B: Dim>:
     Dims2N<float, A, B> + Dims2N<usize, A, B> + Dims2N<bool, A, B>
@@ -77,8 +76,7 @@ where
     A: Dim,
     B: Dim,
     DefaultAllocator: Dims2N<float, A, B> + Dims2N<usize, A, B> + Dims2N<bool, A, B>,
-{
-}
+{}
 
 pub trait Dims2N<N: Scalar, A: Dim, B: Dim>:
     Allocator<N, A, A>
@@ -113,8 +111,7 @@ where
         + Allocator<N, B, U3>
         + Allocator<N, U3, A>
         + Allocator<N, U3, B>,
-{
-}
+{}
 
 use nalgebra::{MatrixMN, MatrixVec, VectorN};
 

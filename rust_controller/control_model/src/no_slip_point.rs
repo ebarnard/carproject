@@ -169,6 +169,6 @@ impl ControlModel for NoSlipPoint {
 fn unpack(x: &Vector<U5>, u: &Vector<U2>, p: &Vector<U7>) -> [float; 12] {
     // [phi, v, delta, throttle, delta_target, C1, C2, C3, Cm1, Cm2, Cr1, Cr2]
     [
-        x[2], x[3], x[4], u[0], u[1], p[0], p[1], p[2], p[3], p[4], p[5], p[6]
+        x[2], x[3], x[4], u[0], u[1], p[0], p[1], p[2], p[3], p[4], p[5], p[6],
     ]
 }

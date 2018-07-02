@@ -117,7 +117,7 @@ where
     DefaultAllocator: Allocator<f64, D, D>,
 {
     const B: [f64; 8] = [
-        17297280.0, 8648640.0, 1995840.0, 277200.0, 25200.0, 1512.0, 56.0, 1.0
+        17297280.0, 8648640.0, 1995840.0, 277200.0, 25200.0, 1512.0, 56.0, 1.0,
     ];
     let (nrows, ncols) = A.data.shape();
     let I = MatrixMN::identity_generic(nrows, ncols);

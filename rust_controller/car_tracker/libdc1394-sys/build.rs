@@ -12,7 +12,8 @@ fn main() {
 
     // --------- generate bindings for libdc1394 ---------
     let dir = env::var("DC1394_INCDIR").ok();
-    let header = dir.iter()
+    let header = dir
+        .iter()
         .map(|d| &**d)
         .chain(default_include_dirs.iter().map(|v| *v))
         .map(|incdir| Path::new(incdir).join("dc1394.h"))

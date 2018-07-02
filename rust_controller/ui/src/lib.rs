@@ -3,9 +3,11 @@ extern crate glium;
 extern crate imgui;
 extern crate imgui_glium_renderer;
 
+use glium::glutin::{
+    self, ElementState, Event, MouseButton, MouseScrollDelta, TouchPhase, VirtualKeyCode as Key,
+    WindowEvent,
+};
 use glium::Surface;
-use glium::glutin::{self, ElementState, Event, MouseButton, MouseScrollDelta, TouchPhase,
-                    VirtualKeyCode as Key, WindowEvent};
 use imgui::ImGui;
 use imgui_glium_renderer::Renderer;
 use std::cell::Cell;
@@ -18,8 +20,8 @@ pub mod colors;
 pub mod plot;
 
 pub use canvas::{Canvas, Display, TextXAlign, TextYAlign};
-pub use colors::Color;
 use colors::pack_color;
+pub use colors::Color;
 
 pub fn min<T: Copy + PartialOrd>(a: T, b: T) -> T {
     if a.lt(&b) {

@@ -83,7 +83,8 @@ impl Builder {
         }
 
         // Calculate the tracked block indices
-        let mut tracked_blocks = self.tracked_blocks
+        let mut tracked_blocks = self
+            .tracked_blocks
             .iter()
             .map(|&(id, row, col, ref sparsity)| {
                 let (nrows, ncols) = sparsity.shape();
@@ -401,10 +402,12 @@ pub fn bmat<B: AsRef<Builder>>(blocks: &[&[Option<B>]]) -> Builder {
     cumsum(&mut block_ncols, "column");
 
     // Merge the blocks
-    let mut acc = preallocate_for_merge(&mut blocks
-        .iter()
-        .flat_map(|r| r.iter().filter_map(Option::as_ref))
-        .map(AsRef::as_ref));
+    let mut acc = preallocate_for_merge(
+        &mut blocks
+            .iter()
+            .flat_map(|r| r.iter().filter_map(Option::as_ref))
+            .map(AsRef::as_ref),
+    );
     acc.nrows = *block_nrows.last().unwrap();
     acc.ncols = *block_ncols.last().unwrap();;
 
@@ -524,7 +527,8 @@ impl CscMatrix {
     }
 
     fn set_block_inner(&mut self, block_id: usize, value: MatrixSlice<float, Dy, Dy, Dy, Dy>) {
-        let start_idx = self.tracked_blocks
+        let start_idx = self
+            .tracked_blocks
             .binary_search_by(|&(id, _)| id.cmp(&block_id));
         let mut start_idx = start_idx.expect("Block not in this matrix");
 

@@ -147,7 +147,8 @@ where
         guard.end();
 
         let guard = flame::start_guard("mpc solve");
-        let solution = self.mpc
+        let solution = self
+            .mpc
             .solve(u.column(0).into_owned(), time_limit)
             .expect("solve failed");
         guard.end();

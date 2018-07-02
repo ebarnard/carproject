@@ -81,10 +81,12 @@ where
         assert_eq!(stage_ineq_sparsity.shape().1, n_total_states);
 
         // Build state quadratic penalty
-        let Q = sparse::block_diag(&repeat(&sparse::block(&Q_stage))
-            .take(N - 1)
-            .chain(once(&sparse::block(&Q_terminal)))
-            .collect::<Vec<_>>());
+        let Q = sparse::block_diag(
+            &repeat(&sparse::block(&Q_stage))
+                .take(N - 1)
+                .chain(once(&sparse::block(&Q_terminal)))
+                .collect::<Vec<_>>(),
+        );
 
         // Build input delta quadratic penalty
         let R_grad = sparse::block(&R_stage_grad);
