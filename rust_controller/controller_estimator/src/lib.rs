@@ -143,7 +143,7 @@ where
         };
     }
 
-    let mut controller = Box::new(ControllerEstimatorImpl {
+    Box::new(ControllerEstimatorImpl {
         config,
         track,
         model,
@@ -155,14 +155,7 @@ where
         current_control: Vector::<M::NI>::zeros(),
         estimator_time: Duration::from_secs(0),
         param_var: Vector::<M::NP>::zeros(),
-    });
-
-    // Run the controller a few time to initialise rho.
-    for _ in 0..100 {
-        controller.step(secs_to_duration(optimise_dt));
-    }
-
-    controller
+    })
 }
 
 impl<M: ControlModel> ControllerEstimator for ControllerEstimatorImpl<M>

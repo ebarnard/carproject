@@ -179,6 +179,8 @@ where
 
         let settings = Settings::default()
             .verbose(log_enabled!(Debug))
+            .adaptive_rho(false)
+            .rho(5.0)
             .polish(false)
             .eps_abs(1e-2)
             .max_iter(250);
@@ -321,10 +323,12 @@ where
             .update_bounds(self.l.as_slice(), self.u.as_slice());
         self.problem.update_A(&self.A);
 
-        let solve_time_limit = time_limit
-            .checked_sub(solve_start.elapsed())
-            .unwrap_or_default();
-        self.problem.update_time_limit(Some(solve_time_limit));
+        // The controller performs poorly if optimisation is terminated early.
+        // TODO: Investigate this further
+        //let solve_time_limit = time_limit
+        //    .checked_sub(solve_start.elapsed())
+        //    .unwrap_or_default();
+        //self.problem.update_time_limit(Some(solve_time_limit));
 
         // Work around the lack of NLL in Rust
         // TODO: Remove this workaround once NLL is released (next three blocks)
