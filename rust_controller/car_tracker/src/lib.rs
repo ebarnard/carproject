@@ -7,15 +7,19 @@ use nalgebra::{Matrix2, Vector2};
 
 use prelude::*;
 
+mod aligned_buffer;
+use aligned_buffer::AlignedBuffer;
+
 mod camera;
 pub use camera::{Camera, Capture};
 
 const MAX_CARS: u32 = 2;
+const SIMD_ALIGN: usize = 32;
 
 pub struct Tracker {
     max_cars: u32,
-    bg: Vec<u8>,
-    fg_thresh: Vec<u8>,
+    bg: AlignedBuffer,
+    fg_thresh: AlignedBuffer,
     fg: Vec<(u32, u32)>,
     x_bins: Vec<u32>,
     y_bins: Vec<u32>,
@@ -40,7 +44,7 @@ impl Tracker {
 
         // Everywhere the mask is zero is not track and should be excluded from the frame.
         // This is done by setting the background value to 255.
-        let mut bg = bg.to_vec();
+        let mut bg = AlignedBuffer::from_slice(&bg, SIMD_ALIGN);
         for (bg, &mask) in bg.iter_mut().zip(track_mask) {
             if mask == 0 {
                 *bg = 255;
@@ -50,7 +54,7 @@ impl Tracker {
         Tracker {
             max_cars,
             bg,
-            fg_thresh: vec![0; pixels],
+            fg_thresh: AlignedBuffer::zeroed(pixels, SIMD_ALIGN),
             fg: vec![(0, 0); pixels],
             x_bins: vec![0; width as usize],
             y_bins: vec![0; height as usize],
@@ -213,11 +217,11 @@ fn background_sub_and_thresh(frame: &[u8], bg: &[u8], thresh: u8, fg_thresh: &mu
     assert_eq!(frame.len(), fg_thresh.len());
 
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    {
-        if is_x86_feature_detected!("sse2") {
-            unsafe {
-                return background_sub_and_thresh_sse2(frame, bg, thresh, fg_thresh);
-            };
+    unsafe {
+        if is_x86_feature_detected!("avx2") {
+            return background_sub_and_thresh_avx2(frame, bg, thresh, fg_thresh);
+        } else if is_x86_feature_detected!("sse2") {
+            return background_sub_and_thresh_sse2(frame, bg, thresh, fg_thresh);
         }
     }
 
@@ -243,24 +247,22 @@ unsafe fn background_sub_and_thresh_sse2(
     fg_thresh: &mut [u8],
 ) {
     #[cfg(target_arch = "x86")]
-    use std::arch::x86::{_mm_loadu_si128, _mm_set1_epi8, _mm_storeu_si128, _mm_subs_epu8};
+    use std::arch::x86;
     #[cfg(target_arch = "x86_64")]
-    use std::arch::x86_64::{_mm_loadu_si128, _mm_set1_epi8, _mm_storeu_si128, _mm_subs_epu8};
+    use std::arch::x86_64 as x86;
 
-    let thresh_vec = _mm_set1_epi8(thresh as i8);
+    let thresh_vec = x86::_mm_set1_epi8(thresh as i8);
 
     let mut i = 0;
     while frame.len() >= 16 {
-        let frame_vec = _mm_loadu_si128(frame.as_ptr() as *const _);
-        // TODO: Ensure bg slice is aligned and use _mm_load_si128
-        let bg_vec = _mm_loadu_si128(bg.as_ptr() as *const _);
-        let diff_vec = _mm_subs_epu8(frame_vec, bg_vec);
+        let frame_vec = x86::_mm_loadu_si128(frame.as_ptr() as *const _);
+        let bg_vec = x86::_mm_load_si128(bg.as_ptr() as *const _);
+        let diff_vec = x86::_mm_subs_epu8(frame_vec, bg_vec);
         // SSE2 does not have unsigned comparison instructions so instead we perform another
         // saturating subtraction and exploit the fact that we only check that the resulting value
         // is not equal to zero.
-        let fg_thresh_vec = _mm_subs_epu8(diff_vec, thresh_vec);
-        // TODO: Ensure fg_thresh slice is aligned and use _mm_store_si128
-        _mm_storeu_si128(
+        let fg_thresh_vec = x86::_mm_subs_epu8(diff_vec, thresh_vec);
+        x86::_mm_store_si128(
             fg_thresh.as_mut_ptr().offset(i as isize) as *mut _,
             fg_thresh_vec,
         );
@@ -271,6 +273,42 @@ unsafe fn background_sub_and_thresh_sse2(
     }
 
     // Process any remaining pixels if frame.len() is not a multiple of 16.
+    background_sub_and_thresh_fallback(frame, bg, thresh, &mut fg_thresh[i..]);
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+unsafe fn background_sub_and_thresh_avx2(
+    mut frame: &[u8],
+    mut bg: &[u8],
+    thresh: u8,
+    fg_thresh: &mut [u8],
+) {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86;
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64 as x86;
+
+    let thresh_vec = x86::_mm256_set1_epi8(thresh as i8);
+
+    let mut i = 0;
+    while frame.len() >= 32 {
+        let frame_vec = x86::_mm256_loadu_si256(frame.as_ptr() as *const _);
+        let bg_vec = x86::_mm256_load_si256(bg.as_ptr() as *const _);
+        let diff_vec = x86::_mm256_subs_epu8(frame_vec, bg_vec);
+        // We use the same approach for the greater-than comparison as the SSE2 version.
+        let fg_thresh_vec = x86::_mm256_subs_epu8(diff_vec, thresh_vec);
+        x86::_mm256_store_si256(
+            fg_thresh.as_mut_ptr().offset(i as isize) as *mut _,
+            fg_thresh_vec,
+        );
+
+        frame = &frame[32..];
+        bg = &bg[32..];
+        i += 32;
+    }
+
+    // Process any remaining pixels if frame.len() is not a multiple of 32.
     background_sub_and_thresh_fallback(frame, bg, thresh, &mut fg_thresh[i..]);
 }
 
