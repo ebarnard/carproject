@@ -1,7 +1,8 @@
-#![feature(iterator_step_by)]
+extern crate itertools;
 
 extern crate prelude;
 
+use itertools::Itertools;
 use nalgebra::{Matrix2, Vector2};
 
 use prelude::*;
@@ -297,7 +298,7 @@ fn find_foreground_positions<F: FnMut(u32) -> Option<(u32, u32)>>(
     for (y, row) in fg_thresh_y_range
         .chunks(width)
         .enumerate()
-        .step_by(scale_step as usize)
+        .step(scale_step as usize)
     {
         let (x_min, x_max) = x_range((y_min + y) as u32)
             .map(|(l, u)| (l as usize, min(u as usize, width)))
@@ -309,7 +310,7 @@ fn find_foreground_positions<F: FnMut(u32) -> Option<(u32, u32)>>(
         for (x, _) in row_x_range
             .iter()
             .enumerate()
-            .step_by(scale_step as usize)
+            .step(scale_step as usize)
             .filter(|&(_, &v)| v != 0)
         {
             fg.push(((x_min + x) as u32, (y_min + y) as u32));
