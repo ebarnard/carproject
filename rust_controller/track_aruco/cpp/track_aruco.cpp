@@ -18,6 +18,38 @@ typedef struct {
     double values[9];
 } Homography2;
 
+void getBoardObjectAndImagePoints(const Ptr<aruco::Board> &board, InputArrayOfArrays detectedCorners,
+    InputArray detectedIds, OutputArray objPoints, OutputArray imgPoints) {
+
+    CV_Assert(board->ids.size() == board->objPoints.size());
+    CV_Assert(detectedIds.total() == detectedCorners.total());
+
+    size_t nDetectedMarkers = detectedIds.total();
+
+    vector< Point3f > objPnts;
+    objPnts.reserve(nDetectedMarkers);
+
+    vector< Point2f > imgPnts;
+    imgPnts.reserve(nDetectedMarkers);
+
+    // look for detected markers that belong to the board and get their information
+    for(unsigned int i = 0; i < nDetectedMarkers; i++) {
+        int currentId = detectedIds.getMat().ptr< int >(0)[i];
+        for(unsigned int j = 0; j < board->ids.size(); j++) {
+            if(currentId == board->ids[j]) {
+                for(int p = 0; p < 4; p++) {
+                    objPnts.push_back(board->objPoints[j][p]);
+                    imgPnts.push_back(detectedCorners.getMat(i).ptr< Point2f >(0)[p]);
+                }
+            }
+        }
+    }
+
+    // create output
+    Mat(objPnts).copyTo(objPoints);
+    Mat(imgPnts).copyTo(imgPoints);
+}
+
 extern "C" unsigned int find_homography(
     const Marker* const markers,
     unsigned int num_markers,
@@ -51,7 +83,6 @@ extern "C" unsigned int find_homography(
     detector_params->adaptiveThreshWinSizeMax = 23;
     detector_params->adaptiveThreshWinSizeStep = 2;
     detector_params->minMarkerPerimeterRate = 0.005;
-    detector_params->cornerRefinementMethod = aruco::CORNER_REFINE_SUBPIX;
 
     vector<int> ids;
     vector<vector<Point2f> > corners, rejected_corners;
@@ -81,7 +112,7 @@ extern "C" unsigned int find_homography(
 
     vector<Point3f> world_points_3d;
     vector<Point2f> image_points;
-    aruco::getBoardObjectAndImagePoints(board, corners, ids, world_points_3d, image_points);
+    getBoardObjectAndImagePoints(board, corners, ids, world_points_3d, image_points);
 
     if (debug_print) {
         cout << "detected " << image_points.size() << " corners" << endl;
