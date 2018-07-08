@@ -185,6 +185,8 @@ where
 
     // `control_time` is the absolute time at which the control input was applied.
     fn control_applied(&mut self, control: Control, control_time: Duration) {
+        let _guard = flame::start_guard("integrate control estimator step");
+
         // Update estimator based on previous control value and time
         // Save current control and time
         let current_control_applied_duration = control_time
@@ -204,6 +206,8 @@ where
 
     // `measurement_time` is the absolute time at which the measurement was taken.
     fn measurement(&mut self, measurement: Option<Measurement>, measurement_time: Duration) {
+        let _guard = flame::start_guard("integrate measurement estimator step");
+
         // Update estimator based on previous control value and time
         // Save current control and time
         let current_control_applied_duration = measurement_time
@@ -232,9 +236,11 @@ where
         self.u_target_time = control_application_time;
 
         // Get current predicted state and parameters
+        let guard = flame::start_guard("predict controller start estimator step");
         let (predicted_state, predicted_params, predicted_cov) =
             self.estimator
                 .step(&mut self.model, 0.0, &self.current_control, None);
+        guard.end();
 
         // Advance inputs so the first column of self.u contains the previously applied input.
         // TODO: Actually advance the values in the input matrix.
@@ -249,6 +255,7 @@ where
         );
 
         // Optimise control inputs.
+        let guard = flame::start_guard("controller step");
         let controller_time_limit = control_application_delay
             .checked_sub(step_start.elapsed())
             .unwrap_or_default();
@@ -271,6 +278,7 @@ where
             let state = self.model.x_to_state(&horizon_state.column(i).into_owned());
             self.horizon[i] = (control, state);
         }
+        guard.end();
 
         self.param_var.copy_from(
             &predicted_cov
