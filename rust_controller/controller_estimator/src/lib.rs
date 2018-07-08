@@ -13,12 +13,12 @@ extern crate track;
 
 mod config;
 
-use nalgebra::{self, MatrixMN, Vector3};
+use nalgebra::{self, MatrixMN};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use control_model::ControlModel;
-use controller::Controller;
+use controller::{Controller, InitController};
 use estimator::{Estimator, NM};
 use prelude::*;
 use track::TrackAndLookup;
@@ -30,7 +30,6 @@ pub use estimator::Measurement;
 
 pub trait ControllerEstimator: Send {
     fn optimise_dt(&self) -> float;
-    fn horizon_dt(&self) -> float;
     fn N(&self) -> u32;
     fn np(&self) -> u32;
     fn track(&self) -> &Arc<TrackAndLookup>;
@@ -81,17 +80,17 @@ pub fn controllers_from_config() -> (Arc<TrackAndLookup>, Vec<Box<ControllerEsti
     let track = track::Track::load(&*config.track);
     // TODO: Init w & h from camera
     let track = Arc::new(TrackAndLookup::new(track, 1280 * 2, 1024 * 2));
-    let R = Vector3::from_column_slice(&config.R);
 
     let car_controllers = config
         .cars
-        .into_iter()
-        .map(|car| {
+        .iter()
+        .enumerate()
+        .map(|(car_index, car)| {
             MODELS
                 .iter()
                 .find(|c| c.0() == car.model)
                 .expect("model not found")
-                .1(car, track.clone(), &R)
+                .1(&config, car_index, track.clone())
         })
         .collect();
 
@@ -99,22 +98,28 @@ pub fn controllers_from_config() -> (Arc<TrackAndLookup>, Vec<Box<ControllerEsti
 }
 
 fn new<M: ControlModelCtor>(
-    config: CarConfig,
+    root_config: &ControllerConfig,
+    car_index: usize,
     track: Arc<TrackAndLookup>,
-    R: &Vector3<float>,
 ) -> Box<ControllerEstimator>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
+    let config = &root_config.cars[car_index];
     let model = M::new();
     let N = config.N;
     let optimise_dt = config.optimise_dt;
 
+    let controller_config = root_config
+        .controllers
+        .get(&config.controller)
+        .expect("controller config not found")
+        .clone();
     let mut controller = M::CONTROLLERS
         .iter()
         .find(|c| c.0() == config.controller)
         .expect("controller not found")
-        .1(&model, N, &track);
+        .1(&model, N, &track, controller_config);
     let u_min = Vector::<M::NI>::from_column_slice(&config.u_min);
     let u_max = Vector::<M::NI>::from_column_slice(&config.u_max);
     controller.update_input_bounds(u_min, u_max);
@@ -125,7 +130,7 @@ where
         &config.Q_initial_params,
     ));
     let Q_params = &Q_initial_params * config.Q_params_multiplier;
-    let R = Matrix::from_diagonal(R);
+    let R = Matrix::from_diagonal(&Vector::<NM>::from_column_slice(&root_config.R));
     let estimator = M::ESTIMATORS
         .iter()
         .find(|e| e.0() == config.estimator)
@@ -144,7 +149,7 @@ where
     }
 
     Box::new(ControllerEstimatorImpl {
-        config,
+        config: config.clone(),
         track,
         model,
         controller,
@@ -164,10 +169,6 @@ where
 {
     fn optimise_dt(&self) -> float {
         self.config.optimise_dt
-    }
-
-    fn horizon_dt(&self) -> float {
-        self.config.horizon_dt
     }
 
     fn N(&self) -> u32 {
@@ -292,7 +293,7 @@ where
 {
     const CONTROLLERS: &'static [(
         fn() -> &'static str,
-        fn(&Self, u32, &Arc<TrackAndLookup>) -> Box<Controller<Self>>,
+        fn(&Self, u32, &Arc<TrackAndLookup>, toml::Value) -> Box<Controller<Self>>,
     )];
 
     const ESTIMATORS: &'static [(
@@ -311,7 +312,10 @@ macro_rules! expand_controllers {
     ($model:ident, {$($controller:ident),*}) => {
         &[$((
             controller::$controller::<control_model::$model>::name,
-            |a, b, c| Box::new(controller::$controller::<control_model::$model>::new(a, b, c)),
+            |a, b, c, config| {
+                let config = config.try_into().expect("failed to deserialise controller config");
+                Box::new(controller::$controller::<control_model::$model>::new(a, b, c, config))
+            },
         )),*];
     }
 }
@@ -345,7 +349,7 @@ macro_rules! models {
     ({$($model:ident),*}, $controllers:tt, $estimators:tt) => {
         static MODELS: &'static [(
             fn() -> &'static str,
-            fn(CarConfig, Arc<TrackAndLookup>, &Vector3<float>) -> Box<ControllerEstimator>
+            fn(&ControllerConfig, usize, Arc<TrackAndLookup>) -> Box<ControllerEstimator>
         )] = &[$((
             control_model::$model::name,
             new::<control_model::$model>
@@ -358,7 +362,7 @@ macro_rules! models {
             {
                 const CONTROLLERS: &'static [(
                     fn() -> &'static str,
-                    fn(&Self, u32, &Arc<TrackAndLookup>) -> Box<Controller<Self>>,
+                    fn(&Self, u32, &Arc<TrackAndLookup>, toml::Value) -> Box<Controller<Self>>,
                 )] = expand_controllers!($model, $controllers);
 
                 const ESTIMATORS: &'static [(
@@ -376,6 +380,9 @@ macro_rules! models {
     };
 }
 
+// This macro creates compile-time specialised controllers and estimators for each control model.
+// These can be initialised from a top level MODELS static array containing function pointers to
+// an initialiser for each.
 models! {
     models {
         DirectVelocity,

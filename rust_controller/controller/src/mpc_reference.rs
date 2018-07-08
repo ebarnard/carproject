@@ -1,13 +1,20 @@
 use flame;
 use log::Level::Debug;
-use nalgebra::{self, MatrixMN, U1, U2};
+use nalgebra::{MatrixMN, U1, U2, U3};
 use std::sync::Arc;
 use std::time::Duration;
 
 use control_model::ControlModel;
 use prelude::*;
 use track::TrackAndLookup;
-use {Controller, MpcBase};
+use {Controller, InitController, MpcBase};
+
+#[derive(Deserialize)]
+pub struct Config {
+    pub Q: Vec<float>,
+    pub R: Vec<float>,
+    pub v_target: float,
+}
 
 pub struct MpcReference<M: ControlModel>
 where
@@ -17,27 +24,25 @@ where
     track: Arc<TrackAndLookup>,
 }
 
-impl<M: ControlModel> Controller<M> for MpcReference<M>
+impl<M: ControlModel> InitController<M> for MpcReference<M>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
-    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>) -> MpcReference<M> {
+    type Config = Config;
+
+    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>, config: Config) -> MpcReference<M> {
         let ns_dim = Dy::new(M::NS::dim());
 
         // State penalties
         let mut Q = Vector::zeros_generic(ns_dim, U1);
-        Q[0] = 20.0;
-        Q[1] = 20.0;
-        Q[2] = 3.0;
+        Q.fixed_rows_mut::<U3>(0)
+            .copy_from(&Vector::<U3>::from_row_slice(&config.Q));
         let Q = Matrix::from_diagonal(&Q);
 
         let Q_terminal = Q.clone();
 
         // Input difference penalties
-        let mut R: Vector<M::NI> = nalgebra::zero();
-        R[0] = 0.1;
-        R[1] = 1.0;
-        let R = Matrix::from_diagonal(&R);
+        let R = Matrix::from_diagonal(&Vector::<M::NI>::from_row_slice(&config.R));
 
         let mut ineq_sparsity = MatrixMN::from_element_generic(Dy::new(1), ns_dim, false);
         ineq_sparsity[(0, 0)] = true;
@@ -52,7 +57,12 @@ where
     fn name() -> &'static str {
         "mpc_reference"
     }
+}
 
+impl<M: ControlModel> Controller<M> for MpcReference<M>
+where
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
+{
     fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>) {
         self.base.update_input_bounds(u_min, u_max)
     }

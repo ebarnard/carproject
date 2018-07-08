@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use toml;
@@ -11,9 +12,10 @@ pub struct ControllerConfig {
     pub track: String,
     pub R: Vec<float>,
     pub cars: Vec<CarConfig>,
+    pub controllers: HashMap<String, toml::Value>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct CarConfig {
     /// Target time between optimisations
     pub optimise_dt: float,

@@ -9,12 +9,11 @@ extern crate prelude;
 use cubic_spline::CubicSpline;
 use nalgebra::{Matrix2, Matrix3, Vector3};
 use std::cell::Cell;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use prelude::*;
 
 pub struct Track {
-    path: PathBuf,
     total_distance: float,
     /// Distance to the end of each spline segment
     cumulative_distance: Vec<float>,
@@ -40,20 +39,20 @@ pub struct CentrelinePoint {
 impl Track {
     pub fn load<P: AsRef<Path>>(path: P) -> Track {
         let (mut xs, mut ys, mut widths) = (Vec::new(), Vec::new(), Vec::new());
-        let mut reader = csv::Reader::from_path(path.as_ref()).expect("unable to open track");
+        let mut reader = csv::Reader::from_path(path).expect("unable to open track");
         for row in reader.deserialize() {
             let (x, y, width): (float, float, float) = row.expect("error reading track");
             xs.push(x);
             ys.push(y);
             widths.push(width);
         }
-        Track::from_track(path.as_ref().to_owned(), &xs, &ys, &widths)
+        Track::from_track(&xs, &ys, &widths)
     }
 
     /// Creates a spline track model from a given track.
     ///
     /// Panics if track points are not equally spaced.
-    fn from_track(path: PathBuf, x: &[float], y: &[float], width: &[float]) -> Track {
+    fn from_track(x: &[float], y: &[float], width: &[float]) -> Track {
         let n = x.len();
         assert_eq!(n, y.len());
         assert_eq!(n, width.len());
@@ -86,7 +85,6 @@ impl Track {
         }
 
         Track {
-            path,
             total_distance,
             cumulative_distance,
             x_spline,
@@ -333,14 +331,7 @@ pub struct RacelinePoint {
 }
 
 impl Raceline {
-    pub fn load_for_track(track: &Track) -> Raceline {
-        let track_name = track.path.file_stem().expect("track file name invalid");
-        let raceline_file_name = format!("{}_raceline.csv", track_name.to_string_lossy());
-        let raceline_path = track.path.with_file_name(raceline_file_name);
-        Raceline::load(raceline_path)
-    }
-
-    fn load<P: AsRef<Path>>(path: P) -> Raceline {
+    pub fn load<P: AsRef<Path>>(path: P) -> Raceline {
         let mut as_ = Vec::new();
         let mut reader = csv::Reader::from_path(path).expect("unable to open raceline file");
         for row in reader.deserialize() {

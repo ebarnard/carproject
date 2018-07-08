@@ -1,12 +1,18 @@
 use flame;
-use nalgebra::{self, MatrixMN, U1, U2};
+use nalgebra::{MatrixMN, U1, U2};
 use std::sync::Arc;
 use std::time::Duration;
 
 use control_model::ControlModel;
 use prelude::*;
 use track::TrackAndLookup;
-use {Controller, MpcBase};
+use {Controller, InitController, MpcBase};
+
+#[derive(Deserialize)]
+pub struct Config {
+    pub Q_terminal_v: float,
+    pub R: Vec<float>,
+}
 
 pub struct MpcMinTime<M: ControlModel>
 where
@@ -16,11 +22,13 @@ where
     track: Arc<TrackAndLookup>,
 }
 
-impl<M: ControlModel> Controller<M> for MpcMinTime<M>
+impl<M: ControlModel> InitController<M> for MpcMinTime<M>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
-    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>) -> MpcMinTime<M> {
+    type Config = Config;
+
+    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>, config: Config) -> MpcMinTime<M> {
         let ns = M::NS::dim();
         let ns_dim = Dy::new(ns);
 
@@ -28,14 +36,10 @@ where
         let Q = Matrix::zeros_generic(ns_dim, ns_dim);
 
         let mut Q_terminal = Matrix::zeros_generic(ns_dim, ns_dim);
-        Q_terminal[(3, 3)] = 2000.0;
+        Q_terminal[(3, 3)] = config.Q_terminal_v;
 
         // Input difference penalties
-        // TODO: Support a configurable penalty multiplier
-        let mut R: Vector<M::NI> = nalgebra::zero();
-        R[0] = 30.0;
-        R[1] = 200.0;
-        let R = Matrix::from_diagonal(&R);
+        let R = Matrix::from_diagonal(&Vector::<M::NI>::from_row_slice(&config.R));
 
         let mut ineq_sparsity = MatrixMN::from_element_generic(Dy::new(1), ns_dim, false);
         ineq_sparsity[(0, 0)] = true;
@@ -50,7 +54,12 @@ where
     fn name() -> &'static str {
         "mpc_min_time"
     }
+}
 
+impl<M: ControlModel> Controller<M> for MpcMinTime<M>
+where
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
+{
     fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>) {
         self.base.update_input_bounds(u_min, u_max)
     }

@@ -1,13 +1,18 @@
 #![allow(non_snake_case)]
 
-extern crate control_model;
 #[macro_use]
 extern crate log;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+
+extern crate control_model;
 extern crate osqp;
 extern crate prelude;
 extern crate sparse;
 extern crate track;
 
+use serde::de::DeserializeOwned;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -30,19 +35,22 @@ pub use mpc_min_time::MpcMinTime;
 mod osqp_mpc_builder;
 pub use osqp_mpc_builder::{MpcStage, OsqpMpc};
 
+pub trait InitController<M: ControlModel>: Controller<M>
+where
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
+{
+    type Config: DeserializeOwned;
+
+    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>, config: Self::Config) -> Self;
+
+    // TODO: Make an associated const once stable
+    fn name() -> &'static str;
+}
+
 pub trait Controller<M: ControlModel>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
-    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>) -> Self
-    where
-        Self: Sized;
-
-    // TODO: Make an associated const once stable
-    fn name() -> &'static str
-    where
-        Self: Sized;
-
     fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>);
 
     /// `u` has N + 1 columns where the first is the previously applied input.

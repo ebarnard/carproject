@@ -1,12 +1,19 @@
 use flame;
-use nalgebra::{self, MatrixMN, U1, U2};
+use nalgebra::{MatrixMN, U1, U2};
 use std::sync::Arc;
 use std::time::Duration;
 
 use control_model::ControlModel;
 use prelude::*;
 use track::{Raceline, TrackAndLookup};
-use {Controller, MpcBase};
+use {Controller, InitController, MpcBase};
+
+#[derive(Deserialize)]
+pub struct Config {
+    pub Q_a: float,
+    pub R: Vec<float>,
+    pub raceline: String,
+}
 
 pub struct MpcRaceline<M: ControlModel>
 where
@@ -17,26 +24,24 @@ where
     raceline: Raceline,
 }
 
-impl<M: ControlModel> Controller<M> for MpcRaceline<M>
+impl<M: ControlModel> InitController<M> for MpcRaceline<M>
 where
     DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
 {
-    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>) -> MpcRaceline<M> {
+    type Config = Config;
+
+    fn new(model: &M, N: u32, track: &Arc<TrackAndLookup>, config: Config) -> MpcRaceline<M> {
         let ns = M::NS::dim();
         let ns_virtual_dim = Dy::new(M::NS::dim() + 1);
 
         // State penalties
         let mut Q = Matrix::zeros_generic(ns_virtual_dim, ns_virtual_dim);
-        Q[(ns, ns)] = 10.0;
+        Q[(ns, ns)] = config.Q_a;
 
         let Q_terminal = Q.clone();
 
         // Input difference penalties
-        // TODO: Support a configurable penalty multiplier
-        let mut R: Vector<M::NI> = nalgebra::zero();
-        R[0] = 30.0;
-        R[1] = 200.0;
-        let R = Matrix::from_diagonal(&R);
+        let R = Matrix::from_diagonal(&Vector::<M::NI>::from_row_slice(&config.R));
 
         let mut ineq_sparsity = MatrixMN::from_element_generic(Dy::new(2), ns_virtual_dim, false);
         // track bounds constraint
@@ -50,14 +55,19 @@ where
         MpcRaceline {
             base: MpcBase::new(model, N, Q, Q_terminal, R, &ineq_sparsity),
             track: track.clone(),
-            raceline: Raceline::load_for_track(&track.track),
+            raceline: Raceline::load(&config.raceline),
         }
     }
 
     fn name() -> &'static str {
         "mpc_raceline"
     }
+}
 
+impl<M: ControlModel> Controller<M> for MpcRaceline<M>
+where
+    DefaultAllocator: ModelDims<M::NS, M::NI, M::NP>,
+{
     fn update_input_bounds(&mut self, u_min: Vector<M::NI>, u_max: Vector<M::NI>) {
         self.base.update_input_bounds(u_min, u_max)
     }

@@ -18,3 +18,17 @@ Q_initial_params = [0.005, 0.005, 0.05, 0.005, 0.004, 0.003, 0.0]
 Q_params_multiplier = 0.0000000001
 u_min = [0.0, -0.8]
 u_max = [0.3, 0.8]
+
+[controllers.mpc_reference]
+Q = [20.0, 20.0, 3.0]
+R = [0.1, 1.0]
+v_target = 1.0
+
+[controllers.mpc_min_time]
+Q_terminal_v = 2000.0
+R = [30.0, 200.0]
+
+[controllers.mpc_raceline]
+Q_a = 10.0
+R = [30.0, 200.0]
+raceline = "../data/tracks/big_track_2500_raceline.csv"
