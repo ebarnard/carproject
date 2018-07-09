@@ -1,16 +1,16 @@
-track = "../data/tracks/office_desk_track_2500.csv"
+track = "../data/tracks/big_track_2500.csv"
 # Measurement variance
 R = [0.000004, 0.000004, 0.0009]
 
 # Car 0
 [[cars]]
-optimise_dt = 0.01
-horizon_dt = 0.04
-N = 45
-model = "no_slip_point"
-estimator = "joint_ekf"
-initial_params = [0.07, 3.9, 10.0, 15.6, 9.9, 1.6, 0.0045]
+optimise_dt = 0.015
+horizon_dt = 0.03
+N = 30
+model = "kinematic_bicycle"
 controller = "mpc_min_time"
+estimator = "joint_ukf"
+initial_params = [0.45, 22.0, 0.5, 15.6, 9.9, 1.6, 0.0045]
 # State evolution variance
 Q_state = [0.00005, 0.00005, 0.0001, 0.001, 0.0001]
 # Initial parameter variance
@@ -22,13 +22,13 @@ u_max = [0.25, 0.8]
 
 # Car 1
 [[cars]]
-optimise_dt = 0.01
-horizon_dt = 0.04
-N = 45
-model = "no_slip_point"
-estimator = "joint_ekf"
-initial_params = [0.07, 4.0, 10.0, 19.6, 9.9, 1.6, 0.0045]
+optimise_dt = 0.015
+horizon_dt = 0.03
+N = 40
+model = "kinematic_bicycle"
 controller = "mpc_min_time"
+estimator = "joint_ukf"
+initial_params = [0.45, 22.0, 0.5, 15.6, 9.9, 1.6, 0.0045]
 # State evolution variance
 Q_state = [0.00005, 0.00005, 0.0001, 0.001, 0.0001]
 # Initial parameter variance
@@ -50,4 +50,4 @@ R = [30.0, 200.0]
 [controllers.mpc_raceline]
 Q_a = 10.0
 R = [30.0, 200.0]
-raceline = "../data/tracks/office_desk_track_2500.csv"
+raceline = "../data/tracks/big_track_2500_raceline.csv"
