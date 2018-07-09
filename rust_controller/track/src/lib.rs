@@ -4,7 +4,11 @@ extern crate csv;
 extern crate cubic_spline;
 #[macro_use]
 extern crate log;
+extern crate osqp_wrapper;
 extern crate prelude;
+extern crate sparse;
+
+pub mod min_curvature;
 
 use cubic_spline::CubicSpline;
 use nalgebra::{Matrix2, Matrix3, Vector3};

@@ -5,6 +5,8 @@ authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
 csv = "1.0.0"
-cubic_spline = { path = "../cubic_spline" }
 log = "0.4.1"
+cubic_spline = { path = "../cubic_spline" }
+osqp_wrapper = { path = "../osqp_wrapper" }
 prelude = { path = "../prelude" }
+sparse = { path = "../sparse" }

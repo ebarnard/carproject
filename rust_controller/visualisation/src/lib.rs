@@ -18,6 +18,7 @@ pub fn new() -> (Window, EventSender<Event>) {
         history: Vec::new(),
         track_inner: Line::new(0, BLACK),
         track_outer: Line::new(0, BLACK),
+        raceline: Line::new(0, BLACK),
     })
 }
 
@@ -25,6 +26,7 @@ struct Visualisation {
     history: Vec<History>,
     track_inner: Line,
     track_outer: Line,
+    raceline: Line,
 }
 
 impl ui::State for Visualisation {
@@ -36,10 +38,13 @@ impl ui::State for Visualisation {
                 n_history,
                 track,
                 cars,
+                raceline,
             } => {
-                let (track_inner, track_outer) = track_inner_outer(&track, 1000);
+                let (track_inner, track_outer, raceline) =
+                    track_inner_outer_raceline(&track, 2500, &raceline);
                 self.track_inner = track_inner;
                 self.track_outer = track_outer;
+                self.raceline = raceline;
                 self.history = cars
                     .into_iter()
                     .map(|(horizon_len, np)| {
@@ -65,6 +70,7 @@ impl ui::State for Visualisation {
                     let mut track_lines = Vec::with_capacity(2 + self.history.len() * 2);
                     track_lines.push(&self.track_inner);
                     track_lines.push(&self.track_outer);
+                    track_lines.push(&self.raceline);
                     for history in &self.history {
                         track_lines.push(&history.position);
                         track_lines.push(&history.predicted_horizon);
@@ -128,10 +134,11 @@ impl ui::State for Visualisation {
     }
 }
 
-fn track_inner_outer(track: &TrackAndLookup, n: usize) -> (Line, Line) {
+fn track_inner_outer_raceline(track: &Track, n: usize, raceline_a: &[float]) -> (Line, Line, Line) {
     let total_s = track.track.total_distance();
     let mut track_inner = Line::new(n, BLUE);
     let mut track_outer = Line::new(n, BLUE);
+    let mut raceline = Line::new(n, MAGENTA);
 
     for i in 0..n {
         let s = total_s * (i as float) / (n as float - 1.0);
@@ -140,9 +147,13 @@ fn track_inner_outer(track: &TrackAndLookup, n: usize) -> (Line, Line) {
         let half_dy = point.dx_ds * point.track_width * 0.5;
         track_inner.push_back(point.x - half_dx, point.y - half_dy);
         track_outer.push_back(point.x + half_dx, point.y + half_dy);
+        raceline.push_back(
+            point.x - point.dy_ds * raceline_a[i],
+            point.y + point.dx_ds * raceline_a[i],
+        );
     }
 
-    (track_inner, track_outer)
+    (track_inner, track_outer, raceline)
 }
 
 #[derive(Clone)]

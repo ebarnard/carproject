@@ -289,6 +289,19 @@ where
     )
 }
 
+pub fn from_fn<F: FnMut(usize, usize) -> float>(nrows: usize, ncols: usize, mut f: F) -> Builder {
+    let mut builder = zeros(nrows, ncols);
+    for r in 0..nrows {
+        for c in 0..ncols {
+            let val = f(r, c);
+            if val != 0.0 {
+                builder.coords.push((r, c, val));
+            }
+        }
+    }
+    builder
+}
+
 pub fn add<B: AsRef<Builder>>(blocks: &[B]) -> Builder {
     fn op(acc: &mut Builder, nrows: &mut usize, ncols: &mut usize, block: &Builder) {
         assert_eq!(

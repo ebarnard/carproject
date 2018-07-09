@@ -77,6 +77,20 @@ impl CubicSpline {
     }
 }
 
+/// Returns `n` equally spaced points around a periodic cubic spline.
+pub fn equispace_points(spline: CubicSpline, n: usize) {
+    // 1. Subdivide each spline segment until the segment is sufficiently close to a straight line
+    //    (i.e. `c` and `d` are sufficiently small).
+    // 2. Calculate the total spline length using a linear approximation.
+    // 3. Find `n` equally spaced points under the assumption that the curve parameter `t` is
+    //    linearly related to the arc length `s` of each subdivided segment.
+
+    // OR
+
+    // 1. Approximate cubic spline by quadratic spline segments - subdividing as necessary
+    // 2. Use exact relationship between t and s to find equispaced points (note! - how well is the mapping of t preserved?)
+}
+
 /// Returns the first row of the symmetric and circulant periodic cubic spline second derivative
 /// matrix:
 ///
