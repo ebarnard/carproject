@@ -6,7 +6,7 @@ use prelude::*;
 
 #[derive(Clone)]
 pub struct CubicSpline {
-    coefs: Vec<(float, float, float, float)>,
+    coefs: Vec<float>,
 }
 
 impl CubicSpline {
@@ -16,36 +16,51 @@ impl CubicSpline {
         let n = y.len();
         assert!(n >= 2);
 
-        let mut rhs = vec![0.0; n];
-        rhs[0] = 3.0 * (y[1] - y[n - 1]);
-        for i in 1..n - 1 {
-            rhs[i] = 3.0 * (y[i + 1] - y[i - 1]);
-        }
-        rhs[n - 1] = 3.0 * (y[0] - y[n - 2]);
+        // Allocate vector that will be used to store spline coefficients. This is the only
+        // allocation made by this function.
+        let mut coefs = vec![0.0; n * 4];
 
-        let mut D = vec![0.0; n];
-        thomas_sherman_morrison(1.0, 4.0, 1.0, &rhs, &mut D);
+        {
+            // Store the spline matrix equation right-hand side in the second `n` elements of
+            // `coefs`, use the next `n` elements as scratch space and store the output in the
+            // final `n` elements.
+            let (left, right) = coefs.split_at_mut(n * 2);
+            let (_, rhs) = left.split_at_mut(n);
+            let (zeros, D) = right.split_at_mut(n);
+
+            rhs[0] = 3.0 * (y[1] - y[n - 1]);
+            for i in 1..n - 1 {
+                rhs[i] = 3.0 * (y[i + 1] - y[i - 1]);
+            }
+            rhs[n - 1] = 3.0 * (y[0] - y[n - 2]);
+
+            thomas_sherman_morrison(1.0, 4.0, 1.0, rhs, D, zeros);
+        }
 
         let make_coef = |y, y_p, D, D_p| {
             let a = y;
             let b = D;
             let c = 3.0 * (y_p - y) - 2.0 * D - D_p;
             let d = 2.0 * (y - y_p) + D + D_p;
-            (a, b, c, d)
+            [a, b, c, d]
         };
 
-        let mut coefs = Vec::with_capacity(n);
+        // The final `n` elements of `coefs` now contains the `D` vector.
+        let D_0 = coefs[n * 3];
         for i in 0..n - 1 {
-            coefs.push(make_coef(y[i], y[i + 1], D[i], D[i + 1]));
+            let coef = make_coef(y[i], y[i + 1], coefs[n * 3 + i], coefs[n * 3 + i + 1]);
+            (&mut coefs[i * 4..(i + 1) * 4]).copy_from_slice(&coef);
         }
-        coefs.push(make_coef(y[n - 1], y[0], D[n - 1], D[0]));
+        let coef = make_coef(y[n - 1], y[0], coefs[n * 4 - 1], D_0);
+        (&mut coefs[(n - 1) * 4..n * 4]).copy_from_slice(&coef);
 
-        CubicSpline { coefs: coefs }
+        CubicSpline { coefs }
     }
 
     fn get_coefs(&self, t: float) -> (float, float, float, float) {
-        let index = (t.floor() as usize) % self.coefs.len();
-        self.coefs[index]
+        let i = (t.floor() as usize) % self.coefs.len();
+        let coef = &self.coefs[i * 4..(i + 1) * 4];
+        (coef[0], coef[1], coef[2], coef[3])
     }
 
     pub fn evaluate(&self, t: float) -> (float, float, float) {
@@ -62,7 +77,8 @@ impl CubicSpline {
     }
 }
 
-/// Returns the first row of the periodic cubic spline second derivative matrix:
+/// Returns the first row of the symmetric and circulant periodic cubic spline second derivative
+/// matrix:
 ///
 /// ```text
 /// │ x''(t = 0) │   │ a  b  c  d  e  d  c  b │   │ x(t = 0) │
@@ -81,12 +97,14 @@ pub fn periodic_second_derivative_matrix(vals: &mut [float]) {
     let N = vals.len();
     assert!(N >= 3);
 
-    let mut rhs = vec![0.0; N];
+    let mut zeros = vec![0.0; N * 2];
+    let (rhs, zeros) = zeros.split_at_mut(N);
+
     rhs[0] = -12.0;
     rhs[1] = 6.0;
     rhs[N - 1] = 6.0;
 
-    thomas_sherman_morrison(1.0, 4.0, 1.0, &rhs, vals);
+    thomas_sherman_morrison(1.0, 4.0, 1.0, rhs, vals, zeros);
 }
 
 /// Solves a tridiagonal linear system of the form:
@@ -98,15 +116,27 @@ pub fn periodic_second_derivative_matrix(vals: &mut [float]) {
 /// │ 0  0  a  b  c │   | x3 │   │ d3 │
 /// │ c  0  0  a  b │   | x4 │   │ d4 │
 /// ```
-fn thomas_sherman_morrison(a: float, b: float, c: float, d: &[float], x: &mut [float]) {
+///
+/// The `d` and `zeros` vectors are used as scratch space. The `zeros` vector is expected to
+/// contain only zeros.
+fn thomas_sherman_morrison(
+    a: float,
+    b: float,
+    c: float,
+    d: &mut [float],
+    x: &mut [float],
+    zeros: &mut [float],
+) {
     // Tridiagonal matrix is periodic. Solve using the divisionless Thomas algorithm and the
     // Sherman-Morrison formula.
     // https://www.cfd-online.com/Wiki/Tridiagonal_matrix_algorithm_-_TDMA_(Thomas_algorithm)
 
     let N = d.len();
     assert!(N >= 3);
+    assert_eq!(x.len(), N);
+    assert_eq!(zeros.len(), N);
 
-    let mut u = vec![0.0; N];
+    let u = zeros;
     u[0] = -b;
     u[N - 1] = c;
     let v_0 = 1.0;
@@ -115,16 +145,17 @@ fn thomas_sherman_morrison(a: float, b: float, c: float, d: &[float], x: &mut [f
     let b_0 = b - u[0];
     let b_N = b - u[N - 1] * v_N;
 
-    // let q = x;
-    thomas_divisionless(a, b_0, b, b_N, c, &u, x);
-    let v_transpose_q = v_0 * x[0] + v_N * x[N - 1];
+    let q = x;
+    thomas_divisionless(a, b_0, b, b_N, c, u, q);
+    let v_transpose_q = v_0 * q[0] + v_N * q[N - 1];
 
-    let mut y = u;
-    thomas_divisionless(a, b_0, b, b_N, c, d, &mut y);
+    let y = u;
+    thomas_divisionless(a, b_0, b, b_N, c, d, y);
     let v_transpose_y = v_0 * y[0] + v_N * y[N - 1];
 
     let q_scale = v_transpose_y / (1.0 + v_transpose_q);
 
+    let x = q;
     for i in 0..N {
         x[i] = y[i] - q_scale * x[i];
     }
@@ -139,13 +170,15 @@ fn thomas_sherman_morrison(a: float, b: float, c: float, d: &[float], x: &mut [f
 /// │  0  0  a  b  c  │   │ x3 │   │ d3 │
 /// │  0  0  0  a  bN │   │ x4 │   │ d4 │
 /// ```
+///
+/// The `d` vector is used as scratch space.
 fn thomas_divisionless(
     a: float,
     b_0: float,
     b: float,
     b_N: float,
     c: float,
-    d: &[float],
+    d: &mut [float],
     x: &mut [float],
 ) {
     // MATLAB code from Program 13, P. 93, Numerical Mathematics - Quarteroni, Sacco and Saler.
@@ -172,18 +205,19 @@ fn thomas_divisionless(
 
     let a_c = a * c;
 
-    let mut gamma = vec![0.0; N];
-    gamma[0] = 1.0 / b_0;
+    // Use no longer required entries of `d` to store the `gamma` vector.
+    let gamma_0 = 1.0 / b_0;
+    x[0] = gamma_0 * d[0];
+    d[0] = gamma_0;
     for i in 1..(N - 1) {
-        gamma[i] = 1.0 / (b - a_c * gamma[i - 1]);
+        let gamma_i = 1.0 / (b - a_c * d[i - 1]);
+        x[i] = gamma_i * (d[i] - a * x[i - 1]);
+        d[i] = gamma_i;
     }
-    gamma[N - 1] = 1.0 / (b_N - a_c * gamma[N - 2]);
+    let gamma_N_1 = 1.0 / (b_N - a_c * d[N - 2]);
+    x[N - 1] = gamma_N_1 * (d[N - 1] - a * x[N - 2]);
 
-    x[0] = gamma[0] * d[0];
-    for i in 1..N {
-        x[i] = gamma[i] * (d[i] - a * x[i - 1]);
-    }
-
+    let gamma = d;
     for i in (0..N - 1).rev() {
         x[i] -= gamma[i] * c * x[i + 1];
     }
@@ -198,7 +232,7 @@ mod test {
         let y = &[5., 6., 8., 2., 1.5, 7.4, 9.];
 
         let spline = CubicSpline::periodic(y);
-        let D: Vec<_> = spline.coefs.iter().map(|&(_, D, _, _)| D).collect();
+        let D: Vec<_> = spline.coefs.chunks(4).map(|c| c[1]).collect();
 
         let D_expected = &[
             -2.509756097560976,
@@ -262,10 +296,10 @@ mod test {
         let b = 5.0;
         let b_N = 15.0;
         let c = 3.0;
-        let d = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let mut d = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 
         let mut x = vec![0.0; 5];
-        thomas_divisionless(a, b_0, b, b_N, c, &d, &mut x);
+        thomas_divisionless(a, b_0, b, b_N, c, &mut d, &mut x);
 
         let x_expected = &[
             -0.002966101694915,
@@ -283,10 +317,11 @@ mod test {
         let a = 2.0;
         let b = 5.0;
         let c = 3.0;
-        let d = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let mut d = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 
         let mut x = vec![0.0; 5];
-        thomas_sherman_morrison(a, b, c, &d, &mut x);
+        let mut zeros = vec![0.0; 5];
+        thomas_sherman_morrison(a, b, c, &mut d, &mut x, &mut zeros);
 
         let x_expected = &[
             -0.427272727272727,
