@@ -18,7 +18,8 @@ typedef struct {
     double values[9];
 } Homography2;
 
-void getBoardObjectAndImagePoints(const Ptr<aruco::Board> &board, InputArrayOfArrays detectedCorners,
+// Copied from the opencv source
+void getBoardObjectAndImagePointsLocalCopy(const Ptr<aruco::Board> &board, InputArrayOfArrays detectedCorners,
     InputArray detectedIds, OutputArray objPoints, OutputArray imgPoints) {
 
     CV_Assert(board->ids.size() == board->objPoints.size());
@@ -112,7 +113,7 @@ extern "C" unsigned int find_homography(
 
     vector<Point3f> world_points_3d;
     vector<Point2f> image_points;
-    getBoardObjectAndImagePoints(board, corners, ids, world_points_3d, image_points);
+    getBoardObjectAndImagePointsLocalCopy(board, corners, ids, world_points_3d, image_points);
 
     if (debug_print) {
         cout << "detected " << image_points.size() << " corners" << endl;
