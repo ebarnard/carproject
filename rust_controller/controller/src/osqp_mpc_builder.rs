@@ -110,19 +110,17 @@ where
                     sparse::hstack(&[A, sparse::zeros(ns, n_virtual_states)]),
                     A_block,
                 )
-            })
-            .unzip();
+            }).unzip();
         let (Au, B_blocks): (Vec<_>, Vec<_>) =
             (0..N).map(|_| sparse::block_mut(B_sparsity)).unzip();
         let A_evolution_diag: Vec<_> = (0..N)
             .map(|_| sparse::hstack(&[sparse::eye(ns), sparse::zeros(ns, n_virtual_states)]))
             .collect();
 
-        let Ax = -sparse::block_diag(&A_evolution_diag)
-            + sparse::bmat(&[
-                &[None, Some(sparse::zeros(ns, ns + n_virtual_states))],
-                &[Some(sparse::block_diag(&Ax)), None],
-            ]);
+        let Ax = -sparse::block_diag(&A_evolution_diag) + sparse::bmat(&[
+            &[None, Some(sparse::zeros(ns, ns + n_virtual_states))],
+            &[Some(sparse::block_diag(&Ax)), None],
+        ]);
         let Au = sparse::block_diag(&Au);
 
         // Build input to input difference equality matrix

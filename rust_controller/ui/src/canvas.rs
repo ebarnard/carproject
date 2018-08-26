@@ -18,8 +18,7 @@ impl<'ui> Display<'ui> {
             .size(
                 (default_size.0 as f32, default_size.1 as f32),
                 ImGuiCond::FirstUseEver,
-            )
-            .title_bar(false)
+            ).title_bar(false)
             .collapsible(false)
             .build(|| {
                 let mut draw_list = self.ui.get_window_draw_list();
@@ -97,8 +96,7 @@ impl<'a, 'ui: 'a> Canvas<'a, 'ui> {
                     self.viewport[1] + line[3] as f32,
                 ),
                 pack_color(color),
-            )
-            .thickness(radius as f32)
+            ).thickness(radius as f32)
             .build();
     }
 

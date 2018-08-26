@@ -44,8 +44,7 @@ impl ui::State for Visualisation {
                     .into_iter()
                     .map(|(horizon_len, np)| {
                         History::new(n_history as usize, horizon_len as usize, np as usize)
-                    })
-                    .collect();
+                    }).collect();
             }
             Event::Record(car_idx, record) => self.history[car_idx as usize].record(record),
         }

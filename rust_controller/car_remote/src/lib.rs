@@ -23,8 +23,7 @@ impl Connection {
                     }
                 }
                 false
-            })
-            .next()
+            }).next()
             .expect("could not find Arduino Nano serial port");
 
         let settings = serialport::SerialPortSettings {

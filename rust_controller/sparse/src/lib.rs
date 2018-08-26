@@ -59,8 +59,7 @@ impl Builder {
                 } else {
                     Err((l, r))
                 }
-            })
-            .collect();
+            }).collect();
 
         let mut indptr = vec![0; self.ncols + 1];
         let mut indices = vec![0; self.coords.len()];
@@ -110,8 +109,7 @@ impl Builder {
                 }
 
                 (id, block_indices)
-            })
-            .collect::<Vec<_>>();
+            }).collect::<Vec<_>>();
 
         tracked_blocks.sort_unstable_by_key(|b| b.0);
 
@@ -269,8 +267,7 @@ where
             (0..ncols)
                 .filter(move |&c| sparsity[(r, c)])
                 .map(move |c| (r, c, 0.0))
-        })
-        .collect();
+        }).collect();
 
     let sparsity = to_dynamic(sparsity);
 
@@ -641,7 +638,7 @@ mod tests {
             0.0, 4.0, 6.0,
         );
 
-        block(&a) + block(&b);
+        let _ = block(&a) + block(&b);
     }
 
     #[test]

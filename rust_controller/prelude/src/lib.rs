@@ -46,11 +46,7 @@ pub use nalgebra::{DefaultAllocator, DimName, DimNameAdd, Dynamic as Dy};
 use nalgebra::{Dim, DimNameSum, Scalar, U1, U3};
 
 pub trait ModelDims<A: DimName, B: DimNameAdd<A>, C: DimNameAdd<A>>:
-    Dims2<A, B>
-    + Dims2<A, C>
-    + Dims2<B, C>
-    + Dims2<DimNameSum<B, A>, C>
-    + Dims2<DimNameSum<C, A>, B>
+    Dims2<A, B> + Dims2<A, C> + Dims2<B, C> + Dims2<DimNameSum<B, A>, C> + Dims2<DimNameSum<C, A>, B>
 {
 }
 

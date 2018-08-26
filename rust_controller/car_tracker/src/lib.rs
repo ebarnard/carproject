@@ -379,8 +379,7 @@ fn find_median_x_y<F: FnMut(u32, u32) -> bool>(
         .scan(0, |acc, &n| {
             *acc += n;
             Some(*acc)
-        })
-        .enumerate()
+        }).enumerate()
         .filter(|&(_, acc)| acc >= n_inliers / 2)
         .next()
         .unwrap_or((0, 0));
@@ -390,8 +389,7 @@ fn find_median_x_y<F: FnMut(u32, u32) -> bool>(
         .scan(0, |acc, &n| {
             *acc += n;
             Some(*acc)
-        })
-        .enumerate()
+        }).enumerate()
         .filter(|&(_, acc)| acc >= n_inliers / 2)
         .next()
         .unwrap_or((0, 0));

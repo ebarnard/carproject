@@ -64,8 +64,7 @@ impl Track {
                 let s = acc.0 + float::hypot(x - acc.1, y - acc.2);
                 *acc = (s, x, y);
                 Some(s)
-            })
-            .collect();
+            }).collect();
 
         let total_distance = cumulative_distance[n - 1];
         let dt_ds = n as float / total_distance;

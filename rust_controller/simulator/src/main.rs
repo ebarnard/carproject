@@ -67,8 +67,7 @@ fn run(mut record_tx: EventSender<Event>) {
             n_history: 250,
             track: track.clone(),
             cars: vec![(controller.N(), controller.np())],
-        })
-        .expect("visualisation window closed");
+        }).expect("visualisation window closed");
 
     let n_steps = (sim_config.t / optimise_dt) as usize;
     let dt_duration = secs_to_duration(optimise_dt);
@@ -168,8 +167,7 @@ fn run(mut record_tx: EventSender<Event>) {
                     param_var: res.param_var.to_vec(),
                     predicted_horizon: position_horizon,
                 },
-            ))
-            .expect("visualisation window closed");
+            )).expect("visualisation window closed");
 
         let step_elapsed = Instant::now() - step_start;
         if let Some(step_remaining) = dt_duration.checked_sub(step_elapsed) {

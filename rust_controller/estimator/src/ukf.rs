@@ -1,5 +1,5 @@
 use nalgebra::storage::Storage;
-use nalgebra::{self, DimNameSum, SymmetricEigen, U1, Vector3};
+use nalgebra::{self, DimNameSum, SymmetricEigen, Vector3, U1};
 
 use control_model::ControlModel;
 use prelude::*;

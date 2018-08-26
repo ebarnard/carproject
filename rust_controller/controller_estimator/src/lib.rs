@@ -91,8 +91,7 @@ pub fn controllers_from_config() -> (Arc<TrackAndLookup>, Vec<Box<ControllerEsti
                 .find(|c| c.0() == car.model)
                 .expect("model not found")
                 .1(&config, car_index, track.clone())
-        })
-        .collect();
+        }).collect();
 
     (track, car_controllers)
 }

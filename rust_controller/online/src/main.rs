@@ -72,8 +72,7 @@ fn run(mut record_tx: EventSender<Event>) {
             n_history: 250,
             track: track.clone(),
             cars: controllers.iter().map(|c| (c.N(), c.np())).collect(),
-        })
-        .expect("visualisation window closed");
+        }).expect("visualisation window closed");
 
     // Wait for cars to be placed on track.
     println!("place cars on track. cars must be placed left to right in car number order. press enter to continue.");
@@ -128,8 +127,7 @@ fn run(mut record_tx: EventSender<Event>) {
                 );
             });
             (measurement_tx, thread_handle)
-        })
-        .unzip();
+        }).unzip();
 
     // Process camera frames on this thread.
     loop {
@@ -300,8 +298,7 @@ fn controller_loop(
                     param_var: res.param_var.to_vec(),
                     predicted_horizon: position_horizon,
                 },
-            ))
-            .expect("visualisation window closed");
+            )).expect("visualisation window closed");
 
         let step_elapsed = start_time.elapsed() - step_start;
         if let Some(step_remaining) = dt_duration.checked_sub(step_elapsed) {
