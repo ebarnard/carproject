@@ -1,5 +1,5 @@
 [package]
-name = "osqp"
+name = "osqp_wrapper"
 version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 

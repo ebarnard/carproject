@@ -225,7 +225,7 @@ version = "0.1.0"
 dependencies = [
  "control_model 0.1.0",
  "log 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "osqp 0.1.0",
+ "osqp_wrapper 0.1.0",
  "prelude 0.1.0",
  "serde 1.0.75 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.75 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -331,7 +331,7 @@ version = "0.1.0"
 dependencies = [
  "control_model 0.1.0",
  "log 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "osqp 0.1.0",
+ "osqp_wrapper 0.1.0",
  "prelude 0.1.0",
  "sparse 0.1.0",
  "track 0.1.0",
@@ -790,15 +790,6 @@ dependencies = [
 
 [[package]]
 name = "osqp"
-version = "0.1.0"
-dependencies = [
- "osqp 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "prelude 0.1.0",
- "sparse 0.1.0",
-]
-
-[[package]]
-name = "osqp"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
@@ -811,6 +802,15 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cmake 0.1.33 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "osqp_wrapper"
+version = "0.1.0"
+dependencies = [
+ "osqp 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prelude 0.1.0",
+ "sparse 0.1.0",
 ]
 
 [[package]]

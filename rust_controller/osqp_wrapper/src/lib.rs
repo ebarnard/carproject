@@ -1,18 +1,17 @@
-extern crate osqp as osqp_inner;
+extern crate osqp;
 extern crate prelude;
 extern crate sparse;
 
 use flame;
 use std::time::Duration;
 
-use self::osqp_inner::Problem as InnerProblem;
-pub use self::osqp_inner::*;
-
 use prelude::*;
+
+pub use osqp::*;
 
 #[allow(non_snake_case)]
 pub struct Problem {
-    inner: InnerProblem,
+    inner: osqp::Problem,
 }
 
 #[allow(dead_code)]
@@ -28,7 +27,7 @@ impl Problem {
     ) -> Problem {
         let _guard = flame::start_guard("osqp setup");
         Problem {
-            inner: InnerProblem::new(convert_sparse(P), q, convert_sparse(A), l, u, settings),
+            inner: osqp::Problem::new(convert_sparse(P), q, convert_sparse(A), l, u, settings),
         }
     }
 

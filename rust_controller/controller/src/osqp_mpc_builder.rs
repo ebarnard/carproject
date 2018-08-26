@@ -1,6 +1,6 @@
 use log::Level::Debug;
 use nalgebra::{Dynamic as Dy, MatrixMN, U1};
-use osqp::{Problem, Settings, Status};
+use osqp_wrapper::{Problem, Settings, Status};
 use std::iter::{once, repeat};
 use std::time::{Duration, Instant};
 

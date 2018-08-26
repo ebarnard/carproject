@@ -1,6 +1,6 @@
 use log::Level::Debug;
 use nalgebra::{self, MatrixMN};
-use osqp::{Problem, Settings};
+use osqp_wrapper::{Problem, Settings};
 use sparse;
 
 use control_model::{discretise, ControlModel};

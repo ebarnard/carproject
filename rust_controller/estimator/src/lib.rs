@@ -3,7 +3,7 @@
 extern crate control_model;
 #[macro_use]
 extern crate log;
-extern crate osqp;
+extern crate osqp_wrapper;
 extern crate prelude;
 extern crate sparse;
 

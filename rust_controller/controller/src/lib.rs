@@ -7,7 +7,7 @@ extern crate serde;
 extern crate serde_derive;
 
 extern crate control_model;
-extern crate osqp;
+extern crate osqp_wrapper;
 extern crate prelude;
 extern crate sparse;
 extern crate track;
