@@ -28,7 +28,7 @@ impl Connection {
             .expect("could not find Arduino Nano serial port");
 
         let settings = serialport::SerialPortSettings {
-            baud_rate: serialport::BaudRate::Baud115200,
+            baud_rate: 115200,
             timeout: Duration::from_millis(1),
             ..Default::default()
         };

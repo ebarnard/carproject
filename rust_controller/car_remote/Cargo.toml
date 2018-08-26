@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Edward Barnard <eabarnard@gmail.com>"]
 
 [dependencies]
-serialport = "2.0.0"
+serialport = "3.0.0"
 
 [dev-dependencies]
-winit = "0.16.0"
+winit = "0.17.0"

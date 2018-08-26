@@ -1,15 +1,14 @@
-extern crate glium;
+extern crate gl;
+extern crate glutin;
 #[macro_use]
 extern crate imgui;
-extern crate imgui_glium_renderer;
+extern crate imgui_opengl_renderer;
 
-use glium::glutin::{
-    self, ElementState, Event, MouseButton, MouseScrollDelta, TouchPhase, VirtualKeyCode as Key,
-    WindowEvent,
+use glutin::{
+    ElementState, Event, GlContext, MouseButton, MouseScrollDelta, TouchPhase,
+    VirtualKeyCode as Key, WindowEvent,
 };
-use glium::Surface;
-use imgui::ImGui;
-use imgui_glium_renderer::Renderer;
+use imgui::{FrameSize, ImGui};
 use std::cell::Cell;
 use std::sync::{mpsc, Arc};
 use std::thread;
@@ -97,15 +96,18 @@ impl Window {
     pub fn run_on_main_thread(&mut self) {
         let window = glutin::WindowBuilder::new()
             .with_title("Car")
-            .with_dimensions(1024, 768);
+            .with_dimensions((1024, 768).into());
         let context = glutin::ContextBuilder::new().with_gl(glutin::GL_CORE);
 
-        let display = glium::Display::new(window, context, &self.event_loop).unwrap();
+        let gl_window = glutin::GlWindow::new(window, context, &self.event_loop).unwrap();
+        unsafe { gl_window.make_current().unwrap() };
+        gl::load_with(|s| gl_window.get_proc_address(s) as _);
 
         let mut imgui = ImGui::init();
         imgui.set_ini_filename(None);
-        let mut renderer =
-            Renderer::init(&mut imgui, &display).expect("Failed to initialize renderer");
+        let renderer = imgui_opengl_renderer::Renderer::new(&mut imgui, |s| {
+            gl_window.get_proc_address(s) as _
+        });
 
         let exit = Cell::new(false);
         let render = Cell::new(false);
@@ -131,13 +133,13 @@ impl Window {
             };
 
             match window_event {
-                WindowEvent::Closed => {
+                WindowEvent::CloseRequested => {
                     exit.set(true);
                 }
                 WindowEvent::Refresh => {
                     render.set(true);
                 }
-                WindowEvent::Resized(_, _) => {
+                WindowEvent::Resized(_) => {
                     render.set(true);
                 }
                 WindowEvent::KeyboardInput { input, .. } => {
@@ -171,8 +173,10 @@ impl Window {
                     render.set(true);
                 }
                 WindowEvent::CursorMoved {
-                    position: (x, y), ..
+                    position: logical_position,
+                    ..
                 } => {
+                    let (x, y): (f64, f64) = logical_position.into();
                     mouse_pos.set((x, y));
                     render.set(true);
                 }
@@ -190,16 +194,21 @@ impl Window {
                     render.set(true);
                 }
                 WindowEvent::MouseWheel {
-                    delta: MouseScrollDelta::LineDelta(_, y),
-                    phase: TouchPhase::Moved,
-                    ..
-                }
-                | WindowEvent::MouseWheel {
-                    delta: MouseScrollDelta::PixelDelta(_, y),
+                    delta: MouseScrollDelta::LineDelta(_, y_lines),
                     phase: TouchPhase::Moved,
                     ..
                 } => {
-                    mouse_scroll_y.set(mouse_scroll_y.get() + y);
+                    // TODO: Figure out line height and scroll by y_lines * line_height logical
+                    // pixels.
+                    mouse_scroll_y.set(mouse_scroll_y.get() + y_lines);
+                    render.set(true);
+                }
+                WindowEvent::MouseWheel {
+                    delta: MouseScrollDelta::PixelDelta(logical_delta),
+                    phase: TouchPhase::Moved,
+                    ..
+                } => {
+                    mouse_scroll_y.set(mouse_scroll_y.get() + logical_delta.y as f32);
                     render.set(true);
                 }
                 WindowEvent::ReceivedCharacter(c) => {
@@ -227,7 +236,7 @@ impl Window {
                 let scale = imgui.display_framebuffer_scale();
                 let mouse_pos = mouse_pos.get();
                 imgui.set_mouse_pos(mouse_pos.0 as f32 / scale.0, mouse_pos.1 as f32 / scale.1);
-                imgui.set_mouse_down(&[
+                imgui.set_mouse_down([
                     mouse_left_pressed.get(),
                     mouse_right_pressed.get(),
                     mouse_middle_pressed.get(),
@@ -236,13 +245,8 @@ impl Window {
                 ]);
                 imgui.set_mouse_wheel(mouse_scroll_y.replace(0.0) / scale.1);
 
-                let gl_window = display.gl_window();
-                let size_pixels = gl_window.get_inner_size().unwrap();
-                let hdipi = gl_window.hidpi_factor();
-                let size_points = (
-                    (size_pixels.0 as f32 / hdipi) as u32,
-                    (size_pixels.1 as f32 / hdipi) as u32,
-                );
+                let logical_size: (f64, f64) = gl_window.get_inner_size().unwrap().into();
+                let hidpi_factor = gl_window.get_hidpi_factor();
 
                 let now = Instant::now();
                 let delta = now - last_frame;
@@ -250,17 +254,20 @@ impl Window {
                     delta.as_secs() as f32 + delta.subsec_nanos() as f32 / 1_000_000_000.0;
                 last_frame = now;
 
-                let ui = imgui.frame(size_points, size_pixels, delta_s);
+                let ui = imgui.frame(
+                    FrameSize::new(logical_size.0, logical_size.1, hidpi_factor),
+                    delta_s,
+                );
 
                 let mut canvas_display = canvas::Display { ui };
                 self.state.draw(&mut canvas_display);
 
-                let mut frame = display.draw();
-                frame.clear_color(1.0, 1.0, 1.0, 1.0);
-                renderer
-                    .render(&mut frame, canvas_display.ui)
-                    .expect("imgui rendering failed");
-                frame.finish().expect("failed to draw frame");
+                unsafe {
+                    gl::ClearColor(1.0, 1.0, 1.0, 1.0);
+                    gl::Clear(gl::COLOR_BUFFER_BIT);
+                }
+                renderer.render(canvas_display.ui);
+                gl_window.swap_buffers().unwrap();
             }
 
             thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
