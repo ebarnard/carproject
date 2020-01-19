@@ -1,4 +1,5 @@
 from PIL import Image
+from timeit import default_timer as timer
 import cv2
 import numpy as np
 import math
@@ -145,16 +146,18 @@ for i in range(0, 150):
 # Uncomment the line below to select a different bounding box
 bbox = cv2.selectROI(frame, False)
 
+i = 0
 while True:
     # Read a new frame
     ok, frame = video.read()
     if not ok:
         break
-
+    time_start = timer()
     imgray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     ret, thresh = cv2.threshold(imgray, 35, 255, 0)
 
     kernel = np.ones((5, 5), np.uint8)
+
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
 
     mask = np.zeros((thresh.shape[0] + 2, thresh.shape[1] + 2), np.uint8)
@@ -162,9 +165,17 @@ while True:
     cv2.floodFill(flooded, mask, (bbox[0], bbox[1]), 255)
 
     image_use = 255 - (flooded - thresh)
-
     kernel = np.ones((10, 10), np.uint8)
     image_use = cv2.morphologyEx(image_use, cv2.MORPH_CLOSE, kernel)
+
+    if i == 0:
+        image_average = image_use
+        i += 1
+
+    cv2.addWeighted(image_average, 0.95, image_use, 0.05, -1, image_average)
+    ret, track = cv2.threshold(image_average, 240, 255, 0)
+
+    image_use = image_use*(track < 240)
 
     im2, contours, hierarchy = cv2.findContours(image_use, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -175,7 +186,7 @@ while True:
         M = cv2.moments(c)
         if M["m00"] == 0:
             continue
-        elif M["m00"] > 4000:
+        elif M["m00"] > 5000:
             continue
         elif M["m00"] < 1000:
             continue
@@ -196,7 +207,9 @@ while True:
 
         # show the image
         cv2.imshow("Image", im2)
-        cv2.waitKey(0)
+        cv2.waitKey(1)
+    time_delay = timer() - time_start
+    print(time_delay)
 
 # new_image = cv2.imread('single_square_test_result_48.png')
 # imgray = cv2.cvtColor(new_image, cv2.COLOR_BGR2GRAY)
